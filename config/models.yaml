@@ -2,7 +2,7 @@
 # Rule: the Skeptic(s) must be a different model family from the Scientist.
 provider: ollama            # optional cloud Scientist later via .env (LLM_PROVIDER), only if the student asks
 roles:
-  scientist:  {model: "qwen3.5:4b",  fallback: "qwen3:4b",    temperature: 0.2, family: qwen}
+  scientist:  {model: "qwen2.5-coder:7b", fallback: "qwen3:4b", temperature: 0.2, family: qwen}   # see PROGRESS.md
   skeptic_a:  {model: "gemma4:e4b",  fallback: "gemma3:4b",   temperature: 0.0, family: gemma}
   skeptic_b:  {model: "phi4-mini",   fallback: "llama3.2:3b", temperature: 0.0, family: phi}   # Mission 5.2
   mutant_writer: {use_role: scientist}                                                            # Mission 6.2

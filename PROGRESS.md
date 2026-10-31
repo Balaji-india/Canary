@@ -60,7 +60,11 @@ Claude updates this at the end of every mission. If a mission stops early, write
 
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
+## In progress
+None. Milestone 1 is complete, and no mission is part-way through.
+
 ## Running or interrupted campaigns
+None.
 
 ## Decisions
 - **Ollama only for now, no API keys.** A cloud model is added later with `/api`. Mission 1.3 must build `llm.py`
@@ -70,8 +74,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
   unused. The project runs from `.venv`; `requirements.lock` records the exact tested versions.
 - **Skeptic A runs on the fallback `gemma3:4b`.** `gemma4:e4b` is a 6.13 GB download and will not fit in 6 GB VRAM.
   Do not pull it on this machine: `resolve_roles` prefers it as soon as it is installed.
-- **Scientist runs on the fallback `qwen3:4b`** (already installed). `qwen3.5:4b` is optional, and pulling it
-  switches the Scientist automatically. Skeptic B is `phi4-mini`.
+- **The Scientist is `qwen2.5-coder:7b`, with `qwen3:4b` as fallback** (replaces the earlier `qwen3.5:4b` preference).
+  Chosen from a test of 5 proposals per model, with valid settings and variety weighted above speed. `qwen3.5:9b` was
+  tested and removed. Skeptic B is `phi4-mini`. Entries already in the ledger were proposed by `qwen3:4b`.
 - **Ollama upgraded from 0.20.2 to 0.40.13**, because the registry refused `gemma3:4b` on the old version (HTTP 412).
 - **Datasets are cached as `data/cache/<name>.csv.gz`**, with the label in `__target__`, so they load offline.
 - **Run folders stand alone.** Each `data/runs/<uuid>/` holds its script, config and a dataset copy; the script never
@@ -119,12 +124,35 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - **`llm.call` refuses prompts that may not fit,** at (num_ctx - num_predict) × 3 characters, instead of letting Ollama
   cut them silently. `science` now audits automatically; `audit` reviews anything still waiting.
 
+## Scientist model comparison
+5 proposals per model using the real prompt, schema, checks and sandbox, with earlier hypotheses fed into each next
+prompt. All 15 replies were valid, and every new experiment ran. Nothing was written to the ledger. The sample is small:
+1 vs 2 vs 3 new experiments does not prove one model is better; the speed differences are clear.
+
+| | `qwen3:4b` | `qwen3.5:9b` (removed) | `qwen2.5-coder:7b` (chosen) |
+|---|---|---|---|
+| New experiments (rest were repeats) | 1 | 2 | 3 |
+| Datasets / metrics | 1 / 1 | 1 / 1 | 2 / 1 |
+| Models used | `gradient_boosting` | `random_forest`, `gradient_boosting` | `decision_tree` |
+| Confidence given | 0.70-0.85 | always 0.75 | always 0.80 |
+| Decisive verdicts | 0 of 1 | 1 of 2 | 1 of 3 |
+| Warm reply / first load | 4.3 s / 12 s | 48 s / 73 s | 16 s / 57 s |
+| Share on GPU | 100% | 47% | 76% |
+
+`qwen3.5:9b` only swapped scalers on tree models, which barely matters (effects +0.0016 and +0.0007).
+
 ## Fixes
 - `qwen3:4b` crashes and "token repeat limit" aborts from the open `params` schema: fixed with one schema form per model.
 - A retried proposal replayed the cached rejected reply: each retry prompt now carries its attempt number.
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
+- **To fix during Mission 3.1 or earlier: every Scientist model favours one dataset and `balanced_accuracy`, and always
+  predicts an increase.** Across the 15 proposals, 14 used `blood-transfusion-service-center`, all 15 used
+  `balanced_accuracy`, and all 15 predicted an increase. The probable cause, not yet tested, is that the prompt shows
+  past hypotheses about that dataset. Changing the model did not fix this, and it limits what the campaign can study.
+- **`qwen2.5-coder:7b` has its own weaknesses:** it used only `decision_tree`, always gave confidence 0.80, stated that
+  breast cancer is "50/50" (it is about 63/37), and runs partly on the CPU.
 - **5 seeds may be too few for decisive verdicts.** Both real runs were inconclusive, with CI widths of about 0.10 and
   0.16 against a `min_effect` of 0.005. That is honest, but if most verdicts stay inconclusive the ledger will have
   little to accept. Check this on more runs (Mission 4.4) before changing `seeds_per_arm`.
@@ -160,6 +188,6 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Run `/explain canary/skeptic.py` for viva prep (what the reviewer may see, and why).
-2. Run `/mission 2.1` (Saboteur: 10 bug classes × 2 tiers).
-3. Run `/mission 2.2` (controls, shams, sealed run-type table, blinding test).
+1. Run `/mission 2.1` (Saboteur: 10 bug classes × 2 tiers).
+2. Run `/mission 2.2` (controls, shams, sealed run-type table, blinding test).
+3. Run `/mission 2.3` (trust statistics), then 2.4 to measure the Skeptic's false alarms.
