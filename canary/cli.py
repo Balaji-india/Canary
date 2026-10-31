@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from canary import config, datasets, sandbox
+from canary import config, datasets, llm, sandbox
 
 REQUIRED_PACKAGES = ["numpy", "pandas", "scipy", "scikit-learn", "pyyaml", "python-dotenv",
                      "sentence-transformers", "matplotlib", "streamlit", "pytest", "ollama"]
@@ -138,11 +138,38 @@ def cmd_run_config(args: argparse.Namespace) -> int:
     return 0 if record["status"] == sandbox.STATUS_OK else 1
 
 
+SMOKE_PROMPT = 'What is 2 + 3? Reply as JSON with "answer" (the number) and "word" (that number spelled in English).'
+SMOKE_SCHEMA = {"type": "object", "required": ["answer", "word"], "additionalProperties": False,
+                "properties": {"answer": {"type": "integer"}, "word": {"type": "string"}}}
+
+
+def cmd_llm_smoke(_args: argparse.Namespace) -> int:
+    """Prove each role returns schema-valid JSON from the real model, then that a repeat comes from the cache."""
+    client = llm.LLM()
+    roles = [role for role, cfg in client.cfg["roles"].items() if "use_role" not in cfg]
+    ok = True
+    for label, refresh in (("live", True), ("repeat", False)):
+        queue = llm.ModelQueue(client)
+        for role in roles:
+            queue.add(role, SMOKE_PROMPT, SMOKE_SCHEMA, refresh=refresh)
+        for result in queue.run():
+            if result.error:
+                ok = _line(False, f"{label} {result.role}", result.error)
+            else:
+                source = "cache" if result.cached else f"{result.attempts} attempt(s)"
+                _line(True, f"{label} {result.role}", f"{result.model}, {result.seconds:.1f} s, {source}: "
+                      f"{json.dumps(result.data)}")
+    client.release()
+    print("\nllm-smoke: all OK" if ok else "\nllm-smoke: problems found (see FAIL lines)")
+    return 0 if ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="canary")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor", help="check Python, packages, models and datasets").set_defaults(func=cmd_doctor)
     sub.add_parser("cache-datasets", help="download the OpenML datasets once").set_defaults(func=cmd_cache_datasets)
+    sub.add_parser("llm-smoke", help="get valid JSON from every configured model").set_defaults(func=cmd_llm_smoke)
     run_parser = sub.add_parser("run-config", help="generate and run one experiment from a YAML config")
     run_parser.add_argument("path")
     run_parser.add_argument("--timeout", type=float, default=sandbox.DEFAULT_TIMEOUT_S, help="seconds before the kill")

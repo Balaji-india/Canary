@@ -8,3 +8,10 @@ roles:
   mutant_writer: {use_role: scientist}                                                            # Mission 6.2
 embeddings: "sentence-transformers/all-MiniLM-L6-v2"
 vram_gb: 6                  # one model loaded at a time; batch audits per model
+llm:
+  retries: 2                # extra attempts after the first
+  timeout_cold_s: 300       # model not yet in memory: a first prompt took over 110 s on this laptop
+  timeout_warm_s: 120
+  num_ctx: 8192             # must fit a whole blinded script plus results, or Ollama silently cuts the prompt
+  num_predict: 1024         # stops a runaway reply
+  seed: 0

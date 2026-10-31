@@ -10,7 +10,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - [x] 1.2 Template, codegen, sandbox
   - `run-config baseline.yaml`: ok, valid results.json (control f1 0.9551, treatment f1 0.9447, 5 seeds). `run-config broken.yaml`: crash recorded (exit code 1, InvalidParameterError).
   - `pytest -q`: 64 passed. One-off smoke test: 19 of 19 runs ok across all 9 datasets, 7 models and 4 metrics.
-- [ ] 1.3 LLM wrapper (roles, JSON, cache, model queue)
+- [x] 1.3 LLM wrapper (roles, JSON, cache, model queue)
+  - `llm-smoke`: all OK. Valid JSON live from `qwen3:4b` (8.3 s), `gemma3:4b` (29.1 s) and `phi4-mini` (9.1 s), then all 3 repeats from the cache (0.0 s).
+  - `pytest -q`: 118 passed. One-off real-sized review prompt (1324-1604 tokens): valid JSON and 100% GPU on all 3 models.
 - [ ] 1.4 Scientist, pre-registration, verdict, hash-chained ledger
 - [ ] 1.5 Blinding and Skeptic
 
@@ -76,6 +78,16 @@ Claude updates this at the end of every mission. If a mission stops early, write
   allowed on two-class datasets only; numeric columns are always median-imputed and text columns always imputed and
   one-hot encoded, fitted on train only; both arms share each seed's split.
 - **The optional code slot from DESIGN section 3 is not built.** Nothing needs it yet; add it if the Scientist does.
+- **The LLM cache key is wider than CLAUDE.md's hash(model + prompt):** it also hashes the system prompt, schema and
+  temperature, because the same prompt under another schema is a different question.
+- **`parse_reply` is strict:** after removing `<think>` blocks and code fences, the reply must be exactly one JSON
+  value. It never searches prose for JSON, because a reply with two candidate verdicts would make the verdict a guess.
+- **Retries change the prompt** by adding the rejection reason, because at temperature 0 the same prompt repeats the
+  same bad reply. The cache key still uses the original prompt.
+- **Providers can be set per role** (`provider:` on a role in `models.yaml`), so a cloud Scientist can sit beside local
+  Skeptics. Only Ollama exists today: `/api` adds a class to `PROVIDERS`, then only config and `.env` change. Reading
+  the key from `.env` is not built yet.
+- **Added to `models.yaml`:** `num_ctx: 8192`, `num_predict: 1024`, and timeouts of 300 s (cold) and 120 s (warm).
 
 ## Fixes
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
@@ -85,10 +97,13 @@ Claude updates this at the end of every mission. If a mission stops early, write
   now). Before reporting a crash rate against the 42% figure, count campaign runs only.
 - **The sandbox guards against accidents, not attacks:** experiments can still reach the network and other files. This
   is acceptable while scripts come only from our template; revisit it before running LLM-written code (Mission 6.2).
-- **Cold model loads are slow.** A first `gemma3:4b` prompt timed out at 110 s; once loaded it answered in 3.8 s. Other
-  cold starts took 27-53 s. Mission 1.3 needs a generous first-call timeout and should batch per model.
-- **`qwen3:4b` writes its reasoning into the reply**, even with `think=false` sent to `/api/generate`. Mission 1.3 must
-  check this and get clean JSON from it.
+- **The cache can hide reviewer drift.** The key uses the model tag, not its digest, so if a tag is re-pulled with new
+  weights, old replies are still served. Mission 4.3 should add the digest or bypass the cache when measuring drift.
+- **Prompts longer than `num_ctx` are still cut silently by Ollama.** A real script uses about 1600 of 8192 tokens,
+  so this is safe today. Mission 1.5 should check `prompt_eval_count` or the prompt size if prompts grow a lot.
+- **Cold model loads are slow** (27-110 s seen). Handled with the 300 s cold timeout and `ModelQueue`.
+- **`qwen3:4b` writing reasoning into replies did not occur in schema mode:** 2 of 2 real replies were clean JSON. Plain
+  text mode was not retested, and any remaining `<think>` block is stripped.
 - The Ollama CLI prints `CHECK failed: mlx_compile_cache_new_` on `--version` and `list`. The commands still worked
   and the cause is unknown.
 - OpenML returns temporary 503 and "not found" errors. If a download fails, re-run `cache-datasets`; it skips what is
@@ -96,6 +111,6 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Run `/explain canary/sandbox.py` and `/explain canary/codegen.py` for viva prep.
-2. Run `/mission 1.3` (LLM wrapper, with the config-only API switch).
-3. Run `/mission 1.4` (Scientist, pre-registration, verdict, ledger).
+1. Run `/explain canary/llm.py` for viva prep.
+2. Run `/mission 1.4` (Scientist, pre-registration, verdict, ledger).
+3. Run `/mission 1.5` (blinding and Skeptic).

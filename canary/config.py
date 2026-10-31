@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = ROOT / "config"
 DATA_DIR = ROOT / "data"
 CACHE_DIR = DATA_DIR / "cache"
+DB_PATH = DATA_DIR / "canary.db"
 
 
 @dataclass(frozen=True)
