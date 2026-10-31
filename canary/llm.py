@@ -257,6 +257,17 @@ class LLM:
             except LLMError:
                 pass
 
+    def _check_prompt_size(self, prompt: str, system: str | None) -> None:
+        """Refuse a prompt that might not fit, because Ollama would silently cut it instead of failing.
+
+        A reviewer judging half a script is worse than no review. Three characters per token is a cautious estimate:
+        real review prompts measured about 3.4.
+        """
+        limit = (self.settings["num_ctx"] - self.settings["num_predict"]) * 3
+        size = len(prompt) + len(system or "")
+        if size > limit:
+            raise LLMError(f"prompt of {size} characters may not fit (limit {limit}); raise num_ctx in models.yaml")
+
     def call(self, role: str, prompt: str, schema: dict, system: str | None = None,
              refresh: bool = False) -> LLMResult:
         """Return checked JSON for a role, from the cache if possible. Raises LLMError when all attempts fail.
@@ -271,6 +282,7 @@ class LLM:
             if stored is not None:
                 # A cache hit needs no model, so it must not trigger a model switch.
                 return LLMResult(role, model, parse_reply(stored, schema), True, 0, time.perf_counter() - started)
+        self._check_prompt_size(prompt, system)
         provider = self._provider(provider_name)
         attempts = self.settings["retries"] + 1
         text = prompt

@@ -118,6 +118,8 @@ def run_locked(locked: dict, model: str, led: Ledger, runs_dir: Path = sandbox.R
 
     record = sandbox.run_config(prereg.to_run_config(locked), runs_dir, timeout_s)
     results_sha256 = None
+    script_path = runs_dir / record["run_id"] / codegen.SCRIPT_NAME
+    script_sha256 = hashlib.sha256(script_path.read_bytes()).hexdigest() if script_path.exists() else None
     if record["status"] == sandbox.STATUS_OK:
         raw = (runs_dir / record["run_id"] / sandbox.RESULTS_NAME).read_bytes()
         results_sha256 = hashlib.sha256(raw).hexdigest()
@@ -126,6 +128,6 @@ def run_locked(locked: dict, model: str, led: Ledger, runs_dir: Path = sandbox.R
         verdict = prereg.failed_run_verdict(record["status"], record["reason"])
     led.append(hypothesis_id, ledger_module.RAN, {
         "run_id": record["run_id"], "run_status": record["status"], "reason": record["reason"],
-        "prereg_sha256": digest, "results_sha256": results_sha256, "verdict": verdict,
+        "prereg_sha256": digest, "results_sha256": results_sha256, "script_sha256": script_sha256, "verdict": verdict,
     })
     return ScienceOutcome(hypothesis_id, locked["hypothesis"], digest, record["run_id"], record["status"], verdict)

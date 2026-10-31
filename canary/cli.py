@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from canary import config, datasets, ledger, llm, sandbox, scientist
+from canary import config, datasets, ledger, llm, sandbox, scientist, skeptic
 
 REQUIRED_PACKAGES = ["numpy", "pandas", "scipy", "scikit-learn", "pyyaml", "python-dotenv",
                      "sentence-transformers", "matplotlib", "streamlit", "pytest", "ollama"]
@@ -185,6 +185,33 @@ def cmd_science(args: argparse.Namespace) -> int:
         else:
             print(f"  Verdict: {verdict['outcome']} (effect {verdict['mean_effect']:+.4f}, "
                   f"CI [{verdict['ci_low']:+.4f}, {verdict['ci_high']:+.4f}], min {verdict['min_effect']})")
+    code = max(code, _run_audits(client, led))
+    client.release()
+    return code
+
+
+def _run_audits(client: llm.LLM, led: ledger.Ledger) -> int:
+    """Review every run still waiting and print the outcome. Returns 1 if any could not be reviewed."""
+    report = skeptic.audit_pending(client, led)
+    for item in report.audited:
+        audit = item["audit"]
+        label = audit["verdict"] + (f" {audit['bug_class']}" if audit["bug_class"] else "")
+        source = "cache" if item["cached"] else f"{item['attempts']} attempt(s)"
+        print(f"Audit {item['hypothesis_id'][:8]} by {item['model']} ({source}): {label}, "
+              f"confidence {audit['confidence']}")
+        print(f"  Evidence: {audit['evidence']}")
+    for item in report.no_results:
+        print(f"Graveyard {item['hypothesis_id'][:8]}: {item['cause']}")
+    for error in report.errors:
+        print(f"[FAIL] {error}")
+    print(f"Audits: {len(report.audited)} stored, {len(report.no_results)} without results, "
+          f"{len(report.errors)} failed")
+    return 1 if report.errors else 0
+
+
+def cmd_audit(_args: argparse.Namespace) -> int:
+    client = llm.LLM()
+    code = _run_audits(client, ledger.Ledger())
     client.release()
     return code
 
@@ -212,6 +239,7 @@ def main(argv: list[str] | None = None) -> int:
     science_parser.add_argument("--hypotheses", type=int, default=1)
     science_parser.add_argument("--question", default="q1", help="a question id from config/campaign.yaml")
     science_parser.set_defaults(func=cmd_science)
+    sub.add_parser("audit", help="have the Skeptic review every run still waiting").set_defaults(func=cmd_audit)
     ledger_parser = sub.add_parser("ledger", help="check or list the findings ledger")
     ledger_parser.add_argument("action", choices=["verify", "show"])
     ledger_parser.add_argument("--db", default=str(config.DB_PATH), help="ledger database file")

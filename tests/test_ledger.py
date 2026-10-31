@@ -144,6 +144,19 @@ def test_missing_results_file_is_detected(led, tmp_path):
     assert "missing" in led.verify(runs)[0]
 
 
+def test_edited_script_is_detected(led, tmp_path):
+    run_dir = tmp_path / "runs" / "r1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "experiment.py").write_text("x = 1", encoding="utf-8")
+    digest = hashlib.sha256((run_dir / "experiment.py").read_bytes()).hexdigest()
+    led.append("h1", ledger.PROPOSED, {})
+    led.append("h1", ledger.PREREGISTERED, {})
+    led.append("h1", ledger.RAN, {"run_id": "r1", "results_sha256": None, "script_sha256": digest})
+    assert led.verify(tmp_path / "runs") == []
+    (run_dir / "experiment.py").write_text("x = 2", encoding="utf-8")
+    assert "script file does not match" in led.verify(tmp_path / "runs")[0]
+
+
 def test_failed_run_has_no_results_to_check(led, tmp_path):
     led.append("h1", ledger.PROPOSED, {})
     led.append("h1", ledger.PREREGISTERED, {})

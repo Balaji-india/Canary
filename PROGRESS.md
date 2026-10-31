@@ -16,7 +16,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - [x] 1.4 Scientist, pre-registration, verdict, hash-chained ledger
   - `science --hypotheses 2`: 2 locked, run and verdicted (both inconclusive). `ledger verify`: OK (9 entries, including 3 from an earlier run that crashed).
   - After a manual verdict edit on a copy: `[FAIL] entry 3: content does not match its hash`, exit 1; real ledger still OK. `pytest -q`: 181 passed.
-- [ ] 1.5 Blinding and Skeptic
+- [x] 1.5 Blinding and Skeptic
+  - `audit`: 2 stored (both flag B01, both false alarms on clean scripts), 1 crashed run sent to the graveyard with no results to review, 0 failed. `ledger verify`: OK (12 entries).
+  - `pytest -q`: 220 passed, including the test that fails if `skeptic.py` or `blinding.py` imports anything off their allowlist.
 
 **M2 Controls and trust**
 - [ ] 2.1 Saboteur: 10 classes × 2 tiers
@@ -106,6 +108,16 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - **The ledger shares `data/canary.db` with the LLM cache.** Append-only is enforced by the API and detected by the
   chain; there is no database trigger, so a manual edit is possible and shows up in `ledger verify`.
 - **The ledger keeps the real crashed run** (hypothesis `6352b91a`, entries 1-3) as a true record.
+- **"Every run has an audit" is read as every run with results.** A crashed run has no finding to review, so it goes to
+  the graveyard with its cause and no LLM call. `graveyard` entries are written directly; Mission 3.1 adds the module.
+- **The Skeptic sees** the blinded script, results (fixed key order, no `runtime_seconds`) and pre-registration (without
+  `question`). It never sees IDs or the computed verdict.
+- **The Skeptic's prompt lists bug class names only,** not the catalog's examples, and does not mention testing. Hints
+  would inflate measured recall; they are added and measured in Mission 6.4.
+- **Audits refuse edited files:** the prereg, results and script hashes are checked first. New `ran` entries store
+  `script_sha256`. The 2 older runs have only a results hash, so their scripts are not covered.
+- **`llm.call` refuses prompts that may not fit,** at (num_ctx - num_predict) × 3 characters, instead of letting Ollama
+  cut them silently. `science` now audits automatically; `audit` reviews anything still waiting.
 
 ## Fixes
 - `qwen3:4b` crashes and "token repeat limit" aborts from the open `params` schema: fixed with one schema form per model.
@@ -131,8 +143,13 @@ Claude updates this at the end of every mission. If a mission stops early, write
   is acceptable while scripts come only from our template; revisit it before running LLM-written code (Mission 6.2).
 - **The cache can hide reviewer drift.** The key uses the model tag, not its digest, so if a tag is re-pulled with new
   weights, old replies are still served. Mission 4.3 should add the digest or bypass the cache when measuring drift.
-- **Prompts longer than `num_ctx` are still cut silently by Ollama.** A real script uses about 1600 of 8192 tokens,
-  so this is safe today. Mission 1.5 should check `prompt_eval_count` or the prompt size if prompts grow a lot.
+- **`gemma3:4b` looks prone to false alarms:** 2 of 2 real audits flagged B01 at confidence 0.95 on clean scripts,
+  calling correct fit-on-train, transform-on-test "leakage". Its earlier trial on a clean script was also a false flag.
+  This is too few runs to conclude anything, and the prompt was deliberately not tuned. Mission 2.4 measures it. If
+  specificity is this low, the trust gate will reject most findings, so RQ1 is the first thing to check.
+- **Mission 2.2 must add the blinding test from DESIGN section 5** (control and sham indistinguishable by length class
+  and key set), because shams do not exist yet. It must also check that `ledger.py` and the other modules `skeptic.py`
+  imports do not read the sealed table: the current import test checks direct imports only.
 - **Cold model loads are slow** (27-110 s seen). Handled with the 300 s cold timeout and `ModelQueue`.
 - **`qwen3:4b` writing reasoning into replies did not occur in schema mode:** 2 of 2 real replies were clean JSON. Plain
   text mode was not retested, and any remaining `<think>` block is stripped.
@@ -143,6 +160,6 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Run `/explain canary/prereg.py` for viva prep (the verdict rule and the Nadeau-Bengio correction).
-2. Run `/mission 1.5` (blinding and Skeptic). The crashed run has no results, so decide how it is audited.
-3. Run `/mission 2.1` (Saboteur: 10 bug classes × 2 tiers).
+1. Run `/explain canary/skeptic.py` for viva prep (what the reviewer may see, and why).
+2. Run `/mission 2.1` (Saboteur: 10 bug classes × 2 tiers).
+3. Run `/mission 2.2` (controls, shams, sealed run-type table, blinding test).

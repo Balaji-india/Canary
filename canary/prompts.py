@@ -7,6 +7,42 @@ SCIENTIST_SYSTEM = (
     "your prediction is scored later, so be honest about your uncertainty."
 )
 
+SKEPTIC_SYSTEM = (
+    "You are a strict reviewer of machine learning experiments. You look for methodological bugs that would make "
+    "the reported results untrustworthy. You judge only the code and the numbers you are shown."
+)
+
+
+def skeptic_prompt(blinded, bug_classes: dict) -> str:
+    """Build the review prompt from a BlindedRun.
+
+    It lists bug class names only, not the catalog's examples: those would hand the reviewer the answers and
+    inflate its measured recall. Adding such hints is a separate, measured step (self-hardening, Mission 6.4).
+    It also says nothing about controls or planted bugs, because a reviewer told it is being tested may act differently.
+    """
+    classes = "\n".join(f"- {bug_id}: {entry['name'].replace('_', ' ')}" for bug_id, entry in sorted(bug_classes.items()))
+    return f"""Review this experiment.
+
+Pre-registration:
+{blinded.prereg}
+
+Experiment script:
+```python
+{blinded.script}
+```
+
+Results:
+{blinded.results}
+
+Bug classes:
+{classes}
+
+Reply as JSON:
+- verdict: "flag" if you find a methodological bug from the classes above, otherwise "pass".
+- bug_class: the id of the bug class if you flag, otherwise null.
+- evidence: one or two sentences. If you flag, name the exact code or number that shows the bug.
+- confidence: your probability from 0 to 1 that your verdict is correct."""
+
 
 def scientist_prompt(question: str, datasets_cfg: list[dict], model_params: dict[str, list[str]], metrics: list[str],
                      scalers: list[str], min_effect_floor: float, previous: list[str],

@@ -191,6 +191,15 @@ def test_provider_failure_is_retried_as_a_cold_call(tmp_path):
     assert [c["timeout_s"] for c in provider.calls] == [300, 300]
 
 
+def test_prompt_that_may_not_fit_is_refused_without_calling_the_model(fake, tmp_path):
+    """(8192 - 1024) * 3 = 21504 characters, counting the system prompt."""
+    client = make_llm(fake, tmp_path)
+    assert client.call("skeptic_a", "x" * 21503, SCHEMA, system="s").attempts == 1
+    with pytest.raises(llm.LLMError, match="may not fit"):
+        client.call("skeptic_a", "x" * 21504, SCHEMA, system="s")
+    assert len(fake.calls) == 1
+
+
 def test_each_retry_uses_a_new_seed(tmp_path):
     """Found in a real run: at one seed, Ollama's token-repeat abort simply happened again on every retry."""
     provider = FakeProvider([llm.LLMError("token repeat limit"), "junk", GOOD])

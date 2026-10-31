@@ -133,12 +133,15 @@ def _results_problems(seq: int, payload_text: str, runs_dir: Path) -> list[str]:
         payload = json.loads(payload_text)
     except ValueError:
         return [f"entry {seq}: payload is not valid JSON"]
-    expected = payload.get("results_sha256")
-    if expected is None:
-        return []  # a failed run has no results to check
-    path = runs_dir / payload["run_id"] / "results.json"
-    if not path.exists():
-        return [f"entry {seq}: results file is missing ({path})"]
-    if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
-        return [f"entry {seq}: results file does not match its stored hash (edited)"]
-    return []
+    problems = []
+    # A failed run has no results hash, and entries written before script hashing have no script hash: both are skipped.
+    for label, name, key in (("results", "results.json", "results_sha256"), ("script", "experiment.py", "script_sha256")):
+        expected = payload.get(key)
+        if expected is None:
+            continue
+        path = runs_dir / payload["run_id"] / name
+        if not path.exists():
+            problems.append(f"entry {seq}: {label} file is missing ({path})")
+        elif hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            problems.append(f"entry {seq}: {label} file does not match its stored hash (edited)")
+    return problems
