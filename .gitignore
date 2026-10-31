@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets (keep .env.example)
+.env
+
+# Generated data: datasets, runs, database
+data/
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Packaged outputs
+dist/

@@ -1,0 +1,13 @@
+# Small tabular classification datasets. Cache on first use (data/cache/); experiments must run offline afterwards.
+# OpenML ids are believed correct; verify on first load and fall back to fetching by name if an id fails.
+sklearn:
+  - {name: breast_cancer, classes: 2, note: "mildly imbalanced"}
+  - {name: wine,          classes: 3}
+  - {name: digits,        classes: 10}
+openml:
+  - {name: credit-g,                          id: 31,   classes: 2, note: "70/30"}
+  - {name: diabetes,                          id: 37,   classes: 2, note: "Pima, 65/35"}
+  - {name: blood-transfusion-service-center,  id: 1464, classes: 2, note: "about 76/24"}
+  - {name: phoneme,                           id: 1489, classes: 2, note: "about 71/29"}
+  - {name: pc1,                               id: 1068, classes: 2, note: "highly imbalanced, needed for B06"}
+  - {name: ozone-level-8hr,                   id: 1487, classes: 2, note: "highly imbalanced, needed for B06"}

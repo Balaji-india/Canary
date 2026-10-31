@@ -1,0 +1,23 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "python .claude/statusline.py",
+    "refreshInterval": 20
+  },
+  "hooks": {
+    "SessionStart": [
+      {"matcher": "startup|resume|clear|compact",
+       "hooks": [{"type": "command", "command": "python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/coach_hook.py\" session_start", "timeout": 10}]}
+    ],
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "command": "python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/coach_hook.py\" user_prompt", "timeout": 10}]}
+    ],
+    "Stop": [
+      {"hooks": [{"type": "command", "command": "python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/coach_hook.py\" stop", "timeout": 10}]}
+    ],
+    "PreCompact": [
+      {"matcher": "manual|auto",
+       "hooks": [{"type": "command", "command": "python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/coach_hook.py\" pre_compact", "timeout": 10}]}
+    ]
+  }
+}

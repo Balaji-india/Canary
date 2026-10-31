@@ -1,0 +1,12 @@
+# Defaults for campaigns. See docs/DESIGN.md sections 2, 8, 9 and 12.
+mix: {real: 0.50, canary_measure: 0.15, canary_probe: 0.15, control: 0.10, sham: 0.10}
+gate: {tau: 0.10, tau_alarm: 0.05, percentile: 90}
+control_chart: {window: 20, alarm_rules: ["1 window below 3 sigma", "2 consecutive windows below 2 sigma"]}
+monte_carlo_draws: 5000
+sandbox_timeout_s: 120
+seeds_per_arm: 5
+replication: {new_seeds: 5, new_split: true, sibling_dataset: when_available}
+graveyard_similarity: 0.75
+questions:
+  q1: "Which preprocessing and regularization choices help small tabular classifiers?"
+  q2: "When does class weighting help on imbalanced tabular data?"

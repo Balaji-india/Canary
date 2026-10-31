@@ -1,0 +1,7 @@
+# A minimal clean experiment config used by Mission 1.2's check.
+dataset: breast_cancer
+metric: f1
+seeds: [0, 1, 2, 3, 4]
+test_size: 0.25
+control:   {model: logistic_regression, params: {C: 1.0, max_iter: 1000}, preprocessing: [standard_scaler]}
+treatment: {model: logistic_regression, params: {C: 0.1, max_iter: 1000}, preprocessing: [standard_scaler]}
