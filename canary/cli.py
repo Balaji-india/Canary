@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import json
 import platform
 import shutil
+import statistics
 import subprocess
 import sys
+from pathlib import Path
 
-from canary import config, datasets
+import yaml
+
+from canary import config, datasets, sandbox
 
 REQUIRED_PACKAGES = ["numpy", "pandas", "scipy", "scikit-learn", "pyyaml", "python-dotenv",
                      "sentence-transformers", "matplotlib", "streamlit", "pytest", "ollama"]
@@ -111,11 +116,37 @@ def cmd_cache_datasets(_args: argparse.Namespace) -> int:
     return 1 if any(status.startswith("FAILED") for _, status in report) else 0
 
 
+def cmd_run_config(args: argparse.Namespace) -> int:
+    try:
+        experiment = yaml.safe_load(Path(args.path).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        print(f"Cannot read {args.path}: {exc}")
+        return 2
+    record = sandbox.run_config(experiment, timeout_s=args.timeout)
+    run_dir = sandbox.RUNS_DIR / record["run_id"]
+    print(f"Run {record['run_id']}: {record['status']}" + (f" ({record['reason']})" if record["reason"] else ""))
+    print(f"Folder: {run_dir}")
+    if record["status"] == sandbox.STATUS_OK:
+        results = json.loads((run_dir / sandbox.RESULTS_NAME).read_text(encoding="utf-8"))
+        for arm in ("control", "treatment"):
+            print(f"{arm} {results['metric']}: mean {statistics.fmean(results[arm]):.4f} over "
+                  f"{len(results[arm])} seeds")
+    elif record["stderr_tail"].strip():
+        print("Last error line: " + record["stderr_tail"].strip().splitlines()[-1])
+    failed, total = sandbox.crash_rate()
+    print(f"Failed runs so far: {failed} of {total} executed")
+    return 0 if record["status"] == sandbox.STATUS_OK else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="canary")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor", help="check Python, packages, models and datasets").set_defaults(func=cmd_doctor)
     sub.add_parser("cache-datasets", help="download the OpenML datasets once").set_defaults(func=cmd_cache_datasets)
+    run_parser = sub.add_parser("run-config", help="generate and run one experiment from a YAML config")
+    run_parser.add_argument("path")
+    run_parser.add_argument("--timeout", type=float, default=sandbox.DEFAULT_TIMEOUT_S, help="seconds before the kill")
+    run_parser.set_defaults(func=cmd_run_config)
     args = parser.parse_args(argv)
     return args.func(args)
 

@@ -1,0 +1,128 @@
+"""Compare a control and a treatment classifier over several seeds and write results.json."""
+import json
+import time
+
+import numpy as np
+import pandas as pd
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score, roc_auc_score
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, RobustScaler, StandardScaler
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+
+CONFIG = $config
+
+MODELS = {
+    "logistic_regression": LogisticRegression,
+    "random_forest": RandomForestClassifier,
+    "gradient_boosting": GradientBoostingClassifier,
+    "svm": SVC,
+    "knn": KNeighborsClassifier,
+    "decision_tree": DecisionTreeClassifier,
+    "gaussian_nb": GaussianNB,
+}
+SCALERS = {
+    "standard_scaler": StandardScaler,
+    "minmax_scaler": MinMaxScaler,
+    "robust_scaler": RobustScaler,
+}
+
+
+def load_data():
+    frame = pd.read_csv("dataset.csv.gz")
+    labels = frame.pop($target_column)
+    X = frame
+    values, counts = np.unique(labels.astype(str), return_counts=True)
+    class_balance = {str(v): int(c) for v, c in zip(values, counts)}
+    if len(values) == 2:
+        # The minority class is the positive class, so f1 and roc_auc measure the harder class.
+        y = (labels.astype(str) == values[np.argmin(counts)]).astype(int).to_numpy()
+    else:
+        y = np.searchsorted(values, labels.astype(str))
+    return X, y, class_balance
+
+
+def build_preprocessor(X_train, scaler_names):
+    numeric = X_train.select_dtypes(include="number").columns.tolist()
+    categorical = [c for c in X_train.columns if c not in numeric]
+    numeric_steps = [("impute", SimpleImputer(strategy="median"))]
+    numeric_steps += [(name, SCALERS[name]()) for name in scaler_names]
+    categorical_steps = [
+        ("impute", SimpleImputer(strategy="most_frequent")),
+        ("encode", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+    ]
+    return ColumnTransformer([
+        ("numeric", Pipeline(numeric_steps), numeric),
+        ("categorical", Pipeline(categorical_steps), categorical),
+    ])
+
+
+def build_model(arm, seed):
+    model = MODELS[arm["model"]](**arm["params"])
+    if "random_state" in model.get_params():
+        model.set_params(random_state=seed)
+    return model
+
+
+def score(model, X_test, y_test, metric):
+    if metric == "roc_auc":
+        if hasattr(model, "predict_proba"):
+            y_score = model.predict_proba(X_test)[:, 1]
+        else:
+            y_score = model.decision_function(X_test)
+        return roc_auc_score(y_test, y_score)
+    y_pred = model.predict(X_test)
+    if metric == "accuracy":
+        return accuracy_score(y_test, y_pred)
+    if metric == "balanced_accuracy":
+        return balanced_accuracy_score(y_test, y_pred)
+    average = "binary" if len(np.unique(y_test)) == 2 else "macro"
+    return f1_score(y_test, y_pred, average=average)
+
+
+def run_arm(arm, X_train, X_test, y_train, y_test, seed, metric):
+    preprocessor = build_preprocessor(X_train, arm["preprocessing"])
+    X_train_ready = preprocessor.fit_transform(X_train)
+    X_test_ready = preprocessor.transform(X_test)
+    model = build_model(arm, seed)
+    model.fit(X_train_ready, y_train)
+    return float(score(model, X_test_ready, y_test, metric))
+
+
+def main():
+    started = time.perf_counter()
+    X, y, class_balance = load_data()
+    control, treatment, train_sizes, test_sizes = [], [], [], []
+    for seed in CONFIG["seeds"]:
+        # Both arms see the same split, so each seed gives a paired comparison.
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=CONFIG["test_size"], random_state=seed, stratify=y
+        )
+        control.append(run_arm(CONFIG["control"], X_train, X_test, y_train, y_test, seed, CONFIG["metric"]))
+        treatment.append(run_arm(CONFIG["treatment"], X_train, X_test, y_train, y_test, seed, CONFIG["metric"]))
+        train_sizes.append(len(y_train))
+        test_sizes.append(len(y_test))
+    results = {
+        "schema_version": 1,
+        "dataset": CONFIG["dataset"],
+        "metric": CONFIG["metric"],
+        "seeds": CONFIG["seeds"],
+        "control": control,
+        "treatment": treatment,
+        "class_balance": class_balance,
+        "split_sizes": {"train": train_sizes, "test": test_sizes},
+        "runtime_seconds": time.perf_counter() - started,
+    }
+    with open("results.json", "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+
+
+if __name__ == "__main__":
+    main()

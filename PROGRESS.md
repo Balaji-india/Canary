@@ -7,7 +7,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - [x] 1.1 Setup and doctor
   - `python -m canary.cli doctor`: Doctor: all OK (Python 3.12.10 in venv, 11 packages, 3 role models, 9 datasets).
   - `pytest -q`: 15 passed. All 3 role models answered a real test prompt, fully on the GPU.
-- [ ] 1.2 Template, codegen, sandbox
+- [x] 1.2 Template, codegen, sandbox
+  - `run-config baseline.yaml`: ok, valid results.json (control f1 0.9551, treatment f1 0.9447, 5 seeds). `run-config broken.yaml`: crash recorded (exit code 1, InvalidParameterError).
+  - `pytest -q`: 64 passed. One-off smoke test: 19 of 19 runs ok across all 9 datasets, 7 models and 4 metrics.
 - [ ] 1.3 LLM wrapper (roles, JSON, cache, model queue)
 - [ ] 1.4 Scientist, pre-registration, verdict, hash-chained ledger
 - [ ] 1.5 Blinding and Skeptic
@@ -66,11 +68,23 @@ Claude updates this at the end of every mission. If a mission stops early, write
   switches the Scientist automatically. Skeptic B is `phi4-mini`.
 - **Ollama upgraded from 0.20.2 to 0.40.13**, because the registry refused `gemma3:4b` on the old version (HTTP 412).
 - **Datasets are cached as `data/cache/<name>.csv.gz`**, with the label in `__target__`, so they load offline.
+- **Run folders stand alone.** Each `data/runs/<uuid>/` holds its script, config and a dataset copy; the script never
+  imports `canary`, so an experiment has no route to the sealed table in the normal code path.
+- **Hyperparameters are checked by scikit-learn, not by `validate_config`.** A bad value is a recorded crash. Structural
+  errors (unknown dataset, model or metric) are `invalid_config`, and they stay out of the crash rate because no code ran.
+- **Template choices:** the minority class is the positive class for f1 and roc_auc; multiclass f1 is macro; roc_auc is
+  allowed on two-class datasets only; numeric columns are always median-imputed and text columns always imputed and
+  one-hot encoded, fitted on train only; both arms share each seed's split.
+- **The optional code slot from DESIGN section 3 is not built.** Nothing needs it yet; add it if the Scientist does.
 
 ## Fixes
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
+- **`crash_rate()` counts every folder in `data/runs/`, including the deliberate `broken.yaml` run** (it shows 1 of 2
+  now). Before reporting a crash rate against the 42% figure, count campaign runs only.
+- **The sandbox guards against accidents, not attacks:** experiments can still reach the network and other files. This
+  is acceptable while scripts come only from our template; revisit it before running LLM-written code (Mission 6.2).
 - **Cold model loads are slow.** A first `gemma3:4b` prompt timed out at 110 s; once loaded it answered in 3.8 s. Other
   cold starts took 27-53 s. Mission 1.3 needs a generous first-call timeout and should batch per model.
 - **`qwen3:4b` writes its reasoning into the reply**, even with `think=false` sent to `/api/generate`. Mission 1.3 must
@@ -82,6 +96,6 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Restart Claude Code so the hooks and tip bar see the new PATH.
-2. Run `/mission 1.2` (template, codegen, sandbox).
-3. Run `/mission 1.3` (LLM wrapper, with the config-only API switch).
+1. Run `/explain canary/sandbox.py` and `/explain canary/codegen.py` for viva prep.
+2. Run `/mission 1.3` (LLM wrapper, with the config-only API switch).
+3. Run `/mission 1.4` (Scientist, pre-registration, verdict, ledger).
