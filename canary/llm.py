@@ -20,7 +20,8 @@ from typing import Protocol
 
 from canary import config
 
-_SCHEMA_KEYWORDS = {"type", "enum", "required", "properties", "additionalProperties", "items", "minimum", "maximum"}
+_SCHEMA_KEYWORDS = {"type", "enum", "required", "properties", "additionalProperties", "items", "minimum", "maximum",
+                    "anyOf"}
 _JSON_TYPES = {
     "object": lambda v: isinstance(v, dict),
     "array": lambda v: isinstance(v, list),
@@ -50,6 +51,10 @@ def schema_problem(value: object, schema: dict, path: str = "$") -> str | None:
     unknown = set(schema) - _SCHEMA_KEYWORDS
     if unknown:
         raise ValueError(f"unsupported schema keywords: {sorted(unknown)}")
+    if "anyOf" in schema:
+        problems = [schema_problem(value, option, path) for option in schema["anyOf"]]
+        if all(problems):
+            return f"{path} fits none of the allowed forms; closest: {min(problems, key=len)}"
     if "type" in schema:
         allowed = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
         if not any(_JSON_TYPES[name](value) for name in allowed):
@@ -109,7 +114,7 @@ class Provider(Protocol):
     def installed_models(self) -> set[str]: ...
 
     def generate(self, model: str, prompt: str, system: str | None, schema: dict, temperature: float,
-                 timeout_s: float) -> str: ...
+                 timeout_s: float, seed_offset: int = 0) -> str: ...
 
     def unload(self, model: str) -> None: ...
 
@@ -132,10 +137,11 @@ class OllamaProvider:
             raise LLMError(f"Ollama server not reachable: {exc}") from exc
 
     def generate(self, model: str, prompt: str, system: str | None, schema: dict, temperature: float,
-                 timeout_s: float) -> str:
+                 timeout_s: float, seed_offset: int = 0) -> str:
         # `format` makes Ollama constrain the output to the schema. num_ctx is set because Ollama silently cuts off
         # prompts longer than the context, and a reviewer must never judge a script it only partly saw.
-        options = {"temperature": temperature, "seed": self.settings["seed"], "num_ctx": self.settings["num_ctx"],
+        options = {"temperature": temperature, "seed": self.settings["seed"] + seed_offset,
+                   "num_ctx": self.settings["num_ctx"],
                    "num_predict": self.settings["num_predict"]}
         try:
             reply = self._client(timeout_s).generate(model=model, prompt=prompt, system=system, format=schema,
@@ -272,7 +278,9 @@ class LLM:
         for attempt in range(1, attempts + 1):
             timeout_s = self._prepare_model(provider_name, model)
             try:
-                reply = provider.generate(model, text, system, schema, temperature, timeout_s)
+                # A new seed per attempt: with the same seed a sampling failure (such as Ollama's "token repeat
+                # limit") simply happens again. The attempt order stays fixed, so runs remain reproducible.
+                reply = provider.generate(model, text, system, schema, temperature, timeout_s, attempt - 1)
                 data = parse_reply(reply, schema)
             except InvalidReply as exc:
                 # At temperature 0 the same prompt gives the same bad reply, so the retry must change the prompt.

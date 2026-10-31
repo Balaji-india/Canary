@@ -28,14 +28,16 @@ class FakeProvider:
         self.installed = set(installed)
         self.events = []  # ("generate", model) and ("unload", model), in order
         self.calls = []
+        self.seed_offsets = []
 
     def installed_models(self):
         return self.installed
 
-    def generate(self, model, prompt, system, schema, temperature, timeout_s):
+    def generate(self, model, prompt, system, schema, temperature, timeout_s, seed_offset=0):
         self.events.append(("generate", model))
         self.calls.append({"model": model, "prompt": prompt, "system": system, "temperature": temperature,
                            "timeout_s": timeout_s})
+        self.seed_offsets.append(seed_offset)
         reply = self.replies.pop(0) if self.replies else GOOD
         if isinstance(reply, Exception):
             raise reply
@@ -111,6 +113,13 @@ def test_schema_reports_the_problem(value, expected):
     assert expected in llm.schema_problem(value, VERDICT)
 
 
+def test_any_of_passes_when_one_form_fits():
+    schema = {"anyOf": [{"type": "string"}, {"type": "integer", "minimum": 5}]}
+    assert llm.schema_problem("x", schema) is None
+    assert llm.schema_problem(7, schema) is None
+    assert "fits none" in llm.schema_problem(3, schema)
+
+
 def test_true_is_not_an_integer():
     assert llm.schema_problem(True, {"type": "integer"}) is not None
 
@@ -180,6 +189,19 @@ def test_provider_failure_is_retried_as_a_cold_call(tmp_path):
     provider = FakeProvider([llm.LLMError("timed out"), GOOD])
     assert make_llm(provider, tmp_path).call("skeptic_a", "p", SCHEMA).attempts == 2
     assert [c["timeout_s"] for c in provider.calls] == [300, 300]
+
+
+def test_each_retry_uses_a_new_seed(tmp_path):
+    """Found in a real run: at one seed, Ollama's token-repeat abort simply happened again on every retry."""
+    provider = FakeProvider([llm.LLMError("token repeat limit"), "junk", GOOD])
+    make_llm(provider, tmp_path).call("scientist", "p", SCHEMA)
+    assert provider.seed_offsets == [0, 1, 2]
+
+
+def test_ollama_receives_the_offset_seed(monkeypatch):
+    monkeypatch.setattr("ollama.Client", FakeOllamaClient)
+    llm.OllamaProvider(CFG["llm"]).generate("sci:1", "p", None, SCHEMA, 0.2, 5, seed_offset=2)
+    assert FakeOllamaClient.last["options"]["seed"] == 2
 
 
 def test_gives_up_after_one_try_plus_two_retries(tmp_path):

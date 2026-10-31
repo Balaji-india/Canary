@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from canary import config, datasets, llm, sandbox
+from canary import config, datasets, ledger, llm, sandbox, scientist
 
 REQUIRED_PACKAGES = ["numpy", "pandas", "scipy", "scikit-learn", "pyyaml", "python-dotenv",
                      "sentence-transformers", "matplotlib", "streamlit", "pytest", "ollama"]
@@ -164,12 +164,58 @@ def cmd_llm_smoke(_args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_science(args: argparse.Namespace) -> int:
+    """Propose, lock, run and judge N hypotheses. Stops at the first model failure; finished entries stay."""
+    client = llm.LLM()
+    led = ledger.Ledger()
+    code = 0
+    for number in range(1, args.hypotheses + 1):
+        try:
+            locked, model = scientist.propose(client, args.question, led)
+        except (llm.LLMError, scientist.ProposalRejected) as exc:
+            print(f"Hypothesis {number}: no proposal. {exc}")
+            code = 1
+            break
+        outcome = scientist.run_locked(locked, model, led)
+        verdict = outcome.verdict
+        print(f"Hypothesis {number}: {outcome.hypothesis}")
+        print(f"  Locked {outcome.prereg_sha256[:16]}, run {outcome.run_id}: {outcome.run_status}")
+        if verdict["ci_low"] is None:
+            print(f"  Verdict: {verdict['outcome']} ({verdict.get('reason', 'too few seeds')})")
+        else:
+            print(f"  Verdict: {verdict['outcome']} (effect {verdict['mean_effect']:+.4f}, "
+                  f"CI [{verdict['ci_low']:+.4f}, {verdict['ci_high']:+.4f}], min {verdict['min_effect']})")
+    client.release()
+    return code
+
+
+def cmd_ledger(args: argparse.Namespace) -> int:
+    led = ledger.Ledger(Path(args.db))
+    if args.action == "show":
+        for entry in led.entries():
+            print(f"{entry.seq:>4} {entry.hash[:12]} {entry.status:<14} {entry.hypothesis_id}")
+        return 0
+    problems = led.verify(sandbox.RUNS_DIR)
+    for problem in problems:
+        print(f"[FAIL] {problem}")
+    print(f"Ledger verify: {'FAILED' if problems else 'OK'} ({len(led.entries())} entries, {args.db})")
+    return 1 if problems else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="canary")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor", help="check Python, packages, models and datasets").set_defaults(func=cmd_doctor)
     sub.add_parser("cache-datasets", help="download the OpenML datasets once").set_defaults(func=cmd_cache_datasets)
     sub.add_parser("llm-smoke", help="get valid JSON from every configured model").set_defaults(func=cmd_llm_smoke)
+    science_parser = sub.add_parser("science", help="propose, lock, run and judge hypotheses")
+    science_parser.add_argument("--hypotheses", type=int, default=1)
+    science_parser.add_argument("--question", default="q1", help="a question id from config/campaign.yaml")
+    science_parser.set_defaults(func=cmd_science)
+    ledger_parser = sub.add_parser("ledger", help="check or list the findings ledger")
+    ledger_parser.add_argument("action", choices=["verify", "show"])
+    ledger_parser.add_argument("--db", default=str(config.DB_PATH), help="ledger database file")
+    ledger_parser.set_defaults(func=cmd_ledger)
     run_parser = sub.add_parser("run-config", help="generate and run one experiment from a YAML config")
     run_parser.add_argument("path")
     run_parser.add_argument("--timeout", type=float, default=sandbox.DEFAULT_TIMEOUT_S, help="seconds before the kill")

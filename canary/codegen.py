@@ -26,6 +26,32 @@ DATASET_NAME = "dataset.csv.gz"  # the template reads this exact name from its w
 MODELS = {"logistic_regression", "random_forest", "gradient_boosting", "svm", "knn", "decision_tree", "gaussian_nb"}
 SCALERS = {"standard_scaler", "minmax_scaler", "robust_scaler"}
 METRICS = {"accuracy", "balanced_accuracy", "f1", "roc_auc"}
+
+# What the Scientist may set. An open `params` object let the small models write garbled keys and loop until Ollama
+# aborted, so each name and type is listed. validate_config stays wider: hand-written configs may use any parameter.
+MODEL_PARAMS = {
+    "logistic_regression": ["C", "max_iter", "class_weight"],
+    "random_forest": ["n_estimators", "max_depth", "class_weight"],
+    "gradient_boosting": ["n_estimators", "learning_rate", "max_depth"],
+    "svm": ["C", "kernel", "gamma", "class_weight"],
+    "knn": ["n_neighbors", "weights"],
+    "decision_tree": ["max_depth", "min_samples_leaf", "class_weight"],
+    "gaussian_nb": ["var_smoothing"],
+}
+PARAM_SCHEMAS = {
+    "C": {"type": "number"},
+    "class_weight": {"enum": ["balanced"]},
+    "gamma": {"type": "number"},
+    "kernel": {"enum": ["linear", "rbf", "poly", "sigmoid"]},
+    "learning_rate": {"type": "number"},
+    "max_depth": {"type": "integer"},
+    "max_iter": {"type": "integer"},
+    "min_samples_leaf": {"type": "integer"},
+    "n_estimators": {"type": "integer"},
+    "n_neighbors": {"type": "integer"},
+    "var_smoothing": {"type": "number"},
+    "weights": {"enum": ["uniform", "distance"]},
+}
 CONFIG_KEYS = {"dataset", "metric", "seeds", "test_size", "control", "treatment"}
 ARM_KEYS = {"model", "params", "preprocessing"}
 

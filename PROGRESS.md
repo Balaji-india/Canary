@@ -13,7 +13,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - [x] 1.3 LLM wrapper (roles, JSON, cache, model queue)
   - `llm-smoke`: all OK. Valid JSON live from `qwen3:4b` (8.3 s), `gemma3:4b` (29.1 s) and `phi4-mini` (9.1 s), then all 3 repeats from the cache (0.0 s).
   - `pytest -q`: 118 passed. One-off real-sized review prompt (1324-1604 tokens): valid JSON and 100% GPU on all 3 models.
-- [ ] 1.4 Scientist, pre-registration, verdict, hash-chained ledger
+- [x] 1.4 Scientist, pre-registration, verdict, hash-chained ledger
+  - `science --hypotheses 2`: 2 locked, run and verdicted (both inconclusive). `ledger verify`: OK (9 entries, including 3 from an earlier run that crashed).
+  - After a manual verdict edit on a copy: `[FAIL] entry 3: content does not match its hash`, exit 1; real ledger still OK. `pytest -q`: 181 passed.
 - [ ] 1.5 Blinding and Skeptic
 
 **M2 Controls and trust**
@@ -88,11 +90,41 @@ Claude updates this at the end of every mission. If a mission stops early, write
   Skeptics. Only Ollama exists today: `/api` adds a class to `PROVIDERS`, then only config and `.env` change. Reading
   the key from `.env` is not built yet.
 - **Added to `models.yaml`:** `num_ctx: 8192`, `num_predict: 1024`, and timeouts of 300 s (cold) and 120 s (warm).
+- **Verdict rule (`prereg.compute_verdict`):** supported = mean effect >= `min_effect` and CI above 0; not supported =
+  whole CI below `min_effect`; otherwise inconclusive. A failed run is inconclusive, with the reason stored.
+- **The verdict CI uses the Nadeau-Bengio correction** (variance factor 1/n + n_test/n_train), because random splits of
+  one dataset overlap and a plain t interval would be too narrow. `docs/DESIGN.md` did not specify a test.
+- **Code, not the LLM, sets seeds, split and alpha.** New `science:` block in `campaign.yaml`, with `min_effect_floor:
+  0.005` so trivially small effects cannot count as success. `direction` is "increase" or "decrease"; `confidence` means
+  P(result reaches `min_effect` in that direction).
+- **The Scientist's schema has one form per model (`anyOf`)**, using `codegen.MODEL_PARAMS`. Hand-written configs may
+  still use any parameter. Tried and rejected on real replies: an open `params` object (garbled keys, repeat-loops,
+  1 real crash) and one shared parameter list (mixed parameters between models). The final form gave 8 of 8 acceptable.
+- **Each LLM retry uses a new seed**, because a sampling failure repeats at the same seed. Scientist retries put the
+  attempt number in the prompt, because a repeated prompt would only replay the cached rejected reply.
+- **Rejected proposals are printed, not stored in the ledger:** nothing was locked or run for them.
+- **The ledger shares `data/canary.db` with the LLM cache.** Append-only is enforced by the API and detected by the
+  chain; there is no database trigger, so a manual edit is possible and shows up in `ledger verify`.
+- **The ledger keeps the real crashed run** (hypothesis `6352b91a`, entries 1-3) as a true record.
 
 ## Fixes
+- `qwen3:4b` crashes and "token repeat limit" aborts from the open `params` schema: fixed with one schema form per model.
+- A retried proposal replayed the cached rejected reply: each retry prompt now carries its attempt number.
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
+- **5 seeds may be too few for decisive verdicts.** Both real runs were inconclusive, with CI widths of about 0.10 and
+  0.16 against a `min_effect` of 0.005. That is honest, but if most verdicts stay inconclusive the ledger will have
+  little to accept. Check this on more runs (Mission 4.4) before changing `seeds_per_arm`.
+- **The Scientist barely varies.** 8 trial proposals were nearly identical (same dataset and model family, confidence
+  0.75 each), and both real hypotheses used the same dataset. A constant confidence will limit what the Brier score
+  shows (Mission 3.2). The graveyard and calibration feedback may help; if not, ask for dataset variety in the prompt.
+- **`qwen3:4b` hypotheses contain errors in their wording,** such as "76/2:24", and claim reasons that may not hold.
+  Verdicts are unaffected, because they use only the configs and results.
+- **The ledger cannot detect removal of its newest entries,** or a full rewrite of the chain from an edited point. A
+  test documents this. Fixing it needs the latest hash stored elsewhere, for example in git.
+- **`ledger verify` reports a problem if a run folder is deleted.** `/clean` must never remove `data/runs/` folders
+  that the ledger references.
 - **`crash_rate()` counts every folder in `data/runs/`, including the deliberate `broken.yaml` run** (it shows 1 of 2
   now). Before reporting a crash rate against the 42% figure, count campaign runs only.
 - **The sandbox guards against accidents, not attacks:** experiments can still reach the network and other files. This
@@ -111,6 +143,6 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Run `/explain canary/llm.py` for viva prep.
-2. Run `/mission 1.4` (Scientist, pre-registration, verdict, ledger).
-3. Run `/mission 1.5` (blinding and Skeptic).
+1. Run `/explain canary/prereg.py` for viva prep (the verdict rule and the Nadeau-Bengio correction).
+2. Run `/mission 1.5` (blinding and Skeptic). The crashed run has no results, so decide how it is audited.
+3. Run `/mission 2.1` (Saboteur: 10 bug classes × 2 tiers).

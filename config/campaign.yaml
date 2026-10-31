@@ -5,6 +5,11 @@ control_chart: {window: 20, alarm_rules: ["1 window below 3 sigma", "2 consecuti
 monte_carlo_draws: 5000
 sandbox_timeout_s: 120
 seeds_per_arm: 5
+science:
+  test_size: 0.25
+  alpha: 0.05                # the verdict's confidence interval is 1 - alpha
+  min_effect_floor: 0.005    # stops a Scientist calling a trivially small difference a success
+  proposal_attempts: 3
 replication: {new_seeds: 5, new_split: true, sibling_dataset: when_available}
 graveyard_similarity: 0.75
 questions:
