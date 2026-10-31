@@ -49,8 +49,9 @@ buggy, gates what it accepts, watches for reviewer drift, finds the reviewer's b
 - Python 3.11+, `scikit-learn`, `numpy`, `pandas`, `scipy`, `sqlite3`, `pyyaml`, `python-dotenv`,
   `sentence-transformers` (`all-MiniLM-L6-v2`), `matplotlib`, `streamlit`, `pytest`, `ollama` (Python client).
 - **Local models via Ollama (defaults in `config/models.yaml`; verify tags with `ollama list`, then the fallbacks):**
-  - Scientist: `qwen3.5:4b` (fallback `qwen3:4b`)
-  - Skeptic A: `gemma4:e4b` (fallback `gemma3:4b`), a different model family from the Scientist on purpose
+  - Scientist: `qwen2.5-coder:7b` (fallback `qwen3:4b`)
+  - Skeptic A: `gemma3:4b`, a different model family from the Scientist on purpose. It runs as the fallback:
+    `models.yaml` still prefers `gemma4:e4b`, which must not be pulled here (6.13 GB will not fit in 6 GB VRAM)
   - Skeptic B (jury, Mission 5): `phi4-mini` (fallback `llama3.2:3b`)
 - **Optional cloud Scientist** (`LLM_PROVIDER` + key in `.env`) only if the student asks. The Skeptic must always
   be a different model family from the Scientist.
