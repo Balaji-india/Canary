@@ -5,8 +5,8 @@ nothing did less damage than one who misses a bug that faked a result, so recall
 
 Why a twin: both runs use the same seeds and splits, so the difference comes from the bug and not from sampling.
 
-This must stay out of the run folder and away from reviewers: an impact value says the run is a canary. Mission 2.2
-stores these records in the sealed table.
+This must stay out of the run folder and away from reviewers: an impact value says the run is a canary. These records
+are stored in the sealed table by controls.run_canary.
 """
 from __future__ import annotations
 
@@ -77,15 +77,20 @@ def _results(record: dict, runs_dir: Path) -> dict:
     return json.loads((runs_dir / record["run_id"] / sandbox.RESULTS_NAME).read_text(encoding="utf-8"))
 
 
-def run_canary(config: dict, bug_id: str, tier: str, runs_dir: Path = sandbox.RUNS_DIR) -> CanaryRecord:
-    """Plant the bug, run the canary and its clean twin, and return the record. Failures are recorded, not raised."""
+def run_canary(config: dict, bug_id: str, tier: str, runs_dir: Path = sandbox.RUNS_DIR,
+               twin_dir: Path | None = None) -> CanaryRecord:
+    """Plant the bug, run the canary and its clean twin, and return the record. Failures are recorded, not raised.
+
+    `twin_dir` defaults to `runs_dir`; controls.run_canary passes a separate folder for real campaigns.
+    """
+    twin_dir = runs_dir if twin_dir is None else twin_dir
     planted = sabotage(config, bug_id, tier)
-    twin = sandbox.run_config(twin_config(config, planted.config, bug_id, tier), runs_dir)
+    twin = sandbox.run_config(twin_config(config, planted.config, bug_id, tier), twin_dir)
     run = sandbox.run_config(planted.config, runs_dir, script=planted.script)
     failed = next((r for r in (run, twin) if r["status"] != sandbox.STATUS_OK), None)
     found = None
     if failed is None:
         comparable = (bug_id, tier) != ("B06", OBVIOUS)
-        found = compute_impact(_results(twin, runs_dir), _results(run, runs_dir), comparable)
+        found = compute_impact(_results(twin, twin_dir), _results(run, runs_dir), comparable)
     return CanaryRecord(bug_id, tier, run["run_id"], twin["run_id"], planted.config,
                         failed["status"] if failed else sandbox.STATUS_OK, failed["reason"] if failed else None, found)

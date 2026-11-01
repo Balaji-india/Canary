@@ -54,7 +54,7 @@ def lock(**changes):
 def test_code_not_the_llm_sets_seeds_split_and_alpha():
     campaign = load_yaml("campaign.yaml")
     locked = lock()
-    assert locked["seeds"] == list(range(campaign["seeds_per_arm"]))
+    assert len(set(locked["seeds"])) == campaign["seeds_per_arm"]
     assert locked["test_size"] == campaign["science"]["test_size"]
     assert locked["alpha"] == campaign["science"]["alpha"]
 

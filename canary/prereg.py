@@ -8,7 +8,9 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import random
 
+SEED_RANGE = 100_000
 SUPPORTED = "supported"
 NOT_SUPPORTED = "not_supported"
 INCONCLUSIVE = "inconclusive"
@@ -27,12 +29,22 @@ def prereg_hash(prereg: dict) -> str:
     return sha256_text(canonical_json(prereg))
 
 
-def build_prereg(proposal: dict, question: str, science_cfg: dict, seeds_per_arm: int) -> dict:
-    """Add what the Scientist must not choose: seeds, split size and alpha come from config, not from the LLM."""
+def draw_seeds(count: int, rng: random.Random | None = None) -> list[int]:
+    """Random seeds, drawn the same way for real runs and for clones.
+
+    Fixed seeds on real runs would force a choice: clones either repeat their source's text (the same cached review,
+    counted twice) or use other seeds, which would mark them as clones.
+    """
+    return sorted((rng or random).sample(range(SEED_RANGE), count))
+
+
+def build_prereg(proposal: dict, question: str, science_cfg: dict, seeds_per_arm: int,
+                 rng: random.Random | None = None) -> dict:
+    """Add what the Scientist must not choose: seeds come from code, split size and alpha from config, not from the LLM."""
     return {
         **proposal,
         "question": question,
-        "seeds": list(range(seeds_per_arm)),
+        "seeds": draw_seeds(seeds_per_arm, rng),
         "test_size": science_cfg["test_size"],
         "alpha": science_cfg["alpha"],
     }

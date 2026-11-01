@@ -23,8 +23,10 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M2 Controls and trust**
 - [x] 2.1 Saboteur: 10 classes × 2 tiers
   - Each of the 20 variants has an oracle that watches the running script: false on the clean script, true on the sabotaged one.
-  - `sabotage-check` on 6 real configs (6 datasets, 6 models, 4 metrics): 114 of 120 variants ran with 0 crashes; 6 B06 variants were correctly refused as not applicable. `pytest -q`: 325 passed. These counts predate the realism pass; see Saboteur effect sizes below.
-- [ ] 2.2 Controls, shams, sealed run-type table
+  - `sabotage-check` on 6 real configs (6 datasets, 6 models, 4 metrics): 114 of 120 variants ran with 0 failures; 6 B06 variants were correctly refused as not applicable. After the realism pass: 95 harmful, 17 harmless, 2 unmeasured (see Saboteur effect sizes). `pytest -q`: 360 passed (includes the coach hook tests).
+- [x] 2.2 Controls, shams, sealed run-type table
+  - `controls-check` on `baseline.yaml` and `imbalanced.yaml`: all OK, 8 of 8 checks each. Sham numbers equal the control's; both scripts have 84 blinded lines (4753 vs 4836 characters on baseline); same result keys and run-folder files.
+  - `pytest -q`: 434 passed in 28 s, including the import-chain test and a spy showing a real audit never opens the sealed file. `ledger verify`: OK (12 entries).
 - [ ] 2.3 Trust statistics
 - [ ] 2.4 Run mixer, calibrate command, RQ1
 
@@ -63,7 +65,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-None. Milestone 1 is complete, and no mission is part-way through.
+None. Mission 2.2 is complete, and no mission is part-way through.
 
 ## Running or interrupted campaigns
 None.
@@ -133,11 +135,26 @@ None.
   one row per class so roc_auc cannot crash. Label-blind dropping lowered as many scores as it raised.
 - **B09 subtle measures instead of using a fixed value:** it tries a ladder, mildest first, and keeps the first setting that
   lowers this control by at least `min_effect_floor`, else `NotApplicable`. So `sabotage` takes seconds for this variant.
-- **Impact is kept out of run folders,** because it reveals a canary. It stays in `CanaryRecord`, which is returned by
-  `run_canary` but not stored yet: Mission 2.2 stores it in the sealed table.
+- **Impact is kept out of run folders,** because it reveals a canary. `controls.run_canary` stores it in the sealed table.
 - **Harmful includes bugs that lower a score,** because they falsify a result too (B08, B09).
-- **B06 and B09 change the config as well as the script,** so the pre-registration must be built from `Sabotaged.config`.
-  A hypothesis sentence may still name the old metric; Mission 2.2 must check this does not act as a clue.
+- **B06 and B09 change the config as well as the script,** so `controls.clone_prereg` builds the pre-registration from the
+  config that really runs. It rewrites metric names in the hypothesis sentence, and raises `NotApplicable` if the sentence
+  names a hyperparameter the bug changed, because free wording cannot be rewritten safely. The mixer must catch this.
+- **The sealed table is its own file, `data/sealed.db`,** with the path defined only in `sealed.py`, so ledger code connected
+  to `canary.db` has no route to it. It is write-once: no update or delete method, and a second record for a run is refused.
+- **Real runs now draw random seeds (`prereg.draw_seeds`), instead of always 0-4.** A clone with its source's seeds gives the
+  reviewer identical text, so the cached reply would count as a second observation. Clones on other seeds would be
+  recognisable if real runs stayed on 0-4. Duplicate detection now ignores seeds. Ledger entries already written keep 0-4.
+- **Shams rename 4-8 variables or functions and reorder imports and helper functions,** because blinding erases comments and
+  formatting. Keyword names and text values are never changed. `make_sham` is deterministic for a given `rng`.
+- **`why_not_clean` refuses two bases for controls, shams and canaries:** accuracy above a 3:1 class ratio (B06) and a control
+  with the exact B09 obvious settings. Milder weak settings are allowed, because whether they are a bug depends on their effect.
+- **Twins live in `data/twins/`** when run through `controls.run_canary`, outside the crash rate. They are not sealed as runs;
+  the canary's row points to its twin.
+- **"Length class" is blinded lines // 10.** Shams keep the exact line count, so a class boundary can never separate them.
+- **Added `controls-check <config>`** as this mission's proof, since CLAUDE.md gives 2.2 no command. It uses a temporary
+  folder and table, so `data/sealed.db` does not exist until Mission 2.4 runs real clones.
+- **`load_yaml` now caches parsed files** (keyed by path and modification time, returning a copy), to speed up the test suite.
 - **`why_not_applicable` decides where a bug can go.** B06 obvious needs a class ratio above 3:1 (only `blood-transfusion`,
   `pc1` and `ozone-level-8hr`) and a non-accuracy metric; B06 subtle needs two classes; B05 needs 2 seeds. B09 obvious raises
   `TransformError` if the control already has the crippled values. The mixer must handle both errors.
@@ -225,20 +242,19 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   calling correct fit-on-train, transform-on-test "leakage". Its earlier trial on a clean script was also a false flag.
   This is too few runs to conclude anything, and the prompt was deliberately not tuned. Mission 2.4 measures it. If
   specificity is this low, the trust gate will reject most findings, so RQ1 is the first thing to check.
-- **Mission 2.2 controls must not contain a bug by accident.** Accuracy on a dataset above 3:1 is identical to a B06 obvious
-  canary, so a control with it would be labelled clean and buggy at once. Exclude those configs, and treat such a real run
-  as a real bug. A config resembling B09 has the same problem, with a less clear line.
-- **Mission 2.2 must decide where twin runs live.** `run_canary` writes the twin to `runs_dir`, so in `data/runs/` it would
-  count in `crash_rate()`. Mission 2.4 should report recall by harmful and harmless using `impact_class`.
-- **B09 subtle cannot be planted on every experiment:** the mixer must catch `NotApplicable` and choose another.
+- **Real runs with a bug-like design are not caught yet.** `why_not_clean` only protects clones. A real run using accuracy
+  above 3:1 is really buggy; Mission 5.1's B06 tripwire should catch it.
+- **A sham's edits can be told apart in principle.** Its imports are out of the template's usual order, and its names are
+  slightly longer on average (about 1-2% more characters). A stateless reviewer sees one run at a time and has no template to
+  compare with, so this should not matter, but a reviewer that learned the template could separate them.
+- **Mission 2.4 must seal real runs too.** `scientist.run_locked` does not write to the sealed table, and the 2 existing
+  real runs have no row. It must also report recall by harmful and harmless using `impact_class`.
+- **The mixer must catch `NotApplicable`** from `sabotage`, `clone_prereg` and the `run_*` functions, and choose another base.
 - **Mission 5.1's B10 tripwire ("test size smaller than declared") will not fire:** B10 now drops rows inside `run_arm`, so
   `split_sizes` stays normal. It needs a different check.
 - **Mission 5.1's B07 tripwire needs care:** `blood-transfusion` has 246 duplicate feature rows and `pc1` 161 before any
   bug, so row overlap between splits is normal there. Compare against the overlap expected from the dataset.
-- **The test suite is close to its limit** (27.5-30.5 s of 30 s across recent runs, so it went over once); new test files will need the slow sandbox tests trimmed.
-- **Mission 2.2 must add the blinding test from DESIGN section 5** (control and sham indistinguishable by length class
-  and key set), because shams do not exist yet. It must also check that `ledger.py` and the other modules `skeptic.py`
-  imports do not read the sealed table: the current import test checks direct imports only.
+- **The test suite is still close to its limit** (28 s of 30 s after the trim). The broken-config and sham tests now run in-process; the 2 remaining subprocess tests take about 3 s each.
 - **Cold model loads are slow** (27-110 s seen). Handled with the 300 s cold timeout and `ModelQueue`.
 - **`qwen3:4b` writing reasoning into replies did not occur in schema mode:** 2 of 2 real replies were clean JSON. Plain
   text mode was not retested, and any remaining `<think>` block is stripped.
@@ -249,6 +265,6 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Run `/mission 2.2` (controls, shams, sealed run-type table, blinding test).
-2. Run `/mission 2.3` (trust statistics).
-3. Run `/mission 2.4` (mixer, calibrate, RQ1), with recall reported separately for harmful and harmless canaries.
+1. Run `/mission 2.3` (trust statistics).
+2. Run `/mission 2.4` (mixer, calibrate, RQ1), with recall reported separately for harmful and harmless canaries.
+3. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.

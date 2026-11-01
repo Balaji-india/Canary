@@ -51,8 +51,10 @@ def proposal_schema(min_effect_floor: float) -> dict:
 
 
 def _experiment_key(locked: dict) -> str:
-    """Identify an experiment by what it runs, not by how the hypothesis is worded."""
-    return prereg.canonical_json(prereg.to_run_config(locked))
+    """Identify an experiment by what it runs, not by its wording or its seeds, which are drawn fresh each time."""
+    run_config = prereg.to_run_config(locked)
+    del run_config["seeds"]
+    return prereg.canonical_json(run_config)
 
 
 def proposal_problem(locked: dict, earlier_keys: set[str]) -> str | None:

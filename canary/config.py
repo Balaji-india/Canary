@@ -5,6 +5,7 @@ the rule "the Skeptic is a different model family from the Scientist" should be 
 """
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,9 +32,20 @@ class RoleChoice:
         return self.model is not None and self.model != _with_tag(self.preferred)
 
 
+_yaml_cache: dict[tuple[Path, int], dict] = {}
+
+
 def load_yaml(name: str, config_dir: Path = CONFIG_DIR) -> dict:
-    with (config_dir / name).open(encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    """Read a config, parsing it again only if the file changed, since hot paths call this for every run.
+
+    Each caller gets its own copy, so changing the result cannot affect later callers.
+    """
+    path = config_dir / name
+    key = (path, path.stat().st_mtime_ns)
+    if key not in _yaml_cache:
+        with path.open(encoding="utf-8") as f:
+            _yaml_cache[key] = yaml.safe_load(f)
+    return copy.deepcopy(_yaml_cache[key])
 
 
 def _with_tag(model: str) -> str:

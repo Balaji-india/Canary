@@ -61,7 +61,7 @@ def test_crash_keeps_the_error_text(tmp_path):
 
 def test_hanging_script_is_killed_at_the_timeout(tmp_path):
     started = time.perf_counter()
-    outcome = run_text(tmp_path, "import time\ntime.sleep(60)", timeout_s=1)
+    outcome = run_text(tmp_path, "import time\ntime.sleep(60)", timeout_s=0.3)
     assert outcome.timed_out and outcome.returncode is None
     assert time.perf_counter() - started < 20
 
@@ -123,7 +123,7 @@ def test_crash_is_recorded(config, tmp_path, monkeypatch):
 
 def test_timeout_is_recorded(config, tmp_path, monkeypatch):
     fake_run_script(monkeypatch, "import time\ntime.sleep(60)")
-    assert sandbox.run_config(config, tmp_path, timeout_s=1)["status"] == sandbox.STATUS_TIMEOUT
+    assert sandbox.run_config(config, tmp_path, timeout_s=0.3)["status"] == sandbox.STATUS_TIMEOUT
 
 
 def test_clean_exit_without_results_is_not_a_success(config, tmp_path, monkeypatch):
@@ -180,7 +180,14 @@ def test_uncached_dataset_is_recorded_not_raised(config, tmp_path, monkeypatch):
     assert sandbox.run_config(config, tmp_path)["status"] == sandbox.STATUS_INVALID_CONFIG
 
 
-def test_deliberately_broken_example_crashes_in_the_sandbox(tmp_path):
-    record = sandbox.run_config(load_example("broken.yaml"), tmp_path)
-    assert record["status"] == sandbox.STATUS_CRASH
-    assert "InvalidParameterError" in record["stderr_tail"]
+def test_deliberately_broken_example_really_is_broken(tmp_path, monkeypatch):
+    """Run inside this process to save a scikit-learn import. test_crash_is_recorded covers how a crash gets stored."""
+    config = load_example("broken.yaml")
+    source = codegen.render_script(config)
+    codegen.prepare_run(config, tmp_path, source)
+    monkeypatch.chdir(tmp_path)
+    namespace = {"__name__": "experiment_under_test"}
+    exec(compile(source, codegen.SCRIPT_NAME, "exec"), namespace)
+    with pytest.raises(Exception) as caught:
+        namespace["main"]()
+    assert type(caught.value).__name__ == "InvalidParameterError"

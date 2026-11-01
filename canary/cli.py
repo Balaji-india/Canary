@@ -5,6 +5,7 @@ import argparse
 import importlib.metadata
 import json
 import platform
+import random
 import shutil
 import statistics
 import subprocess
@@ -14,7 +15,7 @@ from pathlib import Path
 
 import yaml
 
-from canary import config, datasets, ledger, llm, sandbox, scientist, skeptic
+from canary import config, controls, datasets, ledger, llm, sandbox, scientist, skeptic
 from canary.saboteur import classes as bug_classes
 from canary.saboteur import impact, transforms
 
@@ -255,6 +256,18 @@ def cmd_sabotage_check(args: argparse.Namespace) -> int:
     return 1 if failures else 0
 
 
+def cmd_controls_check(args: argparse.Namespace) -> int:
+    """Run a control, a sham and a canary through the sealed path on real data, and test what each promises."""
+    experiment = yaml.safe_load(Path(args.path).read_text(encoding="utf-8"))
+    reason = controls.why_not_clean(experiment)
+    if reason:
+        print(f"Not usable as a clean base: {reason}")
+        return 1
+    results = [_line(ok, label, detail) for label, ok, detail in controls.check_config(experiment, random.Random())]
+    print(f"\ncontrols-check: {'all OK' if all(results) else 'problems found (see FAIL lines)'}")
+    return 0 if all(results) else 1
+
+
 def cmd_ledger(args: argparse.Namespace) -> int:
     led = ledger.Ledger(Path(args.db))
     if args.action == "show":
@@ -291,6 +304,9 @@ def main(argv: list[str] | None = None) -> int:
     sabotage_parser.add_argument("path")
     sabotage_parser.add_argument("--json", help="also save the canary records to this file")
     sabotage_parser.set_defaults(func=cmd_sabotage_check)
+    controls_parser = sub.add_parser("controls-check", help="prove a control, sham and canary behave on one config")
+    controls_parser.add_argument("path")
+    controls_parser.set_defaults(func=cmd_controls_check)
     args = parser.parse_args(argv)
     return args.func(args)
 

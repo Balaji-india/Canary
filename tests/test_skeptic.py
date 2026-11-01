@@ -60,6 +60,66 @@ def _is_docstring(tree, constant):
                and getattr(owner.body[0], "value", None) is constant for owner in ast.walk(tree))
 
 
+def reachable_modules(start):
+    """Every canary module reached from `start` by following imports, however indirectly."""
+    seen, waiting = set(), [start]
+    while waiting:
+        name = waiting.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        path = PACKAGE.parent / Path(*name.split("."))
+        file = path.with_suffix(".py") if path.with_suffix(".py").exists() else path / "__init__.py"
+        waiting.extend(canary_imports(file))
+    return seen
+
+
+@pytest.mark.parametrize("start", ["canary.skeptic", "canary.blinding"])
+def test_no_import_chain_from_reviewer_code_reaches_ground_truth(start):
+    """A direct-import test would miss the table being reached through a helper."""
+    reached = reachable_modules(start)
+    assert "canary.ledger" in reached or start == "canary.blinding"  # proves the walk follows imports
+    for module in reached:
+        assert module not in ("canary.sealed", "canary.controls") and not module.startswith("canary.saboteur"), module
+
+
+def test_no_module_on_the_reviewer_path_names_the_sealed_file_or_table():
+    for module in reachable_modules("canary.skeptic"):
+        source = (PACKAGE.parent / Path(*module.split("."))).with_suffix(".py").read_text(encoding="utf-8")
+        for word in ("sealed.db", "run_types", "SEALED_DB_PATH"):
+            assert word not in source, f"{module} mentions {word}"
+
+
+def test_ground_truth_file_is_not_opened_during_an_audit(tmp_path, monkeypatch):
+    """The import tests read the code; this one watches a real audit with a filled table sitting beside the ledger."""
+    import sqlite3
+    from canary import sealed
+
+    led = Ledger(tmp_path / "ledger.db")
+    runs = tmp_path / "runs"
+    add_ran_run(led, runs)
+    table = sealed.SealedTable(tmp_path / "sealed.db")
+    table.seal("r1", sealed.CANARY_MEASURE, "B03", "obvious")
+    client, _ = make_client(tmp_path, [PASS_REPLY])
+    opened = []
+    real_connect = sqlite3.connect
+    monkeypatch.setattr(sqlite3, "connect", lambda path, *a, **k: opened.append(Path(path)) or real_connect(path, *a, **k))
+    report = skeptic.audit_pending(client, led, runs)
+    assert len(report.audited) == 1 and opened
+    assert table.path not in opened
+
+
+def test_ledger_database_has_no_table_of_run_types(tmp_path):
+    import sqlite3
+    from contextlib import closing
+    from canary import sealed
+
+    led = Ledger(tmp_path / "ledger.db")
+    sealed.SealedTable(tmp_path / "sealed.db").seal("r1", sealed.CONTROL)
+    with closing(sqlite3.connect(led.path)) as db:
+        assert [r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")] == ["ledger"]
+
+
 def test_prompt_never_mentions_the_test_situation():
     blinded = blinding.BlindedRun("x = 1", "{}", "{}")
     text = (prompts.skeptic_prompt(blinded, config.load_yaml("bug_classes.yaml")) + prompts.SKEPTIC_SYSTEM).lower()

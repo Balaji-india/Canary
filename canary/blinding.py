@@ -18,6 +18,7 @@ RESULT_KEYS = ("dataset", "metric", "seeds", "control", "treatment", "class_bala
 PREREG_KEYS = ("hypothesis", "dataset", "metric", "control_config", "treatment_config", "direction", "min_effect",
                "predicted_effect", "confidence", "seeds", "test_size", "alpha")
 _DOCSTRING_OWNERS = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+LENGTH_CLASS_LINES = 10
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,11 @@ def blind_script(source: str) -> str:
     tree = ast.parse(source)
     _strip_docstrings(tree)
     return ast.unparse(tree)
+
+
+def length_class(blinded_script: str) -> int:
+    """A coarse size label. If it differed between run types, script length alone could give a run's type away."""
+    return len(blinded_script.splitlines()) // LENGTH_CLASS_LINES
 
 
 def blind_results(results: dict) -> str:
