@@ -23,7 +23,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M2 Controls and trust**
 - [x] 2.1 Saboteur: 10 classes × 2 tiers
   - Each of the 20 variants has an oracle that watches the running script: false on the clean script, true on the sabotaged one.
-  - `sabotage-check` on 6 real configs (6 datasets, 6 models, 4 metrics): 114 of 120 variants ran with 0 crashes; 6 B06 variants were correctly refused as not applicable. `pytest -q`: 325 passed. See Saboteur effect sizes below.
+  - `sabotage-check` on 6 real configs (6 datasets, 6 models, 4 metrics): 114 of 120 variants ran with 0 crashes; 6 B06 variants were correctly refused as not applicable. `pytest -q`: 325 passed. These counts predate the realism pass; see Saboteur effect sizes below.
 - [ ] 2.2 Controls, shams, sealed run-type table
 - [ ] 2.3 Trust statistics
 - [ ] 2.4 Run mixer, calibrate command, RQ1
@@ -127,16 +127,22 @@ None.
   cut them silently. `science` now audits automatically; `audit` reviews anything still waiting.
 
 - **Ground truth for a canary means "the method is broken", not "the score changed"** (see Saboteur effect sizes).
-- **B01 subtle fits an imputer and a scaler,** not only an imputer as first catalogued: no cached dataset has missing
-  numeric values, so an imputer alone would do nothing. `bug_classes.yaml` is updated.
+- **B01 fits the arm's preprocessor on train and test rows, and that fit is used.** An earlier version scaled X before
+  the split, and the arm's own scaler undid it exactly. B01 is refused if neither arm has a scaler.
+- **B10 uses the labels:** it drops rows the model got wrong (obvious: all; subtle: the most confidently wrong half), keeping
+  one row per class so roc_auc cannot crash. Label-blind dropping lowered as many scores as it raised.
+- **B09 subtle measures instead of using a fixed value:** it tries a ladder, mildest first, and keeps the first setting that
+  lowers this control by at least `min_effect_floor`, else `NotApplicable`. So `sabotage` takes seconds for this variant.
+- **Impact is kept out of run folders,** because it reveals a canary. It stays in `CanaryRecord`, which is returned by
+  `run_canary` but not stored yet: Mission 2.2 stores it in the sealed table.
+- **Harmful includes bugs that lower a score,** because they falsify a result too (B08, B09).
 - **B06 and B09 change the config as well as the script,** so the pre-registration must be built from `Sabotaged.config`.
   A hypothesis sentence may still name the old metric; Mission 2.2 must check this does not act as a clue.
 - **`why_not_applicable` decides where a bug can go.** B06 obvious needs a class ratio above 3:1 (only `blood-transfusion`,
-  `pc1` and `ozone-level-8hr`) and a non-accuracy metric; B06 subtle needs two classes; B05 needs 2 seeds. B09 raises
+  `pc1` and `ozone-level-8hr`) and a non-accuracy metric; B06 subtle needs two classes; B05 needs 2 seeds. B09 obvious raises
   `TransformError` if the control already has the crippled values. The mixer must handle both errors.
 - **Bugs that favour one arm hit the treatment** (B04, B05), because that is how a bug yields a false "the treatment helped".
-- **B05 subtle fills dropped seeds with the mean of the kept ones,** and **B10 obvious keeps a quarter of the rare rows,**
-  because `results.json` needs one value per seed and roc_auc would crash with no rare rows.
+- **B05 subtle fills dropped seeds with the mean of the kept ones,** because `results.json` needs one value per seed.
 - **`sabotage-check` runs in a temporary folder,** so it stays out of the ledger and the crash rate.
 
 ## Scientist model comparison
@@ -168,20 +174,21 @@ prompt. All 15 replies were valid, and every new experiment ran. Nothing was wri
   - **Decision (option A):** leave the prompt and template unchanged, and measure specificity with controls in Mission
     2.4. Hints wait for Mission 6.4, so RQ1 keeps an unhinted baseline. In the report, take the numbers from the ledger.
 
-## Saboteur effect sizes (Mission 2.1)
-A planted bug breaks the method in every variant, but it does not always move the numbers. This matters for reading
-recall, so **Mission 2.4 should record each canary's score change from its clean twin and report recall with it.** Re-run
-any time with `python -m canary.cli sabotage-check <config>`. Findings from the 6 configs:
-- **B01 changes no score when the config has a scaler (0.0000 on all 6 configs, in both tiers).** The arm's own scaler,
-  refitted on train, exactly undoes the earlier full-data scaling; a test pins this. On `pc1` without a scaler, scores did
-  move, but the clean run is unscaled there, so that mostly shows scaling, not leakage. B01 canaries measure whether a
-  reviewer sees the violation, not whether it harmed a result. Keep this in mind beside the B01 false-alarm finding.
-- **B10 often lowers the score rather than making the test easier.** It rose on some configs and fell on others, e.g.
-  subtle on `pc1` roc_auc -0.17 and obvious on `credit-g` f1 -0.07 in the treatment arm. Its name overstates what it does.
-- **B09 subtle does not always cripple:** the control improved on `pc1` svm (+0.0083) and `wine` naive Bayes (+0.0044).
-- **B02 subtle is not numerically subtle:** the score reaches 1.0000 on 3 configs, same as obvious, which is itself a clue.
-- **B04 and B05 subtle can do nothing on tied or small test sets,** e.g. `wine` (B05 subtle +0.0000).
-- **B06 rows compare two different metrics,** because the bug changes the metric, so their score change is not an inflation size.
+## Saboteur effect sizes (after the realism pass)
+A planted bug breaks the method in every variant, but it does not always move the numbers. `saboteur/impact.py` records
+this for each canary against its clean twin (same seeds and splits): change in control, treatment and effect, and `size`,
+the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floor` (0.005). Re-run with
+`python -m canary.cli sabotage-check <config> [--json file]`.
+- **6 configs, 114 canaries:** 95 harmful, 17 harmless, 2 unmeasured, 0 failed.
+- **B01 stays small and has no fixed direction, even with the leaky fit used:** largest change -0.006 to +0.008, harmful on
+  2 of 6 configs per tier. A scaler's statistics barely differ between train and all rows, so this is what scaler leakage
+  really does here. Both tiers give identical numbers, because they differ only in hiding the fit in a helper.
+- **B02 subtle stays below a perfect score** on all 6 configs (largest treatment or control change +0.238, was +0.563).
+- **B09 subtle, 112 model/dataset/metric combinations (3 seeds):** 102 lowered the control by at least 0.005, 0 did not, 10
+  refused. 6 of the 10 are `gaussian_nb` with roc_auc, where the settings tried do not lower the score. The largest drop is -0.855.
+- **B10, the same 112 combinations:** raised the treatment score on 110 of 112 in each tier, 0 lowered it, 2 tied (`svm` on
+  `wine` and `ozone-level-8hr` balanced_accuracy). B10 obvious often gives a very high score, which is itself a clue at that tier.
+- **B06 obvious is unmeasured,** because the bug is the metric, so its twin's numbers are on another scale.
 
 ## Fixes
 - `qwen3:4b` crashes and "token repeat limit" aborts from the open `params` schema: fixed with one schema form per model.
@@ -220,9 +227,14 @@ any time with `python -m canary.cli sabotage-check <config>`. Findings from the 
 - **Mission 2.2 controls must not contain a bug by accident.** Accuracy on a dataset above 3:1 is identical to a B06 obvious
   canary, so a control with it would be labelled clean and buggy at once. Exclude those configs, and treat such a real run
   as a real bug. A config resembling B09 has the same problem, with a less clear line.
+- **Mission 2.2 must decide where twin runs live.** `run_canary` writes the twin to `runs_dir`, so in `data/runs/` it would
+  count in `crash_rate()`. Mission 2.4 should report recall by harmful and harmless using `impact_class`.
+- **B09 subtle cannot be planted on every experiment:** the mixer must catch `NotApplicable` and choose another.
+- **Mission 5.1's B10 tripwire ("test size smaller than declared") will not fire:** B10 now drops rows inside `run_arm`, so
+  `split_sizes` stays normal. It needs a different check.
 - **Mission 5.1's B07 tripwire needs care:** `blood-transfusion` has 246 duplicate feature rows and `pc1` 161 before any
   bug, so row overlap between splits is normal there. Compare against the overlap expected from the dataset.
-- **The test suite is close to its limit** (about 29 s of 30 s); new test files will need the slow sandbox tests trimmed.
+- **The test suite is close to its limit** (27.5-30.5 s of 30 s across recent runs, so it went over once); new test files will need the slow sandbox tests trimmed.
 - **Mission 2.2 must add the blinding test from DESIGN section 5** (control and sham indistinguishable by length class
   and key set), because shams do not exist yet. It must also check that `ledger.py` and the other modules `skeptic.py`
   imports do not read the sealed table: the current import test checks direct imports only.
@@ -238,4 +250,4 @@ any time with `python -m canary.cli sabotage-check <config>`. Findings from the 
 ## Next 3 actions
 1. Run `/mission 2.2` (controls, shams, sealed run-type table, blinding test).
 2. Run `/mission 2.3` (trust statistics).
-3. Run `/mission 2.4` (mixer, calibrate, RQ1), recording each canary's score change from its clean twin.
+3. Run `/mission 2.4` (mixer, calibrate, RQ1), with recall reported separately for harmful and harmless canaries.

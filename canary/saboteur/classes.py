@@ -35,6 +35,8 @@ def why_not_applicable(bug_id: str, tier: str, config: dict) -> str | None:
         raise KeyError(f"unknown bug class {bug_id!r}")
     if tier not in TIERS:
         raise KeyError(f"unknown tier {tier!r}")
+    if bug_id == "B01" and not (config["control"]["preprocessing"] or config["treatment"]["preprocessing"]):
+        return "with no scaler, fitting on all rows changes no value"
     if bug_id == "B05" and len(config["seeds"]) < 2:
         return "picking among seeds needs at least 2 seeds"
     if bug_id == "B06":

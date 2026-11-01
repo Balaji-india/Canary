@@ -47,6 +47,12 @@ def workdir(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     # B06 reads class balance from the cache, which tests must not depend on.
     monkeypatch.setattr(classes, "class_counts", lambda dataset: [4, 1])
+
+    def first_rung_is_weaker(config):
+        arm = config["control"]
+        return 0.5 if transforms.WEAKENING_LADDER[arm["model"]][0].items() <= arm["params"].items() else 0.9
+
+    monkeypatch.setattr(transforms, "_control_score", first_rung_is_weaker)  # B09 subtle must not run a sandbox here
     return tmp_path
 
 
@@ -125,7 +131,7 @@ def b01_fits_on_all_rows(trace, results, namespace, config):
 
 def b02_feature_tracks_label(trace, results, namespace, config):
     X, y, _ = namespace["load_data"]()
-    return any(abs(np.corrcoef(X[column], y)[0, 1]) > 0.9 for column in X.columns)
+    return any(abs(np.corrcoef(X[column], y)[0, 1]) > 0.3 for column in set(X.columns) - {"a", "b", "c"})
 
 
 def b03_scores_only_fitted_rows(trace, results, namespace, config):
@@ -229,12 +235,76 @@ def test_oracle_sees_the_bug_only_in_the_sabotaged_script(bug_id, tier, workdir,
 
 
 @pytest.mark.parametrize("tier", ["obvious", "subtle"])
-def test_b01_changes_no_score_when_the_config_has_a_scaler(tier, workdir, monkeypatch):
-    """Documents a real limit: the arm's scaler, refitted on train, undoes the earlier full-data scaling."""
+def test_b01_leaky_fit_is_the_one_the_model_uses(tier, workdir, monkeypatch):
+    """A train-only refit after the leak would undo it exactly, so there must be none, and the model's inputs must change."""
     config = make_config("logistic_regression", {"C": 1.0, "max_iter": 500})
-    _, clean, _ = execute(codegen.render_script(config), monkeypatch)
-    _, planted, _ = execute(transforms.sabotage(config, "B01", tier).script, monkeypatch)
-    assert planted["treatment"] == pytest.approx(clean["treatment"], abs=1e-9)
+    clean, _, _ = execute(codegen.render_script(config), monkeypatch)
+    planted, _, _ = execute(transforms.sabotage(config, "B01", tier).script, monkeypatch)
+    assert N_TRAIN not in planted.prep_fit_rows
+    assert not np.allclose(planted.model_fits[0], clean.model_fits[0])
+
+
+def test_b01_refused_when_no_arm_has_a_scaler():
+    config = make_config()
+    config["control"]["preprocessing"] = config["treatment"]["preprocessing"] = []
+    assert not classes.applicable("B01", "obvious", config)
+
+
+def mean_score(config, script, arm, monkeypatch):
+    return np.mean(execute(script, monkeypatch)[1][arm])
+
+
+def test_b02_subtle_helps_without_a_perfect_score(workdir, monkeypatch):
+    config = make_config()
+    clean = mean_score(config, codegen.render_script(config), "treatment", monkeypatch)
+    planted = mean_score(config, transforms.sabotage(config, "B02", "subtle").script, "treatment", monkeypatch)
+    assert clean < planted < 1.0
+
+
+def test_b09_subtle_lowers_the_control_when_measured_for_real(workdir, monkeypatch):
+    config = make_config()
+    monkeypatch.setattr(transforms, "_control_score", lambda c: mean_score(c, codegen.render_script(c), "control", monkeypatch))
+    clean = mean_score(config, codegen.render_script(config), "control", monkeypatch)
+    assert mean_score(config, transforms.sabotage(config, "B09", "subtle").script, "control", monkeypatch) <= clean - 0.005
+
+
+def ladder_scores(monkeypatch, score_of_rung):
+    """Give the clean control 0.8, and each rung of the decision_tree ladder the score the test chooses."""
+    ladder = transforms.WEAKENING_LADDER["decision_tree"]
+
+    def fake(config):
+        for position, rung in enumerate(ladder):
+            if rung.items() <= config["control"]["params"].items():
+                return score_of_rung(position)
+        return 0.8
+
+    monkeypatch.setattr(transforms, "_control_score", fake)
+    return ladder
+
+
+def test_b09_subtle_takes_the_mildest_setting_that_really_lowers_the_score(workdir, monkeypatch):
+    ladder = ladder_scores(monkeypatch, lambda position: [0.9, 0.798, 0.7, 0.1][position])  # better, too small, enough
+    assert ladder[2].items() <= transforms.sabotage(make_config(), "B09", "subtle").config["control"]["params"].items()
+
+
+def test_b09_subtle_skips_a_setting_that_crashes(workdir, monkeypatch):
+    ladder = ladder_scores(monkeypatch, lambda position: [None, 0.7, 0.6, 0.5][position])
+    assert ladder[1].items() <= transforms.sabotage(make_config(), "B09", "subtle").config["control"]["params"].items()
+
+
+def test_b09_subtle_refused_when_nothing_weakens_the_control(workdir, monkeypatch):
+    ladder_scores(monkeypatch, lambda position: 0.95)
+    with pytest.raises(classes.NotApplicable):
+        transforms.sabotage(make_config(), "B09", "subtle")
+
+
+@pytest.mark.parametrize("tier", ["obvious", "subtle"])
+def test_b10_raises_the_score_and_keeps_every_class(tier, workdir, monkeypatch):
+    config = make_config()
+    clean = mean_score(config, codegen.render_script(config), "treatment", monkeypatch)
+    trace, results, _ = execute(transforms.sabotage(config, "B10", tier).script, monkeypatch)
+    assert np.mean(results["treatment"]) > clean
+    assert all(len(np.unique(y)) == 2 for _, _, y, _ in trace.scores)
 
 
 def test_catalog_and_transforms_cover_the_same_20_variants():
@@ -288,14 +358,14 @@ def test_model_dependent_bugs_run_on_every_model(model, params, workdir, monkeyp
     """One seed is enough here: this only checks that scikit-learn accepts what the tables and helpers do."""
     config = make_config(model, params)
     config["seeds"] = [0]
-    for variant in [("B04", "subtle"), ("B09", "obvious"), ("B09", "subtle"), ("B10", "subtle")]:
+    for variant in [("B04", "subtle"), ("B09", "obvious"), ("B10", "subtle")]:
         _, results, _ = execute(transforms.sabotage(config, *variant).script, monkeypatch)
         assert len(results["treatment"]) == 1
 
 
 def test_tables_cover_every_model():
     assert set(transforms.SEARCH_SPACE) == codegen.MODELS
-    assert set(transforms.CRIPPLED["obvious"]) == set(transforms.CRIPPLED["subtle"]) == codegen.MODELS
+    assert set(transforms.CRIPPLED) == set(transforms.WEAKENING_LADDER) == codegen.MODELS
 
 
 def test_weak_baseline_only_touches_the_control_arm(workdir):

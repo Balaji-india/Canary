@@ -16,7 +16,7 @@ import yaml
 
 from canary import config, datasets, ledger, llm, sandbox, scientist, skeptic
 from canary.saboteur import classes as bug_classes
-from canary.saboteur import transforms
+from canary.saboteur import impact, transforms
 
 REQUIRED_PACKAGES = ["numpy", "pandas", "scipy", "scikit-learn", "pyyaml", "python-dotenv",
                      "sentence-transformers", "matplotlib", "streamlit", "pytest", "ollama"]
@@ -219,45 +219,38 @@ def cmd_audit(_args: argparse.Namespace) -> int:
     return code
 
 
-def _arm_means(record: dict, runs_dir: Path) -> tuple[float, float]:
-    results = json.loads((runs_dir / record["run_id"] / sandbox.RESULTS_NAME).read_text(encoding="utf-8"))
-    return statistics.fmean(results["control"]), statistics.fmean(results["treatment"])
-
-
 def cmd_sabotage_check(args: argparse.Namespace) -> int:
-    """Run every bug variant on real data and show how far each one moves the numbers from the clean run.
+    """Run every bug variant on real data and show its impact: how far it moves the numbers from its clean twin.
 
     Runs go to a temporary folder: these are checks of the Saboteur, not experiments, so they must stay out of the
-    crash rate and the ledger. A variant that barely moves the numbers is still a bug in the code, but it is worth knowing.
+    crash rate and the ledger.
     """
     experiment = yaml.safe_load(Path(args.path).read_text(encoding="utf-8"))
+    print(f"{experiment['dataset']}, {experiment['control']['model']}, {experiment['metric']}")
+    print(f"{'variant':<12} {'status':<14} {'d_control':>10} {'d_treat':>8} {'d_effect':>9}  class")
+    failures, records = 0, []
     with tempfile.TemporaryDirectory() as folder:
-        runs_dir = Path(folder)
-        clean = sandbox.run_config(experiment, runs_dir)
-        if clean["status"] != sandbox.STATUS_OK:
-            print(f"The clean run failed: {clean['status']} ({clean['reason']})")
-            return 1
-        clean_control, clean_treatment = _arm_means(clean, runs_dir)
-        print(f"{experiment['dataset']}, {experiment['control']['model']}, {experiment['metric']}: "
-              f"clean control {clean_control:.4f}, treatment {clean_treatment:.4f}")
-        print(f"{'variant':<12} {'status':<14} {'control':>8} {'treatment':>9} {'d_control':>10} {'d_treat':>8}")
-        failures = 0
         for bug_id, tier in sorted(transforms.TRANSFORMS):
             label = f"{bug_id} {tier}"
             reason = bug_classes.why_not_applicable(bug_id, tier, experiment)
             if reason:
                 print(f"{label:<12} skipped: {reason}")
                 continue
-            planted = transforms.sabotage(experiment, bug_id, tier)
-            record = sandbox.run_config(planted.config, runs_dir, script=planted.script)
-            if record["status"] != sandbox.STATUS_OK:
-                failures += 1
-                last = record["stderr_tail"].strip().splitlines()[-1:] or [record["reason"]]
-                print(f"{label:<12} {record['status']:<14} {last[0][:90]}")
+            try:
+                record = impact.run_canary(experiment, bug_id, tier, Path(folder))
+            except bug_classes.NotApplicable as exc:
+                print(f"{label:<12} skipped: {exc}")
                 continue
-            control, treatment = _arm_means(record, runs_dir)
-            print(f"{label:<12} {'ok':<14} {control:>8.4f} {treatment:>9.4f} "
-                  f"{control - clean_control:>+10.4f} {treatment - clean_treatment:>+8.4f}")
+            records.append(record.to_dict())
+            found = record.impact
+            if found is None:
+                failures += 1
+                print(f"{label:<12} {record.status:<14} {record.reason}")
+                continue
+            print(f"{label:<12} {'ok':<14} {found['control']:>+10.4f} {found['treatment']:>+8.4f} "
+                  f"{found['effect']:>+9.4f}  {impact.impact_class(found)}")
+    if args.json:
+        Path(args.json).write_text(json.dumps(records, indent=1), encoding="utf-8")
     print(f"sabotage-check: {'all ran' if not failures else f'{failures} FAILED'}")
     return 1 if failures else 0
 
@@ -296,6 +289,7 @@ def main(argv: list[str] | None = None) -> int:
     run_parser.set_defaults(func=cmd_run_config)
     sabotage_parser = sub.add_parser("sabotage-check", help="run every bug variant on one config and show its effect")
     sabotage_parser.add_argument("path")
+    sabotage_parser.add_argument("--json", help="also save the canary records to this file")
     sabotage_parser.set_defaults(func=cmd_sabotage_check)
     args = parser.parse_args(argv)
     return args.func(args)
