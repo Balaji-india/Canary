@@ -132,10 +132,12 @@ def _status_of(outcome: ScriptOutcome, run_dir: Path, config: dict) -> tuple[str
     return (STATUS_INVALID_RESULTS, problem) if problem else (STATUS_OK, None)
 
 
-def run_config(config: dict, runs_dir: Path = RUNS_DIR, timeout_s: float = DEFAULT_TIMEOUT_S) -> dict:
+def run_config(config: dict, runs_dir: Path = RUNS_DIR, timeout_s: float = DEFAULT_TIMEOUT_S,
+               script: str | None = None) -> dict:
     """Generate and run one experiment, and return its record. Failures are recorded, never raised.
 
-    The run ID is a random UUID so that an ID reveals nothing about a run's type or order.
+    The run ID is a random UUID so that an ID reveals nothing about a run's type or order. `script` runs given text
+    in place of the rendered template, which is how a sabotaged run goes through the same path as any other.
     """
     run_id = str(uuid.uuid4())
     run_dir = runs_dir / run_id
@@ -143,11 +145,11 @@ def run_config(config: dict, runs_dir: Path = RUNS_DIR, timeout_s: float = DEFAU
     record = {"run_id": run_id, "status": STATUS_OK, "reason": None, "returncode": None, "seconds": None,
               "stderr_tail": ""}
     try:
-        script = codegen.prepare_run(config, run_dir)
+        script_path = codegen.prepare_run(config, run_dir, script)
     except (codegen.ConfigError, FileNotFoundError) as exc:  # FileNotFoundError: dataset was never cached
         record.update(status=STATUS_INVALID_CONFIG, reason=str(exc))
     else:
-        outcome = run_script(script, run_dir, timeout_s)
+        outcome = run_script(script_path, run_dir, timeout_s)
         status, reason = _status_of(outcome, run_dir, config)
         record.update(status=status, reason=reason, returncode=outcome.returncode,
                       seconds=round(outcome.seconds, 3), stderr_tail=outcome.stderr_tail)

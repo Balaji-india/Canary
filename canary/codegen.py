@@ -111,13 +111,15 @@ def render_script(config: dict) -> str:
                                target_column=repr(datasets.TARGET_COLUMN))
 
 
-def prepare_run(config: dict, run_dir: Path) -> Path:
+def prepare_run(config: dict, run_dir: Path, script: str | None = None) -> Path:
     """Write the script, the config and a copy of the dataset to run_dir. Returns the script path.
 
     The dataset copy makes a run folder complete on its own: the script does not import Canary, needs no paths
-    from outside, and can be re-run later even if the cache changes.
+    from outside, and can be re-run later even if the cache changes. `script` replaces the rendered text for a run
+    the Saboteur has changed; the config is still validated, so it fails the same way as any other run.
     """
-    script = render_script(config)
+    rendered = render_script(config)
+    script = rendered if script is None else script
     run_dir.mkdir(parents=True, exist_ok=True)
     datasets.load_dataset(config["dataset"]).to_csv(run_dir / DATASET_NAME, index=False)
     (run_dir / CONFIG_NAME).write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")

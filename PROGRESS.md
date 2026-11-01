@@ -21,7 +21,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
   - `pytest -q`: 220 passed, including the test that fails if `skeptic.py` or `blinding.py` imports anything off their allowlist.
 
 **M2 Controls and trust**
-- [ ] 2.1 Saboteur: 10 classes × 2 tiers
+- [x] 2.1 Saboteur: 10 classes × 2 tiers
+  - Each of the 20 variants has an oracle that watches the running script: false on the clean script, true on the sabotaged one.
+  - `sabotage-check` on 6 real configs (6 datasets, 6 models, 4 metrics): 114 of 120 variants ran with 0 crashes; 6 B06 variants were correctly refused as not applicable. `pytest -q`: 325 passed. See Saboteur effect sizes below.
 - [ ] 2.2 Controls, shams, sealed run-type table
 - [ ] 2.3 Trust statistics
 - [ ] 2.4 Run mixer, calibrate command, RQ1
@@ -124,6 +126,19 @@ None.
 - **`llm.call` refuses prompts that may not fit,** at (num_ctx - num_predict) × 3 characters, instead of letting Ollama
   cut them silently. `science` now audits automatically; `audit` reviews anything still waiting.
 
+- **Ground truth for a canary means "the method is broken", not "the score changed"** (see Saboteur effect sizes).
+- **B01 subtle fits an imputer and a scaler,** not only an imputer as first catalogued: no cached dataset has missing
+  numeric values, so an imputer alone would do nothing. `bug_classes.yaml` is updated.
+- **B06 and B09 change the config as well as the script,** so the pre-registration must be built from `Sabotaged.config`.
+  A hypothesis sentence may still name the old metric; Mission 2.2 must check this does not act as a clue.
+- **`why_not_applicable` decides where a bug can go.** B06 obvious needs a class ratio above 3:1 (only `blood-transfusion`,
+  `pc1` and `ozone-level-8hr`) and a non-accuracy metric; B06 subtle needs two classes; B05 needs 2 seeds. B09 raises
+  `TransformError` if the control already has the crippled values. The mixer must handle both errors.
+- **Bugs that favour one arm hit the treatment** (B04, B05), because that is how a bug yields a false "the treatment helped".
+- **B05 subtle fills dropped seeds with the mean of the kept ones,** and **B10 obvious keeps a quarter of the rare rows,**
+  because `results.json` needs one value per seed and roc_auc would crash with no rare rows.
+- **`sabotage-check` runs in a temporary folder,** so it stays out of the ledger and the crash rate.
+
 ## Scientist model comparison
 5 proposals per model using the real prompt, schema, checks and sandbox, with earlier hypotheses fed into each next
 prompt. All 15 replies were valid, and every new experiment ran. Nothing was written to the ledger. The sample is small:
@@ -140,6 +155,33 @@ prompt. All 15 replies were valid, and every new experiment ran. Nothing was wri
 | Share on GPU | 100% | 47% | 76% |
 
 `qwen3.5:9b` only swapped scalers on tree models, which barely matters (effects +0.0016 and +0.0007).
+
+## Early findings for the report
+- **The Skeptic confidently misreads correct preprocessing as B01 leakage.** `gemma3:4b` flagged B01 at confidence 0.95
+  on 2 of 2 clean runs (ledger entries 11 and 12, runs `1875ec26` and `ebc3bccd`). Its evidence describes the correct
+  procedure as the bug, e.g. "the test data is transformed using information from the training data".
+  - **Checked by hand and by a syntax-tree scan of fit/transform calls:** both scripts split first, then call
+    `fit_transform(X_train)` and `transform(X_test)`. Re-blinding each script reproduces the hash stored with its audit,
+    so this is the code the Skeptic reviewed. Only labels are used before the split (class counts, positive class, `stratify`).
+  - **Limits:** this is an anecdote from 2 runs, not a false-alarm rate. Why the model does this is untested. Possible
+    triggers are the names-only prompt, bug class order, and `standard_scaler` being in both configs.
+  - **Decision (option A):** leave the prompt and template unchanged, and measure specificity with controls in Mission
+    2.4. Hints wait for Mission 6.4, so RQ1 keeps an unhinted baseline. In the report, take the numbers from the ledger.
+
+## Saboteur effect sizes (Mission 2.1)
+A planted bug breaks the method in every variant, but it does not always move the numbers. This matters for reading
+recall, so **Mission 2.4 should record each canary's score change from its clean twin and report recall with it.** Re-run
+any time with `python -m canary.cli sabotage-check <config>`. Findings from the 6 configs:
+- **B01 changes no score when the config has a scaler (0.0000 on all 6 configs, in both tiers).** The arm's own scaler,
+  refitted on train, exactly undoes the earlier full-data scaling; a test pins this. On `pc1` without a scaler, scores did
+  move, but the clean run is unscaled there, so that mostly shows scaling, not leakage. B01 canaries measure whether a
+  reviewer sees the violation, not whether it harmed a result. Keep this in mind beside the B01 false-alarm finding.
+- **B10 often lowers the score rather than making the test easier.** It rose on some configs and fell on others, e.g.
+  subtle on `pc1` roc_auc -0.17 and obvious on `credit-g` f1 -0.07 in the treatment arm. Its name overstates what it does.
+- **B09 subtle does not always cripple:** the control improved on `pc1` svm (+0.0083) and `wine` naive Bayes (+0.0044).
+- **B02 subtle is not numerically subtle:** the score reaches 1.0000 on 3 configs, same as obvious, which is itself a clue.
+- **B04 and B05 subtle can do nothing on tied or small test sets,** e.g. `wine` (B05 subtle +0.0000).
+- **B06 rows compare two different metrics,** because the bug changes the metric, so their score change is not an inflation size.
 
 ## Fixes
 - `qwen3:4b` crashes and "token repeat limit" aborts from the open `params` schema: fixed with one schema form per model.
@@ -175,6 +217,12 @@ prompt. All 15 replies were valid, and every new experiment ran. Nothing was wri
   calling correct fit-on-train, transform-on-test "leakage". Its earlier trial on a clean script was also a false flag.
   This is too few runs to conclude anything, and the prompt was deliberately not tuned. Mission 2.4 measures it. If
   specificity is this low, the trust gate will reject most findings, so RQ1 is the first thing to check.
+- **Mission 2.2 controls must not contain a bug by accident.** Accuracy on a dataset above 3:1 is identical to a B06 obvious
+  canary, so a control with it would be labelled clean and buggy at once. Exclude those configs, and treat such a real run
+  as a real bug. A config resembling B09 has the same problem, with a less clear line.
+- **Mission 5.1's B07 tripwire needs care:** `blood-transfusion` has 246 duplicate feature rows and `pc1` 161 before any
+  bug, so row overlap between splits is normal there. Compare against the overlap expected from the dataset.
+- **The test suite is close to its limit** (about 29 s of 30 s); new test files will need the slow sandbox tests trimmed.
 - **Mission 2.2 must add the blinding test from DESIGN section 5** (control and sham indistinguishable by length class
   and key set), because shams do not exist yet. It must also check that `ledger.py` and the other modules `skeptic.py`
   imports do not read the sealed table: the current import test checks direct imports only.
@@ -188,6 +236,6 @@ prompt. All 15 replies were valid, and every new experiment ran. Nothing was wri
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Run `/mission 2.1` (Saboteur: 10 bug classes × 2 tiers).
-2. Run `/mission 2.2` (controls, shams, sealed run-type table, blinding test).
-3. Run `/mission 2.3` (trust statistics), then 2.4 to measure the Skeptic's false alarms.
+1. Run `/mission 2.2` (controls, shams, sealed run-type table, blinding test).
+2. Run `/mission 2.3` (trust statistics).
+3. Run `/mission 2.4` (mixer, calibrate, RQ1), recording each canary's score change from its clean twin.

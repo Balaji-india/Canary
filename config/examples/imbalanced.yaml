@@ -1,0 +1,7 @@
+# An imbalanced experiment like the Scientist's real proposals, used by `sabotage-check`.
+dataset: blood-transfusion-service-center
+metric: balanced_accuracy
+seeds: [0, 1, 2, 3, 4]
+test_size: 0.25
+control:   {model: gradient_boosting, params: {n_estimators: 100, learning_rate: 0.1, max_depth: 3}, preprocessing: [standard_scaler]}
+treatment: {model: gradient_boosting, params: {n_estimators: 100, learning_rate: 0.2, max_depth: 3}, preprocessing: [standard_scaler]}
