@@ -69,7 +69,12 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-None. Mission 2.4 is complete, and no mission is part-way through.
+No mission is part-way through; Mission 2.4 is the last one complete (`pytest -q` is now 510 passed in 29.92 s, right at the 30 s limit).
+
+**Reviewer study, planned but not started:** RQ1 for Skeptic B by re-auditing `rq1-full`, a 40-run `gemma3:4b` shuffled-order diagnostic, then `/compare`.
+- Stopped at: plan written to `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. No code changed, no audits run, no results exist yet.
+- Student's choices: re-audit 40 existing runs (not fresh experiments) for the diagnostic, and store second opinions in the main ledger by allowing `audited → audited` and `audited → audit_failed`.
+- `eval/results/rq1_skeptic_a.json` and `eval/figures/rq1_*.png` stay untouched as the unhinted baseline. Running `eval.rq1` for another role without a suffix would overwrite those figures until the plan's fix is in.
 
 ## Running or interrupted campaigns
 None.
@@ -300,6 +305,6 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Decide how to get a reviewer that discriminates. `/compare` Skeptic B (`phi4-mini`) through this same RQ1 now, ahead of Mission 5.2, against a prompt variant, keeping this result as the baseline.
+1. First, carry out the plan saved at `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`: Skeptic B's RQ1 on the same `rq1-full` runs, the `gemma3:4b` shuffled-order diagnostic, then `/compare` both reviewers. Use the result to decide how to get a reviewer that discriminates, keeping the original RQ1 as the baseline.
 2. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.
 3. Run `/mission 3.2` (Brier score, reliability diagram, calibration feedback).
