@@ -242,6 +242,7 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **B06 obvious is unmeasured,** because the bug is the metric, so its twin's numbers are on another scale.
 
 ## Fixes
+- Status-line tip said "a campaign was interrupted" after a finished `calibrate` batch: `coach_state.py` now recognises the batch's closing line, reads only the log's last line, and still treats a `STOPPED` batch as interrupted.
 - Stop hook said "something failed?" whenever a message used the word "failed": it now needs a traceback header, a pytest count above zero, or a line starting `Error:`.
 - `qwen3:4b` crashes and "token repeat limit" aborts from the open `params` schema: fixed with one schema form per model.
 - A retried proposal replayed the cached rejected reply: each retry prompt now carries its attempt number.

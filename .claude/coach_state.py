@@ -40,6 +40,11 @@ GENERAL_TIPS = [
 ]
 
 
+# The closing line of canary.mixer.run_batch. Anchored at the end because a pass that gave up early
+# adds ". STOPPED: <why>" and still needs resuming.
+BATCH_FINISHED = re.compile(r"batch .+: \d+ audits stored, \d+ failed, \d+ runs with no results$")
+
+
 def project_root(start: str | None) -> Path:
     """Walk up from `start` to the folder that holds CLAUDE.md."""
     p = Path(start or ".").resolve()
@@ -85,7 +90,9 @@ def campaign_state(root: Path) -> str | None:
         tail = log.read_text(encoding="utf-8", errors="ignore")[-2000:].lower()
     except OSError:
         return None
-    if "campaign finished" in tail or "campaign complete" in tail:
+    # Only the last line counts: an older batch's finish can still sit in the tail while a new batch runs.
+    last = tail.strip().rsplit("\n", 1)[-1]
+    if "campaign finished" in last or "campaign complete" in last or BATCH_FINISHED.search(last):
         return None
     return "running" if age < 180 else "interrupted"
 

@@ -12,6 +12,7 @@ from canary.ledger import Ledger
 from canary.saboteur import impact
 from canary.saboteur.classes import NotApplicable
 from canary.saboteur.transforms import TRANSFORMS
+from tests.test_coach_state import load_state
 from tests.test_llm import CFG, FakeProvider
 from tests.test_scientist import lock
 from tests.test_skeptic import RESULTS
@@ -201,6 +202,15 @@ def test_the_log_never_names_a_run_type(world):
     for word in ("canary", "control", "sham", "b01", "obvious", "subtle"):
         assert word not in text
     assert f"audit {SHORT}/{SHORT}" in text
+
+
+def test_status_line_sees_a_real_finished_batch_as_finished(world, tmp_path):
+    """Ties the status-line tip to what run_batch really writes, so rewording that line fails here."""
+    run(world, short_plan())
+    copy_path = tmp_path / "coach" / "data" / "runs" / "campaign.log"
+    copy_path.parent.mkdir(parents=True)
+    copy_path.write_text((world["runs"] / "campaign.log").read_text(encoding="utf-8"), encoding="utf-8")
+    assert load_state().campaign_state(tmp_path / "coach") is None
 
 
 def test_clone_keeps_its_base_wording_and_gets_new_seeds(world):
