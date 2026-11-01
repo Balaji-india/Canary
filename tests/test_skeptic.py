@@ -80,7 +80,8 @@ def test_no_import_chain_from_reviewer_code_reaches_ground_truth(start):
     reached = reachable_modules(start)
     assert "canary.ledger" in reached or start == "canary.blinding"  # proves the walk follows imports
     for module in reached:
-        assert module not in ("canary.sealed", "canary.controls") and not module.startswith("canary.saboteur"), module
+        assert module not in ("canary.sealed", "canary.controls", "canary.trust"), module
+        assert not module.startswith("canary.saboteur"), module
 
 
 def test_no_module_on_the_reviewer_path_names_the_sealed_file_or_table():

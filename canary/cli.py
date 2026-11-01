@@ -15,7 +15,7 @@ from pathlib import Path
 
 import yaml
 
-from canary import config, controls, datasets, ledger, llm, sandbox, scientist, skeptic
+from canary import config, controls, datasets, ledger, llm, sandbox, scientist, sealed, skeptic, trust
 from canary.saboteur import classes as bug_classes
 from canary.saboteur import impact, transforms
 
@@ -268,6 +268,87 @@ def cmd_controls_check(args: argparse.Namespace) -> int:
     return 0 if all(results) else 1
 
 
+def _posterior_row(label: str, p: trust.Posterior) -> str:
+    low, high = p.interval()
+    return f"  {label:<20} {p.successes:>4} of {p.n:<4} Beta({p.alpha}, {p.beta})  mean {p.mean:.3f}  90% [{low:.3f}, {high:.3f}]"
+
+
+def _print_trust(summary: trust.TrustSummary, excluded: dict[str, int]) -> None:
+    low, high = summary.overall_recall_interval
+    tested = len(summary.per_class) - len(summary.untested)
+    print("Recall per class (a catch is any flag, on canary-measure runs only):")
+    for bug_id, posterior in summary.per_class.items():
+        print(_posterior_row(bug_id, posterior) + ("  UNTESTED: prior only" if posterior.n == 0 else ""))
+    print(f"Overall recall: mean {summary.overall_recall_mean:.3f}, 90% [{low:.3f}, {high:.3f}], "
+          f"tested {tested} of {len(summary.per_class)} classes")
+    if summary.untested:
+        print(f"  Untested classes count at their prior, so this figure is not fully measured: {', '.join(summary.untested)}")
+    print(f"Worst tested class: {summary.worst_class or 'none tested yet'}")
+    print("Recall by impact:")
+    for group, posterior in summary.by_impact.items():
+        print(_posterior_row(group, posterior))
+    print("Recall by tier:")
+    for tier, posterior in summary.by_tier.items():
+        print(_posterior_row(tier, posterior))
+    print("Flagged and named the right class:")
+    print(_posterior_row("named right", summary.named_right))
+    print("Specificity (a success is a pass on a clean run):")
+    print(_posterior_row("controls", summary.control_specificity))
+    print(_posterior_row("shams", summary.sham_specificity))
+    print(_posterior_row("combined", summary.specificity))
+    print("Audits left out of recall and specificity: " + ", ".join(f"{k} {v}" for k, v in excluded.items()))
+
+
+# Fixed made-up outcomes for `trust --demo`: (bug, tier, harmful?, caught, missed). B03-B10 stay untested on purpose.
+DEMO_CANARIES = [("B01", "obvious", True, 8, 2), ("B02", "subtle", False, 3, 7)]
+DEMO_CLEAN = [(sealed.CONTROL, 9, 1), (sealed.SHAM, 7, 3)]  # (type, passed, flagged)
+
+
+def _fill_demo(table: sealed.SealedTable, led: ledger.Ledger) -> None:
+    """Write the synthetic outcomes through the real tables, so the demo exercises the same join as real data."""
+    count = 0
+
+    def add(run_type: str, flagged: bool, bug: str | None = None, tier: str | None = None, details: dict | None = None):
+        nonlocal count
+        count += 1
+        hypothesis, run_id = f"demo-h{count}", f"demo-r{count}"
+        table.seal(run_id, run_type, bug, tier, details=details)
+        for status in (ledger.PROPOSED, ledger.PREREGISTERED, ledger.RAN):
+            led.append(hypothesis, status, {})
+        audit = {"verdict": "flag" if flagged else "pass", "bug_class": bug or "B01" if flagged else None}
+        led.append(hypothesis, ledger.AUDITED, {"run_id": run_id, "role": trust.DEFAULT_ROLE, "audit": audit})
+
+    for bug, tier, harmful, caught, missed in DEMO_CANARIES:
+        details = {"impact": {"size": 0.1 if harmful else 0.0, "threshold": 0.005, "comparable": True}}
+        for flagged in [True] * caught + [False] * missed:
+            add(sealed.CANARY_MEASURE, flagged, bug, tier, details)
+    for run_type, passed, flagged_count in DEMO_CLEAN:
+        for flagged in [False] * passed + [True] * flagged_count:
+            add(run_type, flagged)
+
+
+def cmd_trust(args: argparse.Namespace) -> int:
+    """Print the reviewer's measured trust. Reads the sealed table, so this is never called from the reviewer's path."""
+    bug_ids = sorted(config.load_yaml("bug_classes.yaml"))
+    draws = config.load_yaml("campaign.yaml")["monte_carlo_draws"]
+    if args.demo:
+        print("SYNTHETIC DEMO: made-up outcomes, not a measurement of any reviewer.\n")
+        with tempfile.TemporaryDirectory() as folder:
+            table = sealed.SealedTable(Path(folder) / "sealed.db")
+            led = ledger.Ledger(Path(folder) / "ledger.db")
+            _fill_demo(table, led)
+            observations, excluded = trust.collect_observations(table, led, args.role)
+        _print_trust(trust.summarize(observations, bug_ids, draws), excluded)
+        return 0
+    if not sealed.SEALED_DB_PATH.exists():  # checked first, because opening a SealedTable would create the file
+        print("No sealed table yet, so there is nothing to measure. Mission 2.4 (`calibrate`) creates it.")
+        return 0
+    observations, excluded = trust.collect_observations(sealed.SealedTable(), ledger.Ledger(), args.role)
+    print(f"Reviewer role {args.role}: {len(observations)} audited runs with a sealed type.\n")
+    _print_trust(trust.summarize(observations, bug_ids, draws), excluded)
+    return 0
+
+
 def cmd_ledger(args: argparse.Namespace) -> int:
     led = ledger.Ledger(Path(args.db))
     if args.action == "show":
@@ -307,6 +388,10 @@ def main(argv: list[str] | None = None) -> int:
     controls_parser = sub.add_parser("controls-check", help="prove a control, sham and canary behave on one config")
     controls_parser.add_argument("path")
     controls_parser.set_defaults(func=cmd_controls_check)
+    trust_parser = sub.add_parser("trust", help="show the reviewer's measured recall and specificity")
+    trust_parser.add_argument("--role", default=trust.DEFAULT_ROLE)
+    trust_parser.add_argument("--demo", action="store_true", help="use made-up outcomes in a temporary folder")
+    trust_parser.set_defaults(func=cmd_trust)
     args = parser.parse_args(argv)
     return args.func(args)
 

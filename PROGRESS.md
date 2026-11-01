@@ -27,7 +27,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - [x] 2.2 Controls, shams, sealed run-type table
   - `controls-check` on `baseline.yaml` and `imbalanced.yaml`: all OK, 8 of 8 checks each. Sham numbers equal the control's; both scripts have 84 blinded lines (4753 vs 4836 characters on baseline); same result keys and run-folder files.
   - `pytest -q`: 434 passed in 28 s, including the import-chain test and a spy showing a real audit never opens the sealed file. `ledger verify`: OK (12 entries).
-- [ ] 2.3 Trust statistics
+- [x] 2.3 Trust statistics
+  - `trust --demo` (synthetic outcomes through the real join): 3 of 10 gives Beta(4, 8), mean 0.333; 8 of 10 gives Beta(9, 3), mean 0.750; specificity 0.833 controls, 0.667 shams, 0.773 combined. Real `trust`: no sealed table yet, so no real trust numbers exist until 2.4.
+  - `pytest -q`: 464 passed in 28 s, with Beta values checked against hand-computed ones. `ledger verify`: OK (12 entries).
 - [ ] 2.4 Run mixer, calibrate command, RQ1
 
 **M3 Memory and calibration**
@@ -65,7 +67,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-None. Mission 2.2 is complete, and no mission is part-way through.
+None. Mission 2.3 is complete, and no mission is part-way through.
 
 ## Running or interrupted campaigns
 None.
@@ -161,6 +163,16 @@ None.
 - **Bugs that favour one arm hit the treatment** (B04, B05), because that is how a bug yields a false "the treatment helped".
 - **B05 subtle fills dropped seeds with the mean of the kept ones,** because `results.json` needs one value per seed.
 - **`sabotage-check` runs in a temporary folder,** so it stays out of the ledger and the crash rate.
+- **A catch means any flag, whichever class it names,** because Rogan-Gladen (Mission 4.1) needs recall to be P(flag | bug). `named_right` is
+  reported beside it, because a flag naming the wrong class may be luck, and low specificity exposes a reviewer that flags everything.
+- **Harmless canaries count in the main recall,** because a canary means "the method is broken". Recall is also reported for harmful,
+  harmless and unmeasured canaries separately. Only canary-measure runs count in any recall figure.
+- **Specificity is reported for controls, shams and combined.**
+- **Untested classes stay in overall recall at their prior and are listed as untested,** so the uniform class mix keeps its meaning.
+  Worst recall is the lowest posterior mean among tested classes only.
+- **The first audit of a run for a role stands,** so re-reviewing a miss cannot raise recall. Later audits are counted in `excluded`.
+- **`trust.py` draws with a fixed default seed,** so a report can be reproduced. Per-class intervals are exact (`beta.ppf`); only overall recall uses Monte Carlo.
+- **Added `trust` and `trust --demo`** as this mission's proof, since CLAUDE.md gives 2.3 no command. `--demo` output is labelled SYNTHETIC.
 
 ## Scientist model comparison
 5 proposals per model using the real prompt, schema, checks and sandbox, with earlier hypotheses fed into each next
@@ -247,6 +259,10 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **A sham's edits can be told apart in principle.** Its imports are out of the template's usual order, and its names are
   slightly longer on average (about 1-2% more characters). A stateless reviewer sees one run at a time and has no template to
   compare with, so this should not matter, but a reviewer that learned the template could separate them.
+- **Overall recall looks more certain than it is while classes are untested.** With no data at all, it reads about 0.50, 90% [0.35, 0.65],
+  purely from averaging 10 flat priors. `trust` prints "tested k of 10"; RQ1 and any report must show that too.
+- **Mission 2.4 must report failed audits.** A failed LLM reply writes no ledger entry, so `trust.py` cannot see it. It is not counted as a
+  miss, which would inflate recall if the reviewer fails more often on canaries.
 - **Mission 2.4 must seal real runs too.** `scientist.run_locked` does not write to the sealed table, and the 2 existing
   real runs have no row. It must also report recall by harmful and harmless using `impact_class`.
 - **The mixer must catch `NotApplicable`** from `sabotage`, `clone_prereg` and the `run_*` functions, and choose another base.
@@ -265,6 +281,6 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Run `/mission 2.3` (trust statistics).
-2. Run `/mission 2.4` (mixer, calibrate, RQ1), with recall reported separately for harmful and harmless canaries.
-3. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.
+1. Run `/mission 2.4` (mixer, calibrate, RQ1), using `trust.summarize` for recall by impact and specificity by type.
+2. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.
+3. Run `/mission 3.2` (Brier score, reliability diagram, calibration feedback).
