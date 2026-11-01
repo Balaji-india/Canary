@@ -27,6 +27,11 @@ PROMPT_HINTS = [
 ]
 
 
+# Real failure output only: a traceback header, a pytest count above zero, or a line starting "Error:".
+# The word "failed" alone is not enough, because normal prose uses it ("none of the runs failed").
+REAL_FAILURE = re.compile(r"^\s*Traceback \(most recent call last\)|\b[1-9]\d* failed\b|^\s*Error:", re.MULTILINE)
+
+
 def emit(msg: str) -> None:
     print(json.dumps({"systemMessage": msg}))
 
@@ -70,7 +75,7 @@ def main() -> None:
         if isinstance(msg, (dict, list)):
             msg = json.dumps(msg)
         low = msg.lower()
-        if re.search(r"traceback|\berror:|tests? failed|\bfailed\b", low):
+        if REAL_FAILURE.search(msg):
             emit("Canary coach: something failed? Type /solve and paste the error.")
         elif "stopped at" in low:
             emit("Canary coach: stop point saved. Next time: /where, then /next.")
