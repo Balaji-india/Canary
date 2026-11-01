@@ -169,26 +169,27 @@ def _require_clean(config: dict) -> None:
 
 
 def run_control(config: dict, table: sealed.SealedTable, runs_dir: Path = sandbox.RUNS_DIR,
-                source: str | None = None) -> dict:
+                source: str | None = None, extra: dict | None = None) -> dict:
     """Run and seal a control. Sealing comes before anything reviews the run, so its type cannot depend on the review."""
     _require_clean(config)
     record = sandbox.run_config(config, runs_dir)
-    table.seal(record["run_id"], sealed.CONTROL, source=source, details={"status": record["status"]})
+    table.seal(record["run_id"], sealed.CONTROL, source=source, details={"status": record["status"], **(extra or {})})
     return record
 
 
 def run_sham(config: dict, table: sealed.SealedTable, rng: random.Random, runs_dir: Path = sandbox.RUNS_DIR,
-             source: str | None = None) -> dict:
+             source: str | None = None, extra: dict | None = None) -> dict:
     _require_clean(config)
     sham = make_sham(config, rng)
     record = sandbox.run_config(config, runs_dir, script=sham.script)
-    table.seal(record["run_id"], sealed.SHAM, source=source, details={"status": record["status"], "renames": sham.renames})
+    table.seal(record["run_id"], sealed.SHAM, source=source, details={"status": record["status"], "renames": sham.renames,
+                                                                     **(extra or {})})
     return record
 
 
 def run_canary(config: dict, bug_id: str, tier: str, table: sealed.SealedTable, runs_dir: Path = sandbox.RUNS_DIR,
                twin_dir: Path = TWINS_DIR, source: str | None = None,
-               run_type: str = sealed.CANARY_MEASURE) -> impact.CanaryRecord:
+               run_type: str = sealed.CANARY_MEASURE, extra: dict | None = None) -> impact.CanaryRecord:
     """Plant a bug, run it and its clean twin, and seal the record with its impact.
 
     The base must be clean: with a second, unplanned bug, a flag naming that one could not be scored fairly.
@@ -196,7 +197,7 @@ def run_canary(config: dict, bug_id: str, tier: str, table: sealed.SealedTable, 
     _require_clean(config)
     record = impact.run_canary(config, bug_id, tier, runs_dir, twin_dir)
     table.seal(record.run_id, run_type, bug_id, tier, record.twin_run_id, source,
-               {"status": record.status, "reason": record.reason, "impact": record.impact})
+               {"status": record.status, "reason": record.reason, "impact": record.impact, **(extra or {})})
     return record
 
 

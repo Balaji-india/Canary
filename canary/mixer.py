@@ -1,0 +1,244 @@
+"""The run mixer: plan a blinded batch of canaries, controls and shams, run it, and have the Skeptic review it.
+
+Why clones of Scientist proposals: a canary must look like a real run in every way but the planted difference. Left
+free, the Scientist proposes nearly one experiment, so the pool asks it for one proposal per fixed choice of dataset,
+metric and model. Otherwise recall would only describe the reviewer on that one experiment.
+
+Why the order is shuffled before anything is reviewed: reviews happen one after another, so if the reviewer or the
+machine changed part-way, a fixed order would turn that change into a false difference between run types.
+
+Why a clone is run before it is locked: a bug can change the config (B06, B09), and the pre-registration must describe
+the config that really ran. So a clone's lock is bookkeeping. Real runs still lock first (scientist.run_locked).
+
+This module knows run types, so it must never be imported by the reviewer's code (tests/test_skeptic.py checks).
+Nothing here is written to the log or the ledger that would reveal a slot's type.
+"""
+from __future__ import annotations
+
+import json
+import random
+import tempfile
+import time
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
+from canary import codegen, controls, ledger, llm, prereg, sandbox, scientist, sealed, skeptic
+from canary.config import DATA_DIR, load_yaml
+from canary.saboteur.classes import IMBALANCE_RATIO, NotApplicable, class_counts, why_not_applicable
+from canary.saboteur.transforms import TRANSFORMS, TransformError, sabotage
+
+POOL_PATH = DATA_DIR / "calibration" / "pool.json"
+CANARY_SHARE = 5 / 9  # 100 of 180: the canaries for 10 per class, plus 40 controls and 40 shams
+METRIC_ORDER = ("balanced_accuracy", "f1", "roc_auc", "accuracy")
+
+
+class MixerError(RuntimeError):
+    """The batch cannot be planned or continued as asked."""
+
+
+def split_runs(runs: int, variants: int = len(TRANSFORMS)) -> dict[str, int]:
+    """Divide N runs. Canaries are a whole multiple of the variants, so every class and tier appears equally often."""
+    canaries = max(variants, round(runs * CANARY_SHARE / variants) * variants)
+    rest = runs - canaries
+    if rest < 2:
+        raise MixerError(f"{runs} runs leave too few for controls and shams after {canaries} canaries")
+    return {sealed.CANARY_MEASURE: canaries, sealed.CONTROL: rest // 2, sealed.SHAM: rest - rest // 2}
+
+
+def focus_grid(datasets: list[dict], models: list[str], rounds: int, balance: dict[str, float] | None = None) -> list[dict]:
+    """The fixed choices for the pool, rotating metric and model so that no dataset is tied to one of either.
+
+    Accuracy is skipped on imbalanced data (the clean base would already be bug B06), and roc_auc on multiclass data
+    (the template refuses it).
+    """
+    grid = []
+    for index in range(rounds * len(datasets)):
+        dataset = datasets[index % len(datasets)]
+        ratio = (balance or {}).get(dataset["name"], 1.0)
+        metrics = [m for m in METRIC_ORDER
+                   if not (m == "roc_auc" and dataset["classes"] != 2) and not (m == "accuracy" and ratio > IMBALANCE_RATIO)]
+        grid.append({"dataset": dataset["name"], "metric": metrics[index % len(metrics)], "model": models[index % len(models)]})
+    return grid
+
+
+def _log(log_path: Path, message: str) -> None:
+    line = f"{datetime.now(timezone.utc).isoformat(timespec='seconds')} {message}"
+    print(line, flush=True)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(line + "\n")
+
+
+def build_pool(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable, path: Path = POOL_PATH,
+               log_path: Path = sandbox.RUNS_DIR / "campaign.log") -> dict:
+    """Ask the Scientist for each focus and keep the proposals that are clean and really run.
+
+    Trial runs use a temporary folder and nothing goes in the ledger: a pool entry is raw material, not an experiment.
+    """
+    settings = load_yaml("campaign.yaml")["calibrate"]
+    catalog = load_yaml("datasets.yaml")
+    datasets = catalog["sklearn"] + catalog["openml"]
+    balance = {}
+    for dataset in datasets:
+        counts = class_counts(dataset["name"])
+        balance[dataset["name"]] = max(counts) / min(counts)
+    grid = focus_grid(datasets, sorted(codegen.MODELS), settings["grid_rounds"], balance)
+    bases, dropped = [], []
+    with tempfile.TemporaryDirectory() as folder:
+        for number, focus in enumerate(grid, 1):
+            label = f"{focus['dataset']} / {focus['metric']} / {focus['model']}"
+            try:
+                locked, model = scientist.propose(client, settings["question"], led, table, focus)
+            except (scientist.ProposalRejected, llm.LLMError) as exc:
+                dropped.append({"focus": focus, "reason": str(exc)})
+                _log(log_path, f"pool {number}/{len(grid)} dropped {label}: {exc}")
+                continue
+            config = prereg.to_run_config(locked)
+            reason = controls.why_not_clean(config)
+            record = None if reason else sandbox.run_config(config, Path(folder))
+            if reason or record["status"] != sandbox.STATUS_OK:
+                reason = reason or f"trial run {record['status']}: {record['reason']}"
+                dropped.append({"focus": focus, "reason": reason})
+                _log(log_path, f"pool {number}/{len(grid)} dropped {label}: {reason}")
+                continue
+            bases.append({"focus": focus, "prereg": locked, "model": model, "trial_seconds": record["seconds"]})
+            _log(log_path, f"pool {number}/{len(grid)} kept {label} ({record['seconds']:.0f} s trial)")
+    pool = {"bases": bases, "dropped": dropped}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(pool, indent=1), encoding="utf-8")
+    return pool
+
+
+def _usable(run_type: str, bug: str | None, tier: str | None, base: dict) -> bool:
+    config = prereg.to_run_config(base["prereg"])
+    if controls.why_not_clean(config):
+        return False
+    return run_type != sealed.CANARY_MEASURE or why_not_applicable(bug, tier, config) is None
+
+
+def plan_batch(batch: str, runs: int, pool: dict, seed: int) -> dict:
+    """Assign every slot a type and an ordered list of bases to try, then shuffle the slots.
+
+    Each kind of slot walks through its usable bases in turn, so clones spread over experiments. The later bases on
+    a slot's list are fallbacks for a bug that turns out not to fit, which only trying it can show (B09 subtle).
+    Raises MixerError if some variant has no usable base: dropping it silently would leave a class untested.
+    """
+    rng = random.Random(seed)
+    split = split_runs(runs)
+    bases = pool["bases"]
+    wanted: list[tuple[str, str | None, str | None]] = []
+    variants = sorted(TRANSFORMS)
+    per_variant = split[sealed.CANARY_MEASURE] // len(variants)
+    wanted += [(sealed.CANARY_MEASURE, bug, tier) for bug, tier in variants for _ in range(per_variant)]
+    wanted += [(sealed.CONTROL, None, None)] * split[sealed.CONTROL]
+    wanted += [(sealed.SHAM, None, None)] * split[sealed.SHAM]
+
+    usable_cache: dict[tuple, list[int]] = {}
+    turn: dict[tuple, int] = {}
+    slots = []
+    for run_type, bug, tier in wanted:
+        key = (run_type, bug, tier)
+        if key not in usable_cache:
+            usable_cache[key] = [i for i, base in enumerate(bases) if _usable(run_type, bug, tier, base)]
+            if not usable_cache[key]:
+                raise MixerError(f"no base in the pool fits {run_type} {bug or ''} {tier or ''}")
+            rng.shuffle(usable_cache[key])
+        usable = usable_cache[key]
+        start = turn.get(key, 0)
+        turn[key] = start + 1
+        order = [usable[(start + offset) % len(usable)] for offset in range(len(usable))]
+        slots.append({"run_type": run_type, "bug_id": bug, "tier": tier, "candidates": order})
+    rng.shuffle(slots)
+    for number, slot in enumerate(slots):
+        slot["slot"] = number
+    return {"batch": batch, "seed": seed, "runs": runs, "split": split, "bases": bases, "slots": slots}
+
+
+def plan_path(batch: str, plans_dir: Path = sealed.PLANS_DIR) -> Path:
+    return plans_dir / f"{batch}.json"
+
+
+def _run_slot(slot: dict, plan: dict, table: sealed.SealedTable, runs_dir: Path, twin_dir: Path) -> tuple[dict, dict, dict] | None:
+    """Run one slot on the first base that fits. Returns (locked record, run record, base), or None if none fits."""
+    extra = {"batch": plan["batch"], "slot": slot["slot"]}
+    run_type = slot["run_type"]
+    for attempt, index in enumerate(slot["candidates"]):
+        base = plan["bases"][index]
+        rng = random.Random(f"{plan['seed']}:{slot['slot']}:{attempt}")
+        clone = controls.clone_config(prereg.to_run_config(base["prereg"]), rng)
+        source = f"pool:{index}"
+        try:
+            # Checked before running, so a refusal leaves no sealed run behind.
+            if run_type == sealed.CANARY_MEASURE:
+                controls.clone_prereg(base["prereg"], sabotage(clone, slot["bug_id"], slot["tier"]).config)
+            else:
+                controls.clone_prereg(base["prereg"], clone)
+            if run_type == sealed.CANARY_MEASURE:
+                canary = controls.run_canary(clone, slot["bug_id"], slot["tier"], table, runs_dir, twin_dir, source, extra=extra)
+                # The run's own record: `canary.status` also reports a failed twin, but this run may still be reviewable.
+                record = json.loads((runs_dir / canary.run_id / sandbox.RECORD_NAME).read_text(encoding="utf-8"))
+                return controls.clone_prereg(base["prereg"], canary.config), record, base
+            if run_type == sealed.CONTROL:
+                return controls.clone_prereg(base["prereg"], clone), controls.run_control(clone, table, runs_dir, source, extra), base
+            return controls.clone_prereg(base["prereg"], clone), controls.run_sham(clone, table, rng, runs_dir, source, extra), base
+        except (NotApplicable, TransformError):
+            continue
+    return None
+
+
+def execute_slot(slot: dict, plan: dict, led: ledger.Ledger, table: sealed.SealedTable, runs_dir: Path, twin_dir: Path) -> bool:
+    """Run a slot and enter it in the ledger exactly like a real run. Returns False if no base could take it."""
+    outcome = _run_slot(slot, plan, table, runs_dir, twin_dir)
+    if outcome is None:
+        return False
+    locked, record, base = outcome
+    hypothesis_id = str(uuid.uuid4())
+    digest = prereg.prereg_hash(locked)
+    led.append(hypothesis_id, ledger.PROPOSED, {"hypothesis": locked["hypothesis"], "model": base["model"]})
+    led.append(hypothesis_id, ledger.PREREGISTERED, {"prereg": locked, "prereg_sha256": digest})
+    scientist.record_ran(led, hypothesis_id, locked, digest, record, runs_dir)
+    return True
+
+
+def finished_slots(batch: str, led: ledger.Ledger, table: sealed.SealedTable) -> set[int]:
+    """Slots whose run reached the ledger. A run sealed just before a crash has no ledger entry, so its slot runs again."""
+    in_ledger = {e.payload["run_id"] for e in led.entries(ledger.RAN)}
+    return {t.details["slot"] for t in table.all() if t.details.get("batch") == batch and t.run_id in in_ledger}
+
+
+def run_batch(client: llm.LLM, plan: dict, led: ledger.Ledger, table: sealed.SealedTable,
+              runs_dir: Path = sandbox.RUNS_DIR, twin_dir: Path = controls.TWINS_DIR, plans_dir: Path = sealed.PLANS_DIR,
+              log_path: Path | None = None) -> skeptic.AuditReport:
+    """Run every unfinished slot, then review everything waiting. Safe to call again after any interruption."""
+    log_path = log_path or runs_dir / "campaign.log"
+    batch = plan["batch"]
+    finished = finished_slots(batch, led, table)
+    timings = plans_dir / f"{batch}.timing.jsonl"
+    timings.parent.mkdir(parents=True, exist_ok=True)
+    waiting = [s for s in plan["slots"] if s["slot"] not in finished]
+    _log(log_path, f"batch {batch}: {len(plan['slots'])} slots, {len(waiting)} to run")
+    for number, slot in enumerate(waiting, 1):
+        started = time.perf_counter()
+        ran = execute_slot(slot, plan, led, table, runs_dir, twin_dir)
+        seconds = time.perf_counter() - started
+        with timings.open("a", encoding="utf-8") as handle:  # names the type, so it stays beside the plan and off the log
+            handle.write(json.dumps({"stage": "run", "slot": slot["slot"], "run_type": slot["run_type"],
+                                     "bug_id": slot["bug_id"], "tier": slot["tier"], "ran": ran,
+                                     "seconds": round(seconds, 2)}) + "\n")
+        _log(log_path, f"batch {batch}: run {number}/{len(waiting)} {'done' if ran else 'SKIPPED, no base fits'} in {seconds:.1f} s")
+
+    started = time.perf_counter()
+
+    def progress(done: int, total: int, item: dict) -> None:
+        state = item["audit"]["verdict"] if "audit" in item else f"FAILED ({item['kind']})"
+        _log(log_path, f"batch {batch}: audit {done}/{total} {state} [{time.perf_counter() - started:.0f} s so far]")
+
+    report = skeptic.audit_pending(client, led, runs_dir, on_progress=progress)
+    client.release()
+    for error in report.errors:
+        if "not reviewed" in error:  # a file problem, not a reviewer failure: these runs stay waiting
+            _log(log_path, f"batch {batch}: PROBLEM {error}")
+    _log(log_path, f"batch {batch}: {len(report.audited)} audits stored, {len(report.failures)} failed, "
+                   f"{len(report.no_results)} runs with no results" + (f". STOPPED: {report.stopped}" if report.stopped else ""))
+    return report

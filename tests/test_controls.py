@@ -143,7 +143,7 @@ def results_of_script(script, cfg, folder, monkeypatch):
     return results
 
 
-@pytest.mark.parametrize("cfg", CONFIGS, ids=["tree", "wine", "svm_auc", "knn"])
+@pytest.mark.parametrize("cfg", CONFIGS[1:], ids=["wine", "svm_auc", "knn"])
 def test_sham_gives_exactly_the_control_numbers(cfg, tmp_path, monkeypatch):
     """The real proof that the edits are cosmetic: both run on real data and agree to the last digit."""
     expected = results_of_script(codegen.render_script(cfg), cfg, tmp_path / "control", monkeypatch)

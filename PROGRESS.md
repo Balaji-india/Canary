@@ -30,7 +30,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - [x] 2.3 Trust statistics
   - `trust --demo` (synthetic outcomes through the real join): 3 of 10 gives Beta(4, 8), mean 0.333; 8 of 10 gives Beta(9, 3), mean 0.750; specificity 0.833 controls, 0.667 shams, 0.773 combined. Real `trust`: no sealed table yet, so no real trust numbers exist until 2.4.
   - `pytest -q`: 464 passed in 28 s, with Beta values checked against hand-computed ones. `ledger verify`: OK (12 entries).
-- [ ] 2.4 Run mixer, calibrate command, RQ1
+- [x] 2.4 Run mixer, calibrate command, RQ1
+  - `calibrate --runs 180 --batch rq1-full`, `python -m eval.rq1 --batch rq1-full`: 180 reviewed, 0 failed audits, 0 crashes, 10 of 10 classes. Flagged 180 of 180, naming B01 every time: any-flag recall 100 of 100 (chance 1.00), right-type 10 of 100 (chance 0.10), specificity 0 of 80, Youden's J observed 0.000.
+  - `pytest -q`: 500 passed in 30 s (at the limit). `ledger verify`: OK (852 entries). Results in `eval/results/rq1_skeptic_a.json`, figures in `eval/figures/`.
 
 **M3 Memory and calibration**
 - [ ] 3.1 Graveyard with similarity check
@@ -67,7 +69,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-None. Mission 2.3 is complete, and no mission is part-way through.
+None. Mission 2.4 is complete, and no mission is part-way through.
 
 ## Running or interrupted campaigns
 None.
@@ -174,6 +176,19 @@ None.
 - **`trust.py` draws with a fixed default seed,** so a report can be reproduced. Per-class intervals are exact (`beta.ppf`); only overall recall uses Monte Carlo.
 - **Added `trust` and `trust --demo`** as this mission's proof, since CLAUDE.md gives 2.3 no command. `--demo` output is labelled SYNTHETIC.
 
+- **The pool of bases is 18 fresh Scientist proposals over a fixed grid** of dataset, metric and model (`focus`, `mixer.focus_grid`), in `data/calibration/pool.json`, not the ledger. Unprompted, the Scientist proposes nearly one experiment, so its past hypotheses would measure a narrow slice.
+- **Clones share the main ledger; `scientist.propose` reads only runs sealed `real`,** so sabotaged configs never reach its prompt or duplicate check. `run_locked` now seals real runs. The 3 older real runs were backfilled, marked `backfilled`.
+- **A clone runs before its lock,** because a bug can change the config the pre-registration must describe. So a clone's lock is bookkeeping, unlike a real run's. This is a known difference in the ledger's timing, invisible to the reviewer.
+- **Failed audits are ledger entries** (`audit_failed`, with a kind: `invalid_reply`, `timeout_or_server`, `prompt_too_large`) and stay retryable. 3 server failures in a row stop the pass for `--resume`, so an outage is not scored as reviewer failures. Neither run had a failure, so this path has only been tested with fakes.
+- **Reviews are stored every 5,** because `ModelQueue.run` returned only at the end, so a crash would have left them all out of the ledger.
+- **`--runs N`:** canaries are N x 5/9, rounded to a multiple of 20, the rest split evenly between controls and shams. 180 gives 100, 40, 40. No slot was skipped.
+- **Batches:** RQ1 reports one batch. The 30-run pilot is excluded (`rq1_skeptic_a_pilot.json`), so nothing changed after it could mix in. It had the same result: 30 of 30 flagged, all B01.
+- **Prompt left unchanged after the pilot,** even with this result. Tuning it would lose the unhinted baseline that Mission 6.4 compares against.
+- **Chance baseline:** f = flagged / reviewed. Right-type chance is shown as f/10 and as f times the reviewer's own share of naming that class. Youden's J sits beside them because f depends on the batch's mix.
+- **J pools recall into one Beta.** The first version averaged per-class posteriors and gave -0.07, falsely "worse than chance", because the prior shrinks ten small classes but only one large specificity group. Found before any result was reported, and a test now covers it.
+- **Removed `test_real_sandbox_result_gets_a_verdict` and one sham test case** to stay under 30 s. `test_sandbox` and the real batches cover those paths.
+- **`calibrate` commit name:** used `Mission 2.4: ...`, per CLAUDE.md, because the skill's template pasted the whole request into the subject.
+
 ## Scientist model comparison
 5 proposals per model using the real prompt, schema, checks and sandbox, with earlier hypotheses fed into each next
 prompt. All 15 replies were valid, and every new experiment ran. Nothing was written to the ledger. The sample is small:
@@ -190,6 +205,13 @@ prompt. All 15 replies were valid, and every new experiment ran. Nothing was wri
 | Share on GPU | 100% | 47% | 76% |
 
 `qwen3.5:9b` only swapped scalers on tree models, which barely matters (effects +0.0016 and +0.0007).
+
+## RQ1 result: Skeptic A cannot tell buggy runs from clean ones
+All numbers are from `eval/results/rq1_skeptic_a.json` (`gemma3:4b`, batch `rq1-full`, seed 2404, 18 bases, 8-10 distinct bases per class).
+- **It flagged every run and always named B01,** at confidence 0.95 on 178 of 180. Recall 1.00 is exactly what flagging at random at that rate scores, and the 10 of 100 right-type catches are the 10 B01 canaries. Harmful, harmless, obvious and subtle canaries were all flagged, so those splits carry no information either.
+- **It is the model, not the pipeline.** Checked on 3 clean controls from the pilot by direct calls: the same B01 flag came back with no schema, in plain JSON mode and with the schema's forms reversed. Told to pass, it passes, so the schema does not force a flag. A one-line `print('hello')` script was still flagged (B03).
+- **Limits:** one model, one unhinted prompt, at temperature 0. The cause is untested; the "strict reviewer" system prompt and listing bug classes as a checklist are candidates. This does not say small LLMs in general cannot review.
+- **Consequence for Mission 4.1, the main risk to the plan:** Rogan-Gladen divides by recall + specificity - 1, which is 0 here, so prevalence cannot be estimated from this reviewer, and a gate would reject everything. Canary needs a reviewer with J clearly above 0 before M4 means anything.
 
 ## Early findings for the report
 - **The Skeptic confidently misreads correct preprocessing as B01 leakage.** `gemma3:4b` flagged B01 at confidence 0.95
@@ -250,22 +272,18 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   is acceptable while scripts come only from our template; revisit it before running LLM-written code (Mission 6.2).
 - **The cache can hide reviewer drift.** The key uses the model tag, not its digest, so if a tag is re-pulled with new
   weights, old replies are still served. Mission 4.3 should add the digest or bypass the cache when measuring drift.
-- **`gemma3:4b` looks prone to false alarms:** 2 of 2 real audits flagged B01 at confidence 0.95 on clean scripts,
-  calling correct fit-on-train, transform-on-test "leakage". Its earlier trial on a clean script was also a false flag.
-  This is too few runs to conclude anything, and the prompt was deliberately not tuned. Mission 2.4 measures it. If
-  specificity is this low, the trust gate will reject most findings, so RQ1 is the first thing to check.
+- **`gemma3:4b` has no measured ability to discriminate** (see RQ1 result). Decide what to do about this before Mission 4.1.
+- **The run phase was slower than forecast:** the whole batch took 49.5 min against a forecast of about 30 (range 25-50). Reviews matched (3.1 s each); experiments took 40 min against about 19, because the pilot's 2 canaries per variant under-sampled slow cases. B09 subtle averaged 123 s, with one slot at 496 s. Forecast from this batch's means next time.
+- **`crash_rate()` now also counts clones and twins in `data/runs/`.** Campaign reporting should use the sealed table's per-type counts instead.
+- **Mission 4.3:** results now store each audit's seconds and the model's digest, but the cache issue above still stands.
+- **The suite is at 30 s,** varying 27-30 s. The next mission adding tests must trim first.
 - **Real runs with a bug-like design are not caught yet.** `why_not_clean` only protects clones. A real run using accuracy
   above 3:1 is really buggy; Mission 5.1's B06 tripwire should catch it.
 - **A sham's edits can be told apart in principle.** Its imports are out of the template's usual order, and its names are
   slightly longer on average (about 1-2% more characters). A stateless reviewer sees one run at a time and has no template to
   compare with, so this should not matter, but a reviewer that learned the template could separate them.
 - **Overall recall looks more certain than it is while classes are untested.** With no data at all, it reads about 0.50, 90% [0.35, 0.65],
-  purely from averaging 10 flat priors. `trust` prints "tested k of 10"; RQ1 and any report must show that too.
-- **Mission 2.4 must report failed audits.** A failed LLM reply writes no ledger entry, so `trust.py` cannot see it. It is not counted as a
-  miss, which would inflate recall if the reviewer fails more often on canaries.
-- **Mission 2.4 must seal real runs too.** `scientist.run_locked` does not write to the sealed table, and the 2 existing
-  real runs have no row. It must also report recall by harmful and harmless using `impact_class`.
-- **The mixer must catch `NotApplicable`** from `sabotage`, `clone_prereg` and the `run_*` functions, and choose another base.
+  purely from averaging 10 flat priors. `trust` and RQ1 print "tested k of 10"; any report must show that too.
 - **Mission 5.1's B10 tripwire ("test size smaller than declared") will not fire:** B10 now drops rows inside `run_arm`, so
   `split_sizes` stays normal. It needs a different check.
 - **Mission 5.1's B07 tripwire needs care:** `blood-transfusion` has 246 duplicate feature rows and `pc1` 161 before any
@@ -281,6 +299,6 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Run `/mission 2.4` (mixer, calibrate, RQ1), using `trust.summarize` for recall by impact and specificity by type.
+1. Decide how to get a reviewer that discriminates. `/compare` Skeptic B (`phi4-mini`) through this same RQ1 now, ahead of Mission 5.2, against a prompt variant, keeping this result as the baseline.
 2. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.
 3. Run `/mission 3.2` (Brier score, reliability diagram, calibration feedback).

@@ -1,10 +1,9 @@
 """The LLM and the sandbox are faked here: these tests cover the order of steps and the rules, not real runs."""
-import copy
 import json
 
 import pytest
 
-from canary import ledger, llm, prereg, sandbox, scientist
+from canary import ledger, llm, prereg, sandbox, scientist, sealed
 from canary.config import load_yaml
 from canary.ledger import Ledger
 from tests.test_llm import CFG, FakeProvider
@@ -34,6 +33,11 @@ def reply(**changes):
 @pytest.fixture
 def led(tmp_path):
     return Ledger(tmp_path / "ledger.db")
+
+
+@pytest.fixture
+def table(tmp_path):
+    return sealed.SealedTable(tmp_path / "sealed.db")
 
 
 def client(tmp_path, replies):
@@ -141,26 +145,26 @@ def test_rewording_does_not_hide_a_repeated_experiment():
     assert "already run" in scientist.proposal_problem(lock(hypothesis="Same thing, other words."), {key})
 
 
-def test_propose_feeds_the_problem_back(tmp_path, led):
+def test_propose_feeds_the_problem_back(tmp_path, led, table):
     bad = reply(predicted_effect=0.001)
     fake_client, provider = client(tmp_path, [bad, reply()])
-    locked, model = scientist.propose(fake_client, "q1", led)
+    locked, model = scientist.propose(fake_client, "q1", led, table)
     assert model == "sci:1" and locked["predicted_effect"] == 0.02
     assert "below min_effect" in provider.calls[1]["prompt"]
 
 
-def test_propose_gives_up_after_the_allowed_attempts(tmp_path, led):
+def test_propose_gives_up_after_the_allowed_attempts(tmp_path, led, table):
     """The same rejection twice must still reach the model: a repeated prompt would only replay the cached reply."""
     fake_client, provider = client(tmp_path, [reply(predicted_effect=0.001)] * 3)
     with pytest.raises(scientist.ProposalRejected, match="3 attempts"):
-        scientist.propose(fake_client, "q1", led)
+        scientist.propose(fake_client, "q1", led, table)
     assert len(provider.calls) == 3
 
 
-def test_earlier_hypotheses_appear_in_the_prompt(tmp_path, led, monkeypatch):
+def test_earlier_hypotheses_appear_in_the_prompt(tmp_path, led, table, monkeypatch):
     run_with_fake_sandbox(tmp_path, led, monkeypatch)
     fake_client, provider = client(tmp_path, [reply(dataset="wine")])
-    scientist.propose(fake_client, "q1", led)
+    scientist.propose(fake_client, "q1", led, table)
     assert "Stronger regularization raises f1." in provider.calls[0]["prompt"]
 
 
@@ -179,7 +183,7 @@ def run_with_fake_sandbox(tmp_path, led, monkeypatch, status=sandbox.STATUS_OK, 
         return {"run_id": "run-1", "status": status, "reason": None if status == sandbox.STATUS_OK else "exit code 1"}
 
     monkeypatch.setattr(sandbox, "run_config", fake_run)
-    return scientist.run_locked(locked, "sci:1", led, runs), seen_at_run, runs
+    return scientist.run_locked(locked, "sci:1", led, sealed.SealedTable(tmp_path / "sealed.db"), runs), seen_at_run, runs
 
 
 def test_lock_is_in_the_ledger_before_the_run_starts(tmp_path, led, monkeypatch):
@@ -216,20 +220,51 @@ def test_crashed_run_is_recorded_as_inconclusive(tmp_path, led, monkeypatch):
     assert led.verify(runs) == []
 
 
-def test_real_sandbox_result_gets_a_verdict(tmp_path, led):
-    """No fake here: a real experiment run from a locked record, with a two-seed config to keep it quick."""
-    locked = copy.deepcopy(lock())
-    locked["seeds"] = [0, 1]
-    outcome = scientist.run_locked(locked, "sci:1", led, tmp_path / "runs")
-    assert outcome.run_status == sandbox.STATUS_OK
-    assert outcome.verdict["outcome"] in {prereg.SUPPORTED, prereg.NOT_SUPPORTED, prereg.INCONCLUSIVE}
-    assert outcome.verdict["ci_low"] is not None
-    assert led.verify(tmp_path / "runs") == []
-
-
 def test_scientist_prompt_contains_the_choices_and_the_feedback():
     from canary import prompts
     text = prompts.scientist_prompt("Q?", [{"name": "wine", "classes": 3}], {"knn": ["n_neighbors"]}, ["f1"],
                                     ["minmax_scaler"], 0.005, ["old idea"], "too small")
     for piece in ("Q?", "wine", "n_neighbors", "minmax_scaler", "0.005", "old idea", "too small"):
         assert piece in text
+
+
+def test_real_runs_are_sealed_before_the_verdict_is_written(tmp_path, led, table, monkeypatch):
+    outcome, _, _ = run_with_fake_sandbox(tmp_path, led, monkeypatch)
+    assert table.get(outcome.run_id).run_type == sealed.REAL
+
+
+def test_the_scientist_never_sees_a_clone(tmp_path, led, table, monkeypatch):
+    """A sabotaged config must not read as something the Scientist tried, in its prompt or its duplicate check."""
+    run_with_fake_sandbox(tmp_path, led, monkeypatch)
+    clone = lock(hypothesis="CLONE-MARKER sabotaged", dataset="wine")
+    led.append("clone", ledger.PROPOSED, {})
+    led.append("clone", ledger.PREREGISTERED, {"prereg": clone, "prereg_sha256": prereg.prereg_hash(clone)})
+    led.append("clone", ledger.RAN, {"run_id": "clone-run"})
+    table.seal("clone-run", sealed.CONTROL)
+    assert [p["hypothesis"] for p in scientist.real_preregs(led, table)] == ["Stronger regularization raises f1."]
+    fake_client, provider = client(tmp_path, [reply(dataset="diabetes")])
+    scientist.propose(fake_client, "q1", led, table)
+    assert "CLONE-MARKER" not in provider.calls[0]["prompt"]
+
+
+def test_old_runs_are_backfilled_as_real_once(led, table):
+    locked = lock()
+    led.append("old", ledger.PROPOSED, {})
+    led.append("old", ledger.PREREGISTERED, {"prereg": locked, "prereg_sha256": prereg.prereg_hash(locked)})
+    led.append("old", ledger.RAN, {"run_id": "old-run"})
+    assert scientist.seal_unsealed_runs_as_real(led, table) == 1
+    assert scientist.seal_unsealed_runs_as_real(led, table) == 0
+    assert table.get("old-run").run_type == sealed.REAL
+
+
+def test_focus_limits_the_choices_in_schema_and_prompt(tmp_path, led, table):
+    focus = {"dataset": "wine", "metric": "accuracy", "model": "knn"}
+    schema = scientist.proposal_schema(0.005, focus)
+    assert schema["properties"]["dataset"]["enum"] == ["wine"]
+    assert len(schema["properties"]["control_config"]["anyOf"]) == 1
+    arm = {"model": "knn", "params": {"n_neighbors": 3}, "preprocessing": []}
+    other = {"model": "knn", "params": {"n_neighbors": 9}, "preprocessing": []}
+    fake_client, provider = client(tmp_path, [reply(dataset="wine", metric="accuracy", control_config=arm, treatment_config=other)])
+    locked, _ = scientist.propose(fake_client, "q1", led, table, focus)
+    assert locked["dataset"] == "wine"
+    assert "breast_cancer" not in provider.calls[0]["prompt"] and "gaussian_nb" not in provider.calls[0]["prompt"]

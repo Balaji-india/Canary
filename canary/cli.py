@@ -15,7 +15,7 @@ from pathlib import Path
 
 import yaml
 
-from canary import config, controls, datasets, ledger, llm, sandbox, scientist, sealed, skeptic, trust
+from canary import config, controls, datasets, ledger, llm, mixer, sandbox, scientist, sealed, skeptic, trust
 from canary.saboteur import classes as bug_classes
 from canary.saboteur import impact, transforms
 
@@ -172,15 +172,17 @@ def cmd_science(args: argparse.Namespace) -> int:
     """Propose, lock, run and judge N hypotheses. Stops at the first model failure; finished entries stay."""
     client = llm.LLM()
     led = ledger.Ledger()
+    table = sealed.SealedTable()
+    scientist.seal_unsealed_runs_as_real(led, table)
     code = 0
     for number in range(1, args.hypotheses + 1):
         try:
-            locked, model = scientist.propose(client, args.question, led)
+            locked, model = scientist.propose(client, args.question, led, table)
         except (llm.LLMError, scientist.ProposalRejected) as exc:
             print(f"Hypothesis {number}: no proposal. {exc}")
             code = 1
             break
-        outcome = scientist.run_locked(locked, model, led)
+        outcome = scientist.run_locked(locked, model, led, table)
         verdict = outcome.verdict
         print(f"Hypothesis {number}: {outcome.hypothesis}")
         print(f"  Locked {outcome.prereg_sha256[:16]}, run {outcome.run_id}: {outcome.run_status}")
@@ -343,9 +345,52 @@ def cmd_trust(args: argparse.Namespace) -> int:
     if not sealed.SEALED_DB_PATH.exists():  # checked first, because opening a SealedTable would create the file
         print("No sealed table yet, so there is nothing to measure. Mission 2.4 (`calibrate`) creates it.")
         return 0
-    observations, excluded = trust.collect_observations(sealed.SealedTable(), ledger.Ledger(), args.role)
-    print(f"Reviewer role {args.role}: {len(observations)} audited runs with a sealed type.\n")
+    table, led = sealed.SealedTable(), ledger.Ledger()
+    observations, excluded = trust.collect_observations(table, led, args.role, args.batch)
+    scope = f"batch {args.batch}" if args.batch else "all batches"
+    print(f"Reviewer role {args.role}, {scope}: {len(observations)} audited runs with a sealed type.\n")
     _print_trust(trust.summarize(observations, bug_ids, draws), excluded)
+    failures = trust.collect_failures(table, led, args.role, args.batch)
+    print("Failed audits and crashed runs, which count in no figure above:")
+    for run_type, row in sorted(failures["by_type"].items()):
+        print(f"  {run_type:<15} {row['sealed']} sealed, {row['audited']} audited ({row['failed_then_recovered']} after a failure), "
+              f"{row['never_reviewed_failed']} failed and unreviewed, {row['not_reached']} not reached, {row['crashed']} crashed, "
+              f"kinds {row['failure_kinds'] or 'none'}")
+    return 0
+
+
+def cmd_calibrate(args: argparse.Namespace) -> int:
+    """Run a batch of canaries, controls and shams only, then have the Skeptic review them. Safe to resume."""
+    settings = config.load_yaml("campaign.yaml")["calibrate"]
+    client, led, table = llm.LLM(), ledger.Ledger(), sealed.SealedTable()
+    scientist.seal_unsealed_runs_as_real(led, table)
+    path = mixer.plan_path(args.batch)
+    if args.resume:
+        if not path.exists():
+            print(f"Batch {args.batch} has no plan to resume.")
+            return 2
+        plan = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        if args.runs is None:
+            print("Give --runs N, or --resume to continue a batch.")
+            return 2
+        if path.exists():
+            print(f"Batch {args.batch} already exists. Use --resume, or another batch name.")
+            return 2
+        pool = (json.loads(mixer.POOL_PATH.read_text(encoding="utf-8")) if mixer.POOL_PATH.exists()
+                else mixer.build_pool(client, led, table))
+        try:
+            plan = mixer.plan_batch(args.batch, args.runs, pool, settings["seed"] if args.seed is None else args.seed)
+        except mixer.MixerError as exc:
+            print(f"Cannot plan this batch: {exc}")
+            return 1
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(plan, indent=1), encoding="utf-8")
+    report = mixer.run_batch(client, plan, led, table)
+    if report.stopped:
+        print(f"Stopped: {report.stopped} Fix that, then run: python -m canary.cli calibrate --batch {args.batch} --resume")
+        return 1
+    print(f"Batch {args.batch} finished. Results: python -m eval.rq1 --batch {args.batch}")
     return 0
 
 
@@ -391,7 +436,14 @@ def main(argv: list[str] | None = None) -> int:
     trust_parser = sub.add_parser("trust", help="show the reviewer's measured recall and specificity")
     trust_parser.add_argument("--role", default=trust.DEFAULT_ROLE)
     trust_parser.add_argument("--demo", action="store_true", help="use made-up outcomes in a temporary folder")
+    trust_parser.add_argument("--batch", help="only this calibration batch")
     trust_parser.set_defaults(func=cmd_trust)
+    calibrate_parser = sub.add_parser("calibrate", help="run canaries, controls and shams, and review them blinded")
+    calibrate_parser.add_argument("--runs", type=int, help="how many runs in a new batch")
+    calibrate_parser.add_argument("--batch", required=True, help="the batch's name; RQ1 reports one batch at a time")
+    calibrate_parser.add_argument("--seed", type=int, help="seed for the plan (default in config/campaign.yaml)")
+    calibrate_parser.add_argument("--resume", action="store_true", help="continue a batch after an interruption")
+    calibrate_parser.set_defaults(func=cmd_calibrate)
     args = parser.parse_args(argv)
     return args.func(args)
 

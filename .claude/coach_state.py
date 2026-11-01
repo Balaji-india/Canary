@@ -16,7 +16,7 @@ MISSION_TIPS = [
     ("2.1", "/test the saboteur, then /challenge: would a reviewer spot these bugs too easily?"),
     ("2.2", "/constraints checks the sealed run-type table is never visible to the Skeptic"),
     ("2.3", "stats mission: /learn Beta posterior, then /assumptions"),
-    ("2.4", "/evaluate 1 then /visualize for your first real result (RQ1)"),
+    ("2.4", "/challenge RQ1: the reviewer flagged every run, so ask what that means for the plan"),
     ("3.", "/learn Brier score, then /explain canary/calibration.py"),
     ("4.1", "stats mission: /learn Rogan-Gladen, and /test against hand-computed values"),
     ("4.2", "/campaign for the hidden-truth runs; /forecast first to see how long it takes"),

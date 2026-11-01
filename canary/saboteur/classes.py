@@ -6,6 +6,8 @@ is a fine metric on balanced data, so "accuracy on imbalanced data" cannot be pl
 """
 from __future__ import annotations
 
+from functools import lru_cache
+
 from canary import datasets
 from canary.config import load_yaml
 
@@ -23,10 +25,15 @@ def catalog() -> dict:
     return load_yaml("bug_classes.yaml")
 
 
+@lru_cache(maxsize=None)  # a batch plan asks hundreds of times, and a cached dataset does not change during a run
+def _class_counts(dataset: str) -> tuple[int, ...]:
+    labels = datasets.load_dataset(dataset)[datasets.TARGET_COLUMN].astype(str)
+    return tuple(labels.value_counts().tolist())
+
+
 def class_counts(dataset: str) -> list[int]:
     """Rows per class, read from the cached dataset (the catalog does not record balance)."""
-    labels = datasets.load_dataset(dataset)[datasets.TARGET_COLUMN].astype(str)
-    return labels.value_counts().tolist()
+    return list(_class_counts(dataset))
 
 
 def why_not_applicable(bug_id: str, tier: str, config: dict) -> str | None:

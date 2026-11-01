@@ -80,14 +80,14 @@ def test_no_import_chain_from_reviewer_code_reaches_ground_truth(start):
     reached = reachable_modules(start)
     assert "canary.ledger" in reached or start == "canary.blinding"  # proves the walk follows imports
     for module in reached:
-        assert module not in ("canary.sealed", "canary.controls", "canary.trust"), module
+        assert module not in ("canary.sealed", "canary.controls", "canary.trust", "canary.mixer"), module
         assert not module.startswith("canary.saboteur"), module
 
 
 def test_no_module_on_the_reviewer_path_names_the_sealed_file_or_table():
     for module in reachable_modules("canary.skeptic"):
         source = (PACKAGE.parent / Path(*module.split("."))).with_suffix(".py").read_text(encoding="utf-8")
-        for word in ("sealed.db", "run_types", "SEALED_DB_PATH"):
+        for word in ("sealed.db", "run_types", "SEALED_DB_PATH", "sealed_plans", "PLANS_DIR"):
             assert word not in source, f"{module} mentions {word}"
 
 
@@ -286,3 +286,49 @@ def test_one_failure_does_not_block_other_audits(tmp_path, led):
     report = skeptic.audit_pending(client, led, runs)
     assert (len(report.errors), len(report.audited)) == (1, 1)
     assert report.audited[0]["hypothesis_id"] == "h2"
+
+
+def test_failed_audit_is_recorded_with_its_run_and_kind_and_stays_waiting(tmp_path, led):
+    runs = tmp_path / "runs"
+    add_ran_run(led, runs)
+    client, _ = make_client(tmp_path, ["junk"] * 3 + [PASS_REPLY])
+    report = skeptic.audit_pending(client, led, runs)
+    stored = led.entries(ledger.AUDIT_FAILED)[0].payload
+    assert (stored["run_id"], stored["kind"]) == ("r1", llm.KIND_INVALID_REPLY)
+    assert report.failures[0]["run_id"] == "r1" and led.verify(runs) == []
+    assert len(skeptic.audit_pending(client, led, runs).audited) == 1
+
+
+def test_oversized_prompt_is_recorded_as_its_own_kind(tmp_path, led):
+    runs = tmp_path / "runs"
+    add_ran_run(led, runs, script="x = 1\n" * 20000)
+    client, provider = make_client(tmp_path)
+    report = skeptic.audit_pending(client, led, runs)
+    assert report.failures[0]["kind"] == llm.KIND_PROMPT_TOO_LARGE and provider.calls == []
+
+
+class DownProvider(FakeProvider):
+    def generate(self, *args, **kwargs):
+        raise llm.LLMError("connection refused")
+
+
+def test_an_outage_stops_the_pass_and_leaves_the_rest_waiting(tmp_path, led):
+    runs = tmp_path / "runs"
+    for number in range(4):
+        add_ran_run(led, runs, f"h{number}", f"r{number}", script=f"x = {number}\n")
+    client = llm.LLM(CFG, {"fake": DownProvider([])}, tmp_path / "cache.db")
+    report = skeptic.audit_pending(client, led, runs, chunk_size=1, stop_after=3)
+    assert "server failures" in report.stopped
+    assert len(report.failures) == 3
+    assert all(f["kind"] == llm.KIND_TIMEOUT_OR_SERVER for f in report.failures)
+
+
+def test_reviews_are_stored_after_each_chunk_not_at_the_end(tmp_path, led):
+    runs = tmp_path / "runs"
+    for number in range(2):
+        add_ran_run(led, runs, f"h{number}", f"r{number}", script=f"x = {number}\n")
+    client, _ = make_client(tmp_path, [PASS_REPLY, PASS_REPLY])
+    stored_at_progress = []
+    skeptic.audit_pending(client, led, runs, chunk_size=1,
+                          on_progress=lambda d, t, item: stored_at_progress.append(len(led.entries(ledger.AUDITED))))
+    assert stored_at_progress == [1, 2]

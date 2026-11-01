@@ -10,6 +10,7 @@ science:
   alpha: 0.05                # the verdict's confidence interval is 1 - alpha
   min_effect_floor: 0.005    # stops a Scientist calling a trivially small difference a success
   proposal_attempts: 3
+calibrate: {question: q1, grid_rounds: 2, seed: 2404}   # 2 proposals per dataset for the pool of bases to clone
 replication: {new_seeds: 5, new_split: true, sibling_dataset: when_available}
 graveyard_similarity: 0.75
 questions:

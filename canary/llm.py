@@ -34,8 +34,19 @@ _JSON_TYPES = {
 }
 
 
+# Why a call failed. They mean different things for trust: an invalid reply is the reviewer's own failure, while a
+# timeout or an unreachable server may be the machine's. Reports must keep them apart.
+KIND_INVALID_REPLY = "invalid_reply"
+KIND_TIMEOUT_OR_SERVER = "timeout_or_server"
+KIND_PROMPT_TOO_LARGE = "prompt_too_large"
+
+
 class LLMError(RuntimeError):
     """A model could not give a valid answer, or could not be reached."""
+
+    def __init__(self, message: str, kind: str = KIND_TIMEOUT_OR_SERVER):
+        super().__init__(message)
+        self.kind = kind
 
 
 class InvalidReply(ValueError):
@@ -197,6 +208,7 @@ class LLMResult:
     attempts: int = 0
     seconds: float = 0.0
     error: str | None = None
+    error_kind: str | None = None
 
 
 class LLM:
@@ -266,7 +278,8 @@ class LLM:
         limit = (self.settings["num_ctx"] - self.settings["num_predict"]) * 3
         size = len(prompt) + len(system or "")
         if size > limit:
-            raise LLMError(f"prompt of {size} characters may not fit (limit {limit}); raise num_ctx in models.yaml")
+            raise LLMError(f"prompt of {size} characters may not fit (limit {limit}); raise num_ctx in models.yaml",
+                           KIND_PROMPT_TOO_LARGE)
 
     def call(self, role: str, prompt: str, schema: dict, system: str | None = None,
              refresh: bool = False) -> LLMResult:
@@ -287,6 +300,7 @@ class LLM:
         attempts = self.settings["retries"] + 1
         text = prompt
         last_problem = ""
+        last_kind = KIND_TIMEOUT_OR_SERVER
         for attempt in range(1, attempts + 1):
             timeout_s = self._prepare_model(provider_name, model)
             try:
@@ -296,15 +310,15 @@ class LLM:
                 data = parse_reply(reply, schema)
             except InvalidReply as exc:
                 # At temperature 0 the same prompt gives the same bad reply, so the retry must change the prompt.
-                last_problem = str(exc)
+                last_problem, last_kind = str(exc), KIND_INVALID_REPLY
                 text = f"{prompt}\n\nYour previous reply was rejected: {exc}. Reply with only JSON that fits the schema."
             except LLMError as exc:
-                last_problem = str(exc)
+                last_problem, last_kind = str(exc), exc.kind
                 self._loaded = None  # the model may not have loaded, so the next attempt counts as cold
             else:
                 self.cache.put(key, model, reply)
                 return LLMResult(role, model, data, False, attempt, time.perf_counter() - started)
-        raise LLMError(f"role {role}, model {model}: gave up after {attempts} attempts: {last_problem}")
+        raise LLMError(f"role {role}, model {model}: gave up after {attempts} attempts: {last_problem}", last_kind)
 
 
 class ModelQueue:
@@ -330,12 +344,12 @@ class ModelQueue:
             try:
                 groups.setdefault(self.llm.resolve(request["role"])[1], []).append(index)
             except LLMError as exc:
-                results[index] = LLMResult(request["role"], None, error=str(exc))
+                results[index] = LLMResult(request["role"], None, error=str(exc), error_kind=exc.kind)
         for model, indexes in groups.items():
             for index in indexes:
                 try:
                     results[index] = self.llm.call(**self._requests[index])
                 except LLMError as exc:
-                    results[index] = LLMResult(self._requests[index]["role"], model, error=str(exc))
+                    results[index] = LLMResult(self._requests[index]["role"], model, error=str(exc), error_kind=exc.kind)
         self._requests = []
         return results

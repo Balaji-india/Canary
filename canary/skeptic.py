@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -16,6 +17,8 @@ from canary.codegen import SCRIPT_NAME
 PASS = "pass"
 FLAG = "flag"
 DEFAULT_ROLE = "skeptic_a"
+DEFAULT_CHUNK = 5  # reviews stored per chunk, and the longest stretch of an outage before the stop rule looks
+DEFAULT_STOP_AFTER = 3
 
 
 def audit_schema(bug_ids: list[str]) -> dict:
@@ -45,7 +48,9 @@ class AuditJob:
 class AuditReport:
     audited: list[dict] = field(default_factory=list)
     no_results: list[dict] = field(default_factory=list)  # failed runs, sent to the graveyard without a review
-    errors: list[str] = field(default_factory=list)  # left at "ran", so a later audit tries them again
+    errors: list[str] = field(default_factory=list)  # still waiting, so a later audit tries them again
+    failures: list[dict] = field(default_factory=list)  # the model gave no opinion: run ID, kind and message
+    stopped: str | None = None  # why the pass ended early, leaving runs waiting
 
 
 def _sha256(data: bytes) -> str:
@@ -53,14 +58,20 @@ def _sha256(data: bytes) -> str:
 
 
 def _waiting(led: ledger.Ledger) -> list[tuple[ledger.Entry, dict]]:
-    """Return (ran entry, locked pre-registration) for each hypothesis whose latest status is "ran"."""
-    latest: dict[str, ledger.Entry] = {}
+    """Return (ran entry, locked pre-registration) for each hypothesis still without an opinion.
+
+    A run whose last audit attempt failed still waits: the reviewer has not said anything about it yet.
+    """
+    latest: dict[str, str] = {}
     locks: dict[str, dict] = {}
+    ran: dict[str, ledger.Entry] = {}
     for entry in led.entries():
-        latest[entry.hypothesis_id] = entry
+        latest[entry.hypothesis_id] = entry.status
         if entry.status == ledger.PREREGISTERED:
             locks[entry.hypothesis_id] = entry.payload
-    return [(e, locks[e.hypothesis_id]) for e in latest.values() if e.status == ledger.RAN]
+        elif entry.status == ledger.RAN:
+            ran[entry.hypothesis_id] = entry
+    return [(ran[h], locks[h]) for h, status in latest.items() if status in (ledger.RAN, ledger.AUDIT_FAILED)]
 
 
 def _prepare(entry: ledger.Entry, lock: dict, runs_dir: Path) -> AuditJob:
@@ -82,10 +93,13 @@ def _prepare(entry: ledger.Entry, lock: dict, runs_dir: Path) -> AuditJob:
 
 
 def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.RUNS_DIR,
-                  role: str = DEFAULT_ROLE) -> AuditReport:
-    """Review every run still waiting, and store each review in the ledger before moving on.
+                  role: str = DEFAULT_ROLE, on_progress: Callable[[int, int, dict], None] | None = None,
+                  chunk_size: int = DEFAULT_CHUNK, stop_after: int = DEFAULT_STOP_AFTER) -> AuditReport:
+    """Review every run still waiting, storing reviews after each small chunk, so a crash loses very little.
 
     A failed run has no results, so there is no finding to review: it goes straight to the graveyard with its cause.
+    A failed review is stored too, because a failure that left no trace could hide a reviewer that fails more often on
+    buggy code. After `stop_after` server failures in a row the pass stops: that is an outage, not a reviewer's answer.
     """
     report = AuditReport()
     bugs = config.load_yaml("bug_classes.yaml")
@@ -102,22 +116,40 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
         except (OSError, ValueError, SyntaxError, KeyError) as exc:
             report.errors.append(f"{entry.hypothesis_id}: not reviewed: {exc}")
 
-    queue = llm.ModelQueue(client)
-    prompts_sent = []
-    for job in jobs:
-        prompt = prompts.skeptic_prompt(job.blinded, bugs)
-        prompts_sent.append(prompt)
-        queue.add(role, prompt, schema, system=prompts.SKEPTIC_SYSTEM)
-    for job, prompt, result in zip(jobs, prompts_sent, queue.run()):
-        if result.error:
-            report.errors.append(f"{job.hypothesis_id}: {result.error}")
-            continue
-        payload = {
-            "run_id": job.run_id, "role": role, "model": result.model, "audit": result.data,
-            "cached": result.cached, "attempts": result.attempts,
-            "blinded_script_sha256": prereg.sha256_text(job.blinded.script),
-            "prompt_sha256": prereg.sha256_text(prompt),
-        }
-        led.append(job.hypothesis_id, ledger.AUDITED, payload)
-        report.audited.append({"hypothesis_id": job.hypothesis_id, **payload})
+    server_failures = 0
+    done = 0
+    for start in range(0, len(jobs), chunk_size):
+        chunk = jobs[start:start + chunk_size]
+        queue = llm.ModelQueue(client)
+        prompts_sent = []
+        for job in chunk:
+            prompt = prompts.skeptic_prompt(job.blinded, bugs)
+            prompts_sent.append(prompt)
+            queue.add(role, prompt, schema, system=prompts.SKEPTIC_SYSTEM)
+        for job, prompt, result in zip(chunk, prompts_sent, queue.run()):
+            done += 1
+            if result.error:
+                failure = {"run_id": job.run_id, "role": role, "model": result.model, "kind": result.error_kind,
+                           "error": result.error, "prompt_sha256": prereg.sha256_text(prompt)}
+                led.append(job.hypothesis_id, ledger.AUDIT_FAILED, failure)
+                report.failures.append({"hypothesis_id": job.hypothesis_id, **failure})
+                report.errors.append(f"{job.hypothesis_id}: {result.error}")
+                server_failures = server_failures + 1 if result.error_kind == llm.KIND_TIMEOUT_OR_SERVER else 0
+                item = failure
+            else:
+                server_failures = 0
+                payload = {
+                    "run_id": job.run_id, "role": role, "model": result.model, "audit": result.data,
+                    "cached": result.cached, "attempts": result.attempts, "seconds": round(result.seconds, 3),
+                    "blinded_script_sha256": prereg.sha256_text(job.blinded.script),
+                    "prompt_sha256": prereg.sha256_text(prompt),
+                }
+                led.append(job.hypothesis_id, ledger.AUDITED, payload)
+                report.audited.append({"hypothesis_id": job.hypothesis_id, **payload})
+                item = payload
+            if on_progress:
+                on_progress(done, len(jobs), item)
+        if server_failures >= stop_after:
+            report.stopped = f"{server_failures} server failures in a row: is Ollama running?"
+            break
     return report

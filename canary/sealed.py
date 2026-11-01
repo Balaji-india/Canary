@@ -19,6 +19,7 @@ from pathlib import Path
 from canary.config import DATA_DIR
 
 SEALED_DB_PATH = DATA_DIR / "sealed.db"
+PLANS_DIR = DATA_DIR / "sealed_plans"  # a batch's plan names each slot's type, so it is as secret as the table
 
 REAL = "real"
 CANARY_MEASURE = "canary_measure"

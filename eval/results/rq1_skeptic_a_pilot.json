@@ -1,0 +1,1067 @@
+{
+ "batch": "pilot",
+ "role": "skeptic_a",
+ "models": {
+  "gemma3:4b": "68ceab7e468a31c988b44d5a4984a0e21f58c4f7158c6ce29c1804babac38df7"
+ },
+ "generated_at": "2026-11-01T10:23:38.537665+00:00",
+ "reviewed": 30,
+ "excluded": {
+  "other_role": 0,
+  "repeat_audit": 0,
+  "unsealed": 0,
+  "canary_probe": 0,
+  "real": 0,
+  "other_batch": 182
+ },
+ "classes_tested": 10,
+ "classes_total": 10,
+ "untested": [],
+ "per_class": {
+  "B01": {
+   "any_flag": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "right_type": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "chance": {
+    "n": 2,
+    "any_flag": 1.0,
+    "right_type_uniform": 0.1,
+    "right_type_matched": 1.0,
+    "any_flag_interval": [
+     0.5,
+     1.0
+    ],
+    "right_type_matched_interval": [
+     0.5,
+     1.0
+    ]
+   },
+   "distinct_bases": 2
+  },
+  "B02": {
+   "any_flag": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "right_type": {
+    "successes": 0,
+    "n": 2,
+    "alpha": 1,
+    "beta": 3,
+    "mean": 0.25,
+    "raw": 0.0,
+    "interval_90": [
+     0.0169524275084415,
+     0.6315968501359612
+    ]
+   },
+   "chance": {
+    "n": 2,
+    "any_flag": 1.0,
+    "right_type_uniform": 0.1,
+    "right_type_matched": 0.0,
+    "any_flag_interval": [
+     0.5,
+     1.0
+    ],
+    "right_type_matched_interval": [
+     0.0,
+     0.0
+    ]
+   },
+   "distinct_bases": 2
+  },
+  "B03": {
+   "any_flag": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "right_type": {
+    "successes": 0,
+    "n": 2,
+    "alpha": 1,
+    "beta": 3,
+    "mean": 0.25,
+    "raw": 0.0,
+    "interval_90": [
+     0.0169524275084415,
+     0.6315968501359612
+    ]
+   },
+   "chance": {
+    "n": 2,
+    "any_flag": 1.0,
+    "right_type_uniform": 0.1,
+    "right_type_matched": 0.0,
+    "any_flag_interval": [
+     0.5,
+     1.0
+    ],
+    "right_type_matched_interval": [
+     0.0,
+     0.0
+    ]
+   },
+   "distinct_bases": 2
+  },
+  "B04": {
+   "any_flag": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "right_type": {
+    "successes": 0,
+    "n": 2,
+    "alpha": 1,
+    "beta": 3,
+    "mean": 0.25,
+    "raw": 0.0,
+    "interval_90": [
+     0.0169524275084415,
+     0.6315968501359612
+    ]
+   },
+   "chance": {
+    "n": 2,
+    "any_flag": 1.0,
+    "right_type_uniform": 0.1,
+    "right_type_matched": 0.0,
+    "any_flag_interval": [
+     0.5,
+     1.0
+    ],
+    "right_type_matched_interval": [
+     0.0,
+     0.0
+    ]
+   },
+   "distinct_bases": 2
+  },
+  "B05": {
+   "any_flag": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "right_type": {
+    "successes": 0,
+    "n": 2,
+    "alpha": 1,
+    "beta": 3,
+    "mean": 0.25,
+    "raw": 0.0,
+    "interval_90": [
+     0.0169524275084415,
+     0.6315968501359612
+    ]
+   },
+   "chance": {
+    "n": 2,
+    "any_flag": 1.0,
+    "right_type_uniform": 0.1,
+    "right_type_matched": 0.0,
+    "any_flag_interval": [
+     0.5,
+     1.0
+    ],
+    "right_type_matched_interval": [
+     0.0,
+     0.0
+    ]
+   },
+   "distinct_bases": 2
+  },
+  "B06": {
+   "any_flag": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "right_type": {
+    "successes": 0,
+    "n": 2,
+    "alpha": 1,
+    "beta": 3,
+    "mean": 0.25,
+    "raw": 0.0,
+    "interval_90": [
+     0.0169524275084415,
+     0.6315968501359612
+    ]
+   },
+   "chance": {
+    "n": 2,
+    "any_flag": 1.0,
+    "right_type_uniform": 0.1,
+    "right_type_matched": 0.0,
+    "any_flag_interval": [
+     0.5,
+     1.0
+    ],
+    "right_type_matched_interval": [
+     0.0,
+     0.0
+    ]
+   },
+   "distinct_bases": 2
+  },
+  "B07": {
+   "any_flag": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "right_type": {
+    "successes": 0,
+    "n": 2,
+    "alpha": 1,
+    "beta": 3,
+    "mean": 0.25,
+    "raw": 0.0,
+    "interval_90": [
+     0.0169524275084415,
+     0.6315968501359612
+    ]
+   },
+   "chance": {
+    "n": 2,
+    "any_flag": 1.0,
+    "right_type_uniform": 0.1,
+    "right_type_matched": 0.0,
+    "any_flag_interval": [
+     0.5,
+     1.0
+    ],
+    "right_type_matched_interval": [
+     0.0,
+     0.0
+    ]
+   },
+   "distinct_bases": 2
+  },
+  "B08": {
+   "any_flag": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "right_type": {
+    "successes": 0,
+    "n": 2,
+    "alpha": 1,
+    "beta": 3,
+    "mean": 0.25,
+    "raw": 0.0,
+    "interval_90": [
+     0.0169524275084415,
+     0.6315968501359612
+    ]
+   },
+   "chance": {
+    "n": 2,
+    "any_flag": 1.0,
+    "right_type_uniform": 0.1,
+    "right_type_matched": 0.0,
+    "any_flag_interval": [
+     0.5,
+     1.0
+    ],
+    "right_type_matched_interval": [
+     0.0,
+     0.0
+    ]
+   },
+   "distinct_bases": 2
+  },
+  "B09": {
+   "any_flag": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "right_type": {
+    "successes": 0,
+    "n": 2,
+    "alpha": 1,
+    "beta": 3,
+    "mean": 0.25,
+    "raw": 0.0,
+    "interval_90": [
+     0.0169524275084415,
+     0.6315968501359612
+    ]
+   },
+   "chance": {
+    "n": 2,
+    "any_flag": 1.0,
+    "right_type_uniform": 0.1,
+    "right_type_matched": 0.0,
+    "any_flag_interval": [
+     0.5,
+     1.0
+    ],
+    "right_type_matched_interval": [
+     0.0,
+     0.0
+    ]
+   },
+   "distinct_bases": 2
+  },
+  "B10": {
+   "any_flag": {
+    "successes": 2,
+    "n": 2,
+    "alpha": 3,
+    "beta": 1,
+    "mean": 0.75,
+    "raw": 1.0,
+    "interval_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "right_type": {
+    "successes": 0,
+    "n": 2,
+    "alpha": 1,
+    "beta": 3,
+    "mean": 0.25,
+    "raw": 0.0,
+    "interval_90": [
+     0.0169524275084415,
+     0.6315968501359612
+    ]
+   },
+   "chance": {
+    "n": 2,
+    "any_flag": 1.0,
+    "right_type_uniform": 0.1,
+    "right_type_matched": 0.0,
+    "any_flag_interval": [
+     0.5,
+     1.0
+    ],
+    "right_type_matched_interval": [
+     0.0,
+     0.0
+    ]
+   },
+   "distinct_bases": 2
+  }
+ },
+ "overall": {
+  "any_flag_mean_over_classes": 0.75,
+  "any_flag_interval_90": [
+   0.6463911458389969,
+   0.8445052570053003
+  ],
+  "any_flag_pooled": {
+   "successes": 20,
+   "n": 20,
+   "alpha": 21,
+   "beta": 1,
+   "mean": 0.9545454545454546,
+   "raw": 1.0,
+   "interval_90": [
+    0.8670540889734766,
+    0.9975604427403312
+   ]
+  },
+  "right_type_pooled": {
+   "successes": 2,
+   "n": 20,
+   "alpha": 3,
+   "beta": 19,
+   "mean": 0.13636363636363635,
+   "raw": 0.1,
+   "interval_90": [
+    0.040099536297474425,
+    0.2705516993045313
+   ]
+  },
+  "chance": {
+   "any_flag": 1.0,
+   "right_type_uniform": 0.1,
+   "right_type_matched": 0.1,
+   "any_flag_interval": [
+    0.85,
+    1.0
+   ],
+   "right_type_uniform_interval": [
+    0.0,
+    0.2
+   ],
+   "right_type_matched_interval": [
+    0.05,
+    0.1
+   ]
+  },
+  "worst_class": "B01"
+ },
+ "flag_rate": 1.0,
+ "flagged": 30,
+ "named_share": {
+  "B01": 1.0,
+  "B02": 0.0,
+  "B03": 0.0,
+  "B04": 0.0,
+  "B05": 0.0,
+  "B06": 0.0,
+  "B07": 0.0,
+  "B08": 0.0,
+  "B09": 0.0,
+  "B10": 0.0
+ },
+ "by_tier": {
+  "obvious": {
+   "successes": 10,
+   "n": 10,
+   "alpha": 11,
+   "beta": 1,
+   "mean": 0.9166666666666666,
+   "raw": 1.0,
+   "interval_90": [
+    0.7615958096191473,
+    0.9953478282678027
+   ]
+  },
+  "subtle": {
+   "successes": 10,
+   "n": 10,
+   "alpha": 11,
+   "beta": 1,
+   "mean": 0.9166666666666666,
+   "raw": 1.0,
+   "interval_90": [
+    0.7615958096191473,
+    0.9953478282678027
+   ]
+  }
+ },
+ "by_impact": {
+  "harmful": {
+   "successes": 15,
+   "n": 15,
+   "alpha": 16,
+   "beta": 1,
+   "mean": 0.9411764705882353,
+   "raw": 1.0,
+   "interval_90": [
+    0.8292502770175191,
+    0.9967993022898115
+   ]
+  },
+  "harmless": {
+   "successes": 4,
+   "n": 4,
+   "alpha": 5,
+   "beta": 1,
+   "mean": 0.8333333333333334,
+   "raw": 1.0,
+   "interval_90": [
+    0.5492802716530588,
+    0.9897937816869885
+   ]
+  },
+  "unmeasured": {
+   "successes": 1,
+   "n": 1,
+   "alpha": 2,
+   "beta": 1,
+   "mean": 0.6666666666666666,
+   "raw": 1.0,
+   "interval_90": [
+    0.22360679774997896,
+    0.9746794344808963
+   ]
+  }
+ },
+ "specificity": {
+  "controls": {
+   "successes": 0,
+   "n": 5,
+   "alpha": 1,
+   "beta": 6,
+   "mean": 0.14285714285714285,
+   "raw": 0.0,
+   "interval_90": [
+    0.00851244461084712,
+    0.39303776899708265
+   ]
+  },
+  "shams": {
+   "successes": 0,
+   "n": 5,
+   "alpha": 1,
+   "beta": 6,
+   "mean": 0.14285714285714285,
+   "raw": 0.0,
+   "interval_90": [
+    0.00851244461084712,
+    0.39303776899708265
+   ]
+  },
+  "combined": {
+   "successes": 0,
+   "n": 10,
+   "alpha": 1,
+   "beta": 11,
+   "mean": 0.08333333333333333,
+   "raw": 0.0,
+   "interval_90": [
+    0.0046521717321972985,
+    0.23840419038085256
+   ]
+  }
+ },
+ "discrimination": {
+  "observed_j": 0.0,
+  "youden_j": 0.03923174424534152,
+  "interval": [
+   -0.08722525870913941,
+   0.20478352871149325
+  ],
+  "p_recall_above_false_alarm": 0.6616
+ },
+ "failures": {
+  "by_type": {
+   "sham": {
+    "sealed": 5,
+    "crashed": 0,
+    "not_recorded": 0,
+    "audited": 5,
+    "failed_then_recovered": 0,
+    "never_reviewed_failed": 0,
+    "not_reached": 0,
+    "failure_kinds": {}
+   },
+   "canary_measure": {
+    "sealed": 20,
+    "crashed": 0,
+    "not_recorded": 0,
+    "audited": 20,
+    "failed_then_recovered": 0,
+    "never_reviewed_failed": 0,
+    "not_reached": 0,
+    "failure_kinds": {}
+   },
+   "control": {
+    "sealed": 5,
+    "crashed": 0,
+    "not_recorded": 0,
+    "audited": 5,
+    "failed_then_recovered": 0,
+    "never_reviewed_failed": 0,
+    "not_reached": 0,
+    "failure_kinds": {}
+   }
+  },
+  "unreviewed_canaries": {}
+ },
+ "any_flag_bounds_if_unreviewed": [
+  1.0,
+  1.0
+ ],
+ "records": [
+  {
+   "run_id": "086b5b77-d56a-47e9-84bc-0dab3eeb19d8",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "impact": null,
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:4",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 11.95
+  },
+  {
+   "run_id": "2fe00d42-6277-465e-a54d-ca17448b211c",
+   "run_type": "canary_measure",
+   "bug_id": "B09",
+   "tier": "obvious",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:1",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.978
+  },
+  {
+   "run_id": "02183b52-4e84-473c-88d4-7e9fc5763206",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "impact": null,
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:17",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.917
+  },
+  {
+   "run_id": "d87cc7e1-186c-46e4-b1f8-47be45036338",
+   "run_type": "canary_measure",
+   "bug_id": "B01",
+   "tier": "subtle",
+   "impact": "harmless",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:9",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.746
+  },
+  {
+   "run_id": "2f56c3d8-75ee-4ae6-99fd-7eba10930577",
+   "run_type": "canary_measure",
+   "bug_id": "B08",
+   "tier": "obvious",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:9",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.07
+  },
+  {
+   "run_id": "7c2691c6-8b8b-437b-8b90-0a85ef721b85",
+   "run_type": "canary_measure",
+   "bug_id": "B10",
+   "tier": "subtle",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:17",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.433
+  },
+  {
+   "run_id": "cd11b5c1-fa80-432a-9efd-035a2fec510d",
+   "run_type": "canary_measure",
+   "bug_id": "B01",
+   "tier": "obvious",
+   "impact": "harmless",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:3",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.882
+  },
+  {
+   "run_id": "0a4ae4d5-a780-4682-b3f7-f065bbf62a0f",
+   "run_type": "canary_measure",
+   "bug_id": "B06",
+   "tier": "obvious",
+   "impact": "unmeasured",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:5",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.126
+  },
+  {
+   "run_id": "119af2bc-0ce1-46e6-b50a-713696b361f6",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "impact": null,
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:8",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.382
+  },
+  {
+   "run_id": "f5e52aa4-08c8-41d3-9776-d202a7a91a89",
+   "run_type": "canary_measure",
+   "bug_id": "B03",
+   "tier": "subtle",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:7",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.338
+  },
+  {
+   "run_id": "0a965837-3c43-4c36-9a9c-525132f64035",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "impact": null,
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:7",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.889
+  },
+  {
+   "run_id": "07425f34-c412-4de8-9275-737f93dff2f0",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "impact": null,
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:14",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.445
+  },
+  {
+   "run_id": "ea4a37cf-2d0f-42ea-a72e-c8581689f5f9",
+   "run_type": "canary_measure",
+   "bug_id": "B09",
+   "tier": "subtle",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:0",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.904
+  },
+  {
+   "run_id": "11595f76-bc65-45f5-a773-74d1b0ce0438",
+   "run_type": "canary_measure",
+   "bug_id": "B02",
+   "tier": "subtle",
+   "impact": "harmless",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:0",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.607
+  },
+  {
+   "run_id": "4f08f4db-c89e-4eeb-a578-82a17585fe66",
+   "run_type": "canary_measure",
+   "bug_id": "B07",
+   "tier": "subtle",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:10",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.942
+  },
+  {
+   "run_id": "fb2d6d60-6ab0-46e4-8228-932bc6240180",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "impact": null,
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:7",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 4.012
+  },
+  {
+   "run_id": "928878da-b1e5-4827-90ff-3d9b15f2dee2",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "impact": null,
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:8",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 4.249
+  },
+  {
+   "run_id": "d79947c4-a4f6-4349-a26b-7f6c3337852f",
+   "run_type": "canary_measure",
+   "bug_id": "B10",
+   "tier": "obvious",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:12",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.512
+  },
+  {
+   "run_id": "4f4e7925-8902-4457-828e-afab526677a8",
+   "run_type": "canary_measure",
+   "bug_id": "B07",
+   "tier": "obvious",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:4",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.618
+  },
+  {
+   "run_id": "f65e7cbf-dce4-4ae0-b6f4-624b02517636",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "impact": null,
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:6",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.508
+  },
+  {
+   "run_id": "835db228-ad56-408c-87c2-a6c267d97365",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "impact": null,
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:1",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.793
+  },
+  {
+   "run_id": "8cf42de5-0724-4889-aa77-aeb871e1b2aa",
+   "run_type": "canary_measure",
+   "bug_id": "B05",
+   "tier": "obvious",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:13",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.389
+  },
+  {
+   "run_id": "ff348d62-c9db-4a3c-8944-80dd156cc108",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "impact": null,
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:4",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.935
+  },
+  {
+   "run_id": "46775f4d-c944-4d09-9c51-8b8792c56ee8",
+   "run_type": "canary_measure",
+   "bug_id": "B05",
+   "tier": "subtle",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:1",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.476
+  },
+  {
+   "run_id": "1da7c9ed-df5e-40ba-94c1-f7f1b02eb5b2",
+   "run_type": "canary_measure",
+   "bug_id": "B03",
+   "tier": "obvious",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:10",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.981
+  },
+  {
+   "run_id": "f5803214-8567-4cd0-9dc0-47347c736ad7",
+   "run_type": "canary_measure",
+   "bug_id": "B04",
+   "tier": "obvious",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:0",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.405
+  },
+  {
+   "run_id": "79680b61-03e3-4eac-83a3-a4cbd956a774",
+   "run_type": "canary_measure",
+   "bug_id": "B02",
+   "tier": "obvious",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:4",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 3.297
+  },
+  {
+   "run_id": "c7b11ef8-b839-4f49-9f5e-91dec9b9d83a",
+   "run_type": "canary_measure",
+   "bug_id": "B04",
+   "tier": "subtle",
+   "impact": "harmless",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:11",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.848
+  },
+  {
+   "run_id": "7be6a727-4417-4cc3-a70a-d9c6d577ba0b",
+   "run_type": "canary_measure",
+   "bug_id": "B06",
+   "tier": "subtle",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:8",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.797
+  },
+  {
+   "run_id": "b7d5a493-1e0a-4f72-b41c-bd2653ffad50",
+   "run_type": "canary_measure",
+   "bug_id": "B08",
+   "tier": "subtle",
+   "impact": "harmful",
+   "flagged": true,
+   "named_class": "B01",
+   "confidence": 0.95,
+   "base": "pool:14",
+   "attempts": 1,
+   "cached": false,
+   "seconds": 2.977
+  }
+ ]
+}

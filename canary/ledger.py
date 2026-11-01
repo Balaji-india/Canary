@@ -25,6 +25,7 @@ PROPOSED = "proposed"
 PREREGISTERED = "preregistered"
 RAN = "ran"
 AUDITED = "audited"
+AUDIT_FAILED = "audit_failed"  # the reviewer gave no opinion. Kept in the chain, so failures cannot vanish from a report.
 REPLICATED = "replicated"
 ACCEPTED = "accepted"
 ESCALATED = "escalated"
@@ -35,7 +36,8 @@ TRANSITIONS = {
     None: {PROPOSED},
     PROPOSED: {PREREGISTERED, GRAVEYARD},
     PREREGISTERED: {RAN},
-    RAN: {AUDITED, GRAVEYARD},
+    RAN: {AUDITED, AUDIT_FAILED, GRAVEYARD},
+    AUDIT_FAILED: {AUDITED, AUDIT_FAILED, GRAVEYARD},
     AUDITED: {REPLICATED, ACCEPTED, ESCALATED, GRAVEYARD},
     REPLICATED: {ACCEPTED, ESCALATED, GRAVEYARD},
     ESCALATED: {ACCEPTED, GRAVEYARD},
