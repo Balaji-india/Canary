@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import importlib.metadata
 import json
 import platform
@@ -394,6 +395,31 @@ def cmd_calibrate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reaudit(args: argparse.Namespace) -> int:
+    """Have another reviewer role review a finished batch again. Never runs an experiment. Safe to resume."""
+    client, led, table = llm.LLM(), ledger.Ledger(), sealed.SealedTable()
+    if args.role not in client.cfg["roles"]:
+        print(f"Unknown role {args.role}. Roles: {', '.join(client.cfg['roles'])}")
+        return 2
+    if not mixer.batch_run_ids(table, args.batch):
+        print(f"Batch {args.batch} has no sealed runs.")
+        return 2
+    run_ids, class_order = None, None
+    if args.position_sample:
+        sample = mixer.position_sample(table, led, args.batch, args.seed)
+        for problem in sample["missing"]:
+            print(f"Sample gap: {problem}")
+        run_ids = set(sample["run_ids"])
+        bug_ids = sorted(config.load_yaml("bug_classes.yaml"))
+        class_order = functools.partial(mixer.shuffled_order, bug_ids, args.seed)  # called with a run ID
+    report = mixer.reaudit(client, led, table, args.batch, args.role, run_ids, class_order)
+    if report.stopped:
+        print(f"Stopped: {report.stopped} Fix that, then run the same command again: finished reviews are kept.")
+        return 1
+    print(f"Re-audit of {args.batch} by {args.role} finished: {len(report.audited)} stored, {len(report.failures)} failed.")
+    return 0
+
+
 def cmd_ledger(args: argparse.Namespace) -> int:
     led = ledger.Ledger(Path(args.db))
     if args.action == "show":
@@ -444,6 +470,14 @@ def main(argv: list[str] | None = None) -> int:
     calibrate_parser.add_argument("--seed", type=int, help="seed for the plan (default in config/campaign.yaml)")
     calibrate_parser.add_argument("--resume", action="store_true", help="continue a batch after an interruption")
     calibrate_parser.set_defaults(func=cmd_calibrate)
+    reaudit_parser = sub.add_parser("reaudit", help="have another reviewer role review a finished batch (no new runs)")
+    reaudit_parser.add_argument("--batch", required=True)
+    reaudit_parser.add_argument("--role", required=True, help="a role from config/models.yaml, e.g. skeptic_b")
+    reaudit_parser.add_argument("--position-sample", action="store_true",
+                                help="only 20 canaries (one per class and tier), 10 controls and 10 shams, with the class "
+                                     "list shuffled per run: the position-bias diagnostic")
+    reaudit_parser.add_argument("--seed", type=int, default=0, help="seed for the sample and the shuffles")
+    reaudit_parser.set_defaults(func=cmd_reaudit)
     args = parser.parse_args(argv)
     return args.func(args)
 

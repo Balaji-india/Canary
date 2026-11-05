@@ -198,6 +198,13 @@ def make_figures(r: dict, directory: Path = FIGURES_DIR) -> list[Path]:
     return [recall_path, specificity_path]
 
 
+def figures_dir(role: str, suffix: str = "") -> Path:
+    """Skeptic A's figures stay where they are, as the baseline. Any other role gets its own folder, so it cannot
+    overwrite them by accident."""
+    directory = FIGURES_DIR if role == trust.DEFAULT_ROLE else FIGURES_DIR / role
+    return directory / suffix.lstrip("_") if suffix else directory
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--batch", required=True)
@@ -217,7 +224,7 @@ def main(argv: list[str] | None = None) -> int:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     path = RESULTS_DIR / f"rq1_{args.role}{args.suffix}.json"
     path.write_text(json.dumps(results, indent=1), encoding="utf-8")
-    figures = make_figures(results, FIGURES_DIR / args.suffix.lstrip("_") if args.suffix else FIGURES_DIR)
+    figures = make_figures(results, figures_dir(args.role, args.suffix))
     print(f"\nWrote {path} and {', '.join(str(f) for f in figures)}")
     return 0
 

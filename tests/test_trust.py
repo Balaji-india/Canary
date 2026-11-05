@@ -257,6 +257,7 @@ def test_trust_command_does_not_create_the_sealed_file(tmp_path, monkeypatch, ca
     assert "No sealed table yet" in capsys.readouterr().out
 
 
+@pytest.mark.slow
 def test_demo_is_labelled_synthetic_and_shows_every_group(capsys):
     assert cli.main(["trust", "--demo"]) == 0
     out = capsys.readouterr().out

@@ -13,14 +13,17 @@ SKEPTIC_SYSTEM = (
 )
 
 
-def skeptic_prompt(blinded, bug_classes: dict) -> str:
+def skeptic_prompt(blinded, bug_classes: dict, order: list[str] | None = None) -> str:
     """Build the review prompt from a BlindedRun.
 
     It lists bug class names only, not the catalog's examples: those would hand the reviewer the answers and
     inflate its measured recall. Adding such hints is a separate, measured step (self-hardening, Mission 6.4).
     It also says nothing about controls or planted bugs, because a reviewer told it is being tested may act differently.
+    `order` lists the classes in another order (the position-bias diagnostic). Left out, the prompt is exactly the
+    baseline's, sorted by ID, so every reviewer measured without it sees the same text.
     """
-    classes = "\n".join(f"- {bug_id}: {entry['name'].replace('_', ' ')}" for bug_id, entry in sorted(bug_classes.items()))
+    ids = sorted(bug_classes) if order is None else order
+    classes = "\n".join(f"- {bug_id}: {bug_classes[bug_id]['name'].replace('_', ' ')}" for bug_id in ids)
     return f"""Review this experiment.
 
 Pre-registration:

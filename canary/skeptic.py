@@ -57,21 +57,30 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _waiting(led: ledger.Ledger) -> list[tuple[ledger.Entry, dict]]:
-    """Return (ran entry, locked pre-registration) for each hypothesis still without an opinion.
+# Where a hypothesis can still be reviewed. After acceptance, escalation or the graveyard nobody reviews it again.
+_OPEN = (ledger.RAN, ledger.AUDIT_FAILED, ledger.AUDITED)
+
+
+def _waiting(led: ledger.Ledger, role: str = DEFAULT_ROLE) -> list[tuple[ledger.Entry, dict]]:
+    """Return (ran entry, locked pre-registration) for each hypothesis still without an opinion from `role`.
 
     A run whose last audit attempt failed still waits: the reviewer has not said anything about it yet.
+    Only this role's audits count. Otherwise a second reviewer's failed reply would make the first see an audited run as
+    waiting again, and a run the first reviewer audited would never wait for the second.
     """
     latest: dict[str, str] = {}
     locks: dict[str, dict] = {}
     ran: dict[str, ledger.Entry] = {}
+    reviewed: set[str] = set()
     for entry in led.entries():
         latest[entry.hypothesis_id] = entry.status
         if entry.status == ledger.PREREGISTERED:
             locks[entry.hypothesis_id] = entry.payload
         elif entry.status == ledger.RAN:
             ran[entry.hypothesis_id] = entry
-    return [(ran[h], locks[h]) for h, status in latest.items() if status in (ledger.RAN, ledger.AUDIT_FAILED)]
+        elif entry.status == ledger.AUDITED and entry.payload.get("role") == role:
+            reviewed.add(entry.hypothesis_id)
+    return [(ran[h], locks[h]) for h, status in latest.items() if status in _OPEN and h in ran and h not in reviewed]
 
 
 def _prepare(entry: ledger.Entry, lock: dict, runs_dir: Path) -> AuditJob:
@@ -94,8 +103,14 @@ def _prepare(entry: ledger.Entry, lock: dict, runs_dir: Path) -> AuditJob:
 
 def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.RUNS_DIR,
                   role: str = DEFAULT_ROLE, on_progress: Callable[[int, int, dict], None] | None = None,
-                  chunk_size: int = DEFAULT_CHUNK, stop_after: int = DEFAULT_STOP_AFTER) -> AuditReport:
-    """Review every run still waiting, storing reviews after each small chunk, so a crash loses very little.
+                  chunk_size: int = DEFAULT_CHUNK, stop_after: int = DEFAULT_STOP_AFTER,
+                  run_ids: set[str] | None = None,
+                  class_order: Callable[[str], list[str]] | None = None) -> AuditReport:
+    """Review every run still waiting for `role`, storing reviews after each small chunk, so a crash loses very little.
+
+    `run_ids` limits the pass to those runs (one batch, or a sample of it). `class_order` gives, per run ID, the order
+    in which the bug classes are listed, in the prompt and in the schema alike, so that the order cannot leak back in
+    through either one. The order used is stored with the audit.
 
     A failed run has no results, so there is no finding to review: it goes straight to the graveyard with its cause.
     A failed review is stored too, because a failure that left no trace could hide a reviewer that fails more often on
@@ -103,9 +118,11 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
     """
     report = AuditReport()
     bugs = config.load_yaml("bug_classes.yaml")
-    schema = audit_schema(sorted(bugs))
+    default_schema = audit_schema(sorted(bugs))
     jobs = []
-    for entry, lock in _waiting(led):
+    for entry, lock in _waiting(led, role):
+        if run_ids is not None and entry.payload["run_id"] not in run_ids:
+            continue
         if entry.payload["results_sha256"] is None:
             cause = f"run failed: {entry.payload['run_status']} ({entry.payload['reason']})"
             led.append(entry.hypothesis_id, ledger.GRAVEYARD, {"cause": cause, "run_id": entry.payload["run_id"]})
@@ -121,16 +138,22 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
     for start in range(0, len(jobs), chunk_size):
         chunk = jobs[start:start + chunk_size]
         queue = llm.ModelQueue(client)
-        prompts_sent = []
+        prompts_sent, orders = [], []
         for job in chunk:
-            prompt = prompts.skeptic_prompt(job.blinded, bugs)
+            order = None
+            if class_order is not None:
+                order = class_order(job.run_id)
+                if sorted(order) != sorted(bugs):
+                    raise ValueError(f"class order for {job.run_id} is not a reordering of the bug classes")
+            prompt = prompts.skeptic_prompt(job.blinded, bugs, order)
             prompts_sent.append(prompt)
-            queue.add(role, prompt, schema, system=prompts.SKEPTIC_SYSTEM)
-        for job, prompt, result in zip(chunk, prompts_sent, queue.run()):
+            orders.append({"class_order": order} if order else {})
+            queue.add(role, prompt, audit_schema(order) if order else default_schema, system=prompts.SKEPTIC_SYSTEM)
+        for job, prompt, order, result in zip(chunk, prompts_sent, orders, queue.run()):
             done += 1
             if result.error:
                 failure = {"run_id": job.run_id, "role": role, "model": result.model, "kind": result.error_kind,
-                           "error": result.error, "prompt_sha256": prereg.sha256_text(prompt)}
+                           "error": result.error, "prompt_sha256": prereg.sha256_text(prompt), **order}
                 led.append(job.hypothesis_id, ledger.AUDIT_FAILED, failure)
                 report.failures.append({"hypothesis_id": job.hypothesis_id, **failure})
                 report.errors.append(f"{job.hypothesis_id}: {result.error}")
@@ -142,7 +165,7 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
                     "run_id": job.run_id, "role": role, "model": result.model, "audit": result.data,
                     "cached": result.cached, "attempts": result.attempts, "seconds": round(result.seconds, 3),
                     "blinded_script_sha256": prereg.sha256_text(job.blinded.script),
-                    "prompt_sha256": prereg.sha256_text(prompt),
+                    "prompt_sha256": prereg.sha256_text(prompt), **order,
                 }
                 led.append(job.hypothesis_id, ledger.AUDITED, payload)
                 report.audited.append({"hypothesis_id": job.hypothesis_id, **payload})

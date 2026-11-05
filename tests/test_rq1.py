@@ -136,6 +136,7 @@ def test_results_hold_all_three_figures_side_by_side(stores, monkeypatch):
     assert r["classes_tested"] == 2
 
 
+@pytest.mark.slow
 def test_figures_are_written(stores, tmp_path, monkeypatch):
     monkeypatch.setattr(rq1, "model_digests", lambda models: {m: "digest" for m in models})
     small_batch(stores)
@@ -144,6 +145,7 @@ def test_figures_are_written(stores, tmp_path, monkeypatch):
     assert all(p.stat().st_size > 1000 for p in paths)
 
 
+@pytest.mark.slow
 def test_flag_everything_across_many_classes_is_not_scored_below_chance(stores):
     """A real bug: averaging per-class posteriors gave -0.07 here, as if the reviewer were worse than random."""
     bugs = [f"B{i:02d}" for i in range(1, 11)]

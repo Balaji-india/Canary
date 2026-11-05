@@ -228,13 +228,21 @@ def run_batch(client: llm.LLM, plan: dict, led: ledger.Ledger, table: sealed.Sea
                                      "seconds": round(seconds, 2)}) + "\n")
         _log(log_path, f"batch {batch}: run {number}/{len(waiting)} {'done' if ran else 'SKIPPED, no base fits'} in {seconds:.1f} s")
 
+    return _audit_and_log(client, led, batch, runs_dir, log_path)
+
+
+def _audit_and_log(client: llm.LLM, led: ledger.Ledger, batch: str, runs_dir: Path, log_path: Path,
+                   role: str = skeptic.DEFAULT_ROLE, run_ids: set[str] | None = None,
+                   class_order=None) -> skeptic.AuditReport:
+    """Review what is waiting and log progress without run types. Ends with the line the status-line tip looks for."""
     started = time.perf_counter()
 
     def progress(done: int, total: int, item: dict) -> None:
         state = item["audit"]["verdict"] if "audit" in item else f"FAILED ({item['kind']})"
         _log(log_path, f"batch {batch}: audit {done}/{total} {state} [{time.perf_counter() - started:.0f} s so far]")
 
-    report = skeptic.audit_pending(client, led, runs_dir, on_progress=progress)
+    report = skeptic.audit_pending(client, led, runs_dir, role=role, on_progress=progress, run_ids=run_ids,
+                                   class_order=class_order)
     client.release()
     for error in report.errors:
         if "not reviewed" in error:  # a file problem, not a reviewer failure: these runs stay waiting
@@ -242,3 +250,61 @@ def run_batch(client: llm.LLM, plan: dict, led: ledger.Ledger, table: sealed.Sea
     _log(log_path, f"batch {batch}: {len(report.audited)} audits stored, {len(report.failures)} failed, "
                    f"{len(report.no_results)} runs with no results" + (f". STOPPED: {report.stopped}" if report.stopped else ""))
     return report
+
+
+# The position-bias diagnostic: one canary per class and tier, plus some clean runs, reviewed again with the class list
+# shuffled per run. 40 runs is enough to tell "names whatever is listed first" from "names B01 wherever it is listed".
+POSITION_CLEAN = {sealed.CONTROL: 10, sealed.SHAM: 10}
+
+
+def batch_run_ids(table: sealed.SealedTable, batch: str) -> set[str]:
+    return {t.run_id for t in table.all() if t.details.get("batch") == batch}
+
+
+def _reviewable(led: ledger.Ledger) -> set[str]:
+    """Runs that finished with results. A crashed run has nothing to review, so sampling it would waste a slot."""
+    return {e.payload["run_id"] for e in led.entries(ledger.RAN) if e.payload.get("results_sha256")}
+
+
+def position_sample(table: sealed.SealedTable, led: ledger.Ledger, batch: str, seed: int) -> dict:
+    """Pick the diagnostic's runs. A class x tier cell, or a clean type, that cannot be filled is reported, not skipped.
+
+    Returns {"run_ids": [...], "missing": [descriptions]}. The same seed and data give the same sample, so a resumed
+    re-audit reviews the same runs.
+    """
+    rng = random.Random(seed)
+    ok = _reviewable(led)
+    truths = sorted((t for t in table.all() if t.details.get("batch") == batch and t.run_id in ok), key=lambda t: t.run_id)
+    picked, missing = [], []
+    for bug, tier in sorted(TRANSFORMS):
+        cell = [t.run_id for t in truths if t.run_type == sealed.CANARY_MEASURE and t.bug_id == bug and t.tier == tier]
+        if cell:
+            picked.append(rng.choice(cell))
+        else:
+            missing.append(f"canary {bug} {tier}: no reviewable run")
+    for run_type, wanted in POSITION_CLEAN.items():
+        pool = [t.run_id for t in truths if t.run_type == run_type]
+        if len(pool) < wanted:
+            missing.append(f"{run_type}: {len(pool)} of {wanted}")
+        picked += rng.sample(pool, min(wanted, len(pool)))
+    return {"run_ids": picked, "missing": missing}
+
+
+def shuffled_order(bug_ids: list[str], seed: int, run_id: str) -> list[str]:
+    """A fixed shuffle per run, so a resumed re-audit asks with exactly the same prompt as before."""
+    order = sorted(bug_ids)
+    random.Random(f"{seed}:{run_id}").shuffle(order)
+    return order
+
+
+def reaudit(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable, batch: str, role: str,
+            run_ids: set[str] | None = None, class_order=None, runs_dir: Path = sandbox.RUNS_DIR,
+            log_path: Path | None = None) -> skeptic.AuditReport:
+    """Have another reviewer role review runs that already exist. No experiment is run. Safe to call again.
+
+    `run_ids` defaults to the whole batch. Runs this role already reviewed are skipped, so a resume does only the rest.
+    """
+    log_path = log_path or runs_dir / "campaign.log"
+    ids = batch_run_ids(table, batch) if run_ids is None else set(run_ids)
+    _log(log_path, f"batch {batch}: re-audit by {role}, {len(ids)} runs in scope")
+    return _audit_and_log(client, led, batch, runs_dir, log_path, role, ids, class_order)

@@ -207,6 +207,7 @@ def test_each_retry_uses_a_new_seed(tmp_path):
     assert provider.seed_offsets == [0, 1, 2]
 
 
+@pytest.mark.slow
 def test_ollama_receives_the_offset_seed(monkeypatch):
     monkeypatch.setattr("ollama.Client", FakeOllamaClient)
     llm.OllamaProvider(CFG["llm"]).generate("sci:1", "p", None, SCHEMA, 0.2, 5, seed_offset=2)

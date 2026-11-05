@@ -69,12 +69,33 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-No mission is part-way through; Mission 2.4 is the last one complete (`pytest -q` is now 510 passed in 29.92 s, right at the 30 s limit).
+No mission is part-way through. Mission 2.4 is the last mission complete; the reviewer study below is done too.
 
-**Reviewer study, planned but not started:** RQ1 for Skeptic B by re-auditing `rq1-full`, a 40-run `gemma3:4b` shuffled-order diagnostic, then `/compare`.
-- Stopped at: plan written to `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. No code changed, no audits run, no results exist yet.
-- Student's choices: re-audit 40 existing runs (not fresh experiments) for the diagnostic, and store second opinions in the main ledger by allowing `audited → audited` and `audited → audit_failed`.
-- `eval/results/rq1_skeptic_a.json` and `eval/figures/rq1_*.png` stay untouched as the unhinted baseline. Running `eval.rq1` for another role without a suffix would overwrite those figures until the plan's fix is in.
+## Reviewer study (2026-11-05): Skeptic B RQ1, gemma position diagnostic, comparison
+Re-audits of the existing `rq1-full` runs; no experiment was re-run (215 run folders, 213 sealed rows and 213 `ran` entries before
+and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Data backed up first to
+`~\canary-backups\data-2026-11-05.zip`.
+- Commands: `canary.cli reaudit --batch rq1-full --role skeptic_b` (180 audits, 0 failed, 7.5 min, median 2.3 s per audit), then
+  `reaudit ... --role skeptic_a_shuffled --position-sample` (40 audits, 0 failed, 2.3 min), `eval.rq1 --role skeptic_b`,
+  `eval.position_bias`, `eval.compare_reviewers`. Results: `eval/results/rq1_skeptic_b.json`, `position_bias_skeptic_a.json`,
+  `rq1_comparison.json`; Skeptic B figures in `eval/figures/skeptic_b/`.
+- **Skeptic B (`phi4-mini`) cannot discriminate either:** flags 172/180, Youden's J +0.034, 90% [-0.020, +0.093]. Like gemma it
+  names B01 on almost every flag. Paired with A on the same 180 runs: kappa 0; the 8 disagreements are all B passing where A flags.
+- **Position diagnostic, reading fixed before the run: "prefers B01 itself, not its position".** With the class list shuffled
+  per run (prompt and schema), gemma still flags 40/40 and names B01 27/40 (90% [0.54, 0.78], chance 0.10). There is also a
+  smaller pull to the first-listed class: 13/40 (90% [0.22, 0.46]). 9 of its 13 non-B01 names were the first-listed class,
+  mostly when B01 sat late in the list. So order is not why it flags everything, and only partly why it names B01.
+- `/compare` verdict: no reviewer switch, no gate built on either. Both families flag almost everything and name B01, so the
+  review task (prompt and reply format) is the likely cause; change it next and measure it with RQ1. The jury stays Mission 5.2.
+- Baseline untouched: SHA-256 of `rq1_skeptic_a.json`, `rq1_recall.png`, `rq1_specificity.png` identical before and after;
+  `build_results` for skeptic_a reproduces the file except `generated_at` and `excluded` (`other_role` 0 -> 220).
+- Code: status flow now allows `audited -> audited | audit_failed` (a second reviewer role). `skeptic._waiting` is role-aware;
+  `audit_pending` takes `run_ids` and `class_order`; `skeptic_prompt` takes an optional order (default prompt byte-identical,
+  tested by hash); alias role `skeptic_a_shuffled`; `config.family_clashes` skips aliases (it raised KeyError on them);
+  `mixer.reaudit`, `position_sample`, `shuffled_order`; `eval/rq1.py` writes other roles' figures to `eval/figures/<role>/`.
+  `position_sample` also takes the ledger, so a crashed run is never sampled (a gap is reported, not skipped).
+- Tests: `pytest -q` 517 passed, 10 deselected in 24.9 s; `pytest -m slow` 10 passed in 15.6 s. The suite was already at
+  36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
 None.
@@ -278,11 +299,12 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   is acceptable while scripts come only from our template; revisit it before running LLM-written code (Mission 6.2).
 - **The cache can hide reviewer drift.** The key uses the model tag, not its digest, so if a tag is re-pulled with new
   weights, old replies are still served. Mission 4.3 should add the digest or bypass the cache when measuring drift.
-- **`gemma3:4b` has no measured ability to discriminate** (see RQ1 result). Decide what to do about this before Mission 4.1.
+- **Neither `gemma3:4b` nor `phi4-mini` can discriminate** (see the reviewer study). Fix the review task before Mission 4.1.
 - **The run phase was slower than forecast:** the whole batch took 49.5 min against a forecast of about 30 (range 25-50). Reviews matched (3.1 s each); experiments took 40 min against about 19, because the pilot's 2 canaries per variant under-sampled slow cases. B09 subtle averaged 123 s, with one slot at 496 s. Forecast from this batch's means next time.
 - **`crash_rate()` now also counts clones and twins in `data/runs/`.** Campaign reporting should use the sealed table's per-type counts instead.
 - **Mission 4.3:** results now store each audit's seconds and the model's digest, but the cache issue above still stands.
-- **The suite is at 30 s,** varying 27-30 s. The next mission adding tests must trim first.
+- **The default suite skips 10 `slow` tests** (sandbox end-to-end, timeouts, figures, big Monte Carlo). Run `pytest -m slow`
+  before each commit that touches those areas; `pytest -m "slow or not slow"` runs everything.
 - **Real runs with a bug-like design are not caught yet.** `why_not_clean` only protects clones. A real run using accuracy
   above 3:1 is really buggy; Mission 5.1's B06 tripwire should catch it.
 - **A sham's edits can be told apart in principle.** Its imports are out of the template's usual order, and its names are
@@ -305,6 +327,6 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. First, carry out the plan saved at `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`: Skeptic B's RQ1 on the same `rq1-full` runs, the `gemma3:4b` shuffled-order diagnostic, then `/compare` both reviewers. Use the result to decide how to get a reviewer that discriminates, keeping the original RQ1 as the baseline.
+1. `/brainstorm` changes to the review task (e.g. per-class yes/no questions instead of one pick, "pass" as an explicit first option, evidence before verdict), then re-audit `rq1-full` with each as a new alias role and compare against the baseline. No new experiments needed.
 2. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.
 3. Run `/mission 3.2` (Brier score, reliability diagram, calibration feedback).

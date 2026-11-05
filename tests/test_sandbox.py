@@ -59,6 +59,7 @@ def test_crash_keeps_the_error_text(tmp_path):
     assert "ValueError: boom" in outcome.stderr_tail
 
 
+@pytest.mark.slow
 def test_hanging_script_is_killed_at_the_timeout(tmp_path):
     started = time.perf_counter()
     outcome = run_text(tmp_path, "import time\ntime.sleep(60)", timeout_s=0.3)
@@ -121,6 +122,7 @@ def test_crash_is_recorded(config, tmp_path, monkeypatch):
     assert "ValueError: boom" in read_record(tmp_path, record)["stderr_tail"]
 
 
+@pytest.mark.slow
 def test_timeout_is_recorded(config, tmp_path, monkeypatch):
     fake_run_script(monkeypatch, "import time\ntime.sleep(60)")
     assert sandbox.run_config(config, tmp_path, timeout_s=0.3)["status"] == sandbox.STATUS_TIMEOUT
@@ -146,6 +148,7 @@ def test_crash_rate_counts_failures_and_skips_invalid_configs(config, tmp_path, 
     assert sandbox.crash_rate(tmp_path) == (1, 1)
 
 
+@pytest.mark.slow
 def test_real_experiment_end_to_end(tmp_path):
     """Run the real template and check its numbers against a separate computation written here."""
     from sklearn.datasets import load_breast_cancer

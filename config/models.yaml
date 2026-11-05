@@ -6,6 +6,7 @@ roles:
   skeptic_a:  {model: "gemma4:e4b",  fallback: "gemma3:4b",   temperature: 0.0, family: gemma}
   skeptic_b:  {model: "phi4-mini",   fallback: "llama3.2:3b", temperature: 0.0, family: phi}   # Mission 5.2
   mutant_writer: {use_role: scientist}                                                            # Mission 6.2
+  skeptic_a_shuffled: {use_role: skeptic_a}   # same model, class list shuffled per run: the position-bias diagnostic
 embeddings: "sentence-transformers/all-MiniLM-L6-v2"
 vram_gb: 6                  # one model loaded at a time; batch audits per model
 llm:

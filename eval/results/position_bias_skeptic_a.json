@@ -1,0 +1,1165 @@
+{
+ "batch": "rq1-full",
+ "role": "skeptic_a_shuffled",
+ "generated_at": "2026-11-05T13:58:40.841300+00:00",
+ "reviewed": 40,
+ "failed_audits": 0,
+ "strata": {
+  "B01 obvious": 1,
+  "B01 subtle": 1,
+  "B02 obvious": 1,
+  "B02 subtle": 1,
+  "B03 obvious": 1,
+  "B03 subtle": 1,
+  "B04 obvious": 1,
+  "B04 subtle": 1,
+  "B05 obvious": 1,
+  "B05 subtle": 1,
+  "B06 obvious": 1,
+  "B06 subtle": 1,
+  "B07 obvious": 1,
+  "B07 subtle": 1,
+  "B08 obvious": 1,
+  "B08 subtle": 1,
+  "B09 obvious": 1,
+  "B09 subtle": 1,
+  "B10 obvious": 1,
+  "B10 subtle": 1,
+  "control": 10,
+  "sham": 10
+ },
+ "chance_share": 0.1,
+ "listed_first_by_default": "B01",
+ "flag_rate": {
+  "successes": 40,
+  "n": 40,
+  "mean": 0.9761904761904762,
+  "raw": 1.0,
+  "interval_90": [
+   0.9295388827298359,
+   0.9987497262835919
+  ]
+ },
+ "first_listed_share": {
+  "successes": 13,
+  "n": 40,
+  "mean": 0.3333333333333333,
+  "raw": 0.325,
+  "interval_90": [
+   0.2196445640224105,
+   0.456153245209401
+  ]
+ },
+ "b01_share": {
+  "successes": 27,
+  "n": 40,
+  "mean": 0.6666666666666666,
+  "raw": 0.675,
+  "interval_90": [
+   0.543846754790599,
+   0.7803554359775895
+  ]
+ },
+ "share_by_position": {
+  "0": {
+   "successes": 13,
+   "n": 40,
+   "mean": 0.3333333333333333,
+   "raw": 0.325,
+   "interval_90": [
+    0.2196445640224105,
+    0.456153245209401
+   ]
+  },
+  "1": {
+   "successes": 6,
+   "n": 40,
+   "mean": 0.16666666666666666,
+   "raw": 0.15,
+   "interval_90": [
+    0.08297930309237617,
+    0.2685442144173794
+   ]
+  },
+  "2": {
+   "successes": 4,
+   "n": 40,
+   "mean": 0.11904761904761904,
+   "raw": 0.1,
+   "interval_90": [
+    0.049303921754631254,
+    0.20950530270682408
+   ]
+  },
+  "3": {
+   "successes": 5,
+   "n": 40,
+   "mean": 0.14285714285714285,
+   "raw": 0.125,
+   "interval_90": [
+    0.06570444928137287,
+    0.2394706708183629
+   ]
+  },
+  "4": {
+   "successes": 2,
+   "n": 40,
+   "mean": 0.07142857142857142,
+   "raw": 0.05,
+   "interval_90": [
+    0.02023978708481503,
+    0.14570550339142993
+   ]
+  },
+  "5": {
+   "successes": 3,
+   "n": 40,
+   "mean": 0.09523809523809523,
+   "raw": 0.075,
+   "interval_90": [
+    0.03401599112925994,
+    0.17839535553925906
+   ]
+  },
+  "6": {
+   "successes": 3,
+   "n": 40,
+   "mean": 0.09523809523809523,
+   "raw": 0.075,
+   "interval_90": [
+    0.03401599112925994,
+    0.17839535553925906
+   ]
+  },
+  "7": {
+   "successes": 1,
+   "n": 40,
+   "mean": 0.047619047619047616,
+   "raw": 0.025,
+   "interval_90": [
+    0.008736717389512752,
+    0.11055312897984333
+   ]
+  },
+  "8": {
+   "successes": 3,
+   "n": 40,
+   "mean": 0.09523809523809523,
+   "raw": 0.075,
+   "interval_90": [
+    0.03401599112925994,
+    0.17839535553925906
+   ]
+  },
+  "9": {
+   "successes": 0,
+   "n": 40,
+   "mean": 0.023809523809523808,
+   "raw": 0.0,
+   "interval_90": [
+    0.0012502737164080536,
+    0.07046111727016405
+   ]
+  }
+ },
+ "named_mix": {
+  "B01": 27,
+  "B02": 0,
+  "B03": 2,
+  "B04": 3,
+  "B05": 3,
+  "B06": 4,
+  "B07": 0,
+  "B08": 1,
+  "B09": 0,
+  "B10": 0
+ },
+ "baseline_same_runs": {
+  "n": 40,
+  "flag_rate": {
+   "successes": 40,
+   "n": 40,
+   "mean": 0.9761904761904762,
+   "raw": 1.0,
+   "interval_90": [
+    0.9295388827298359,
+    0.9987497262835919
+   ]
+  },
+  "b01_share": {
+   "successes": 40,
+   "n": 40,
+   "mean": 0.9761904761904762,
+   "raw": 1.0,
+   "interval_90": [
+    0.9295388827298359,
+    0.9987497262835919
+   ]
+  },
+  "same_verdict": 40
+ },
+ "reading": "prefers B01 itself, not its position",
+ "still_flags_nearly_everything": true,
+ "records": [
+  {
+   "run_id": "311906d8-ae55-4062-9b19-9c59f541c361",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 1,
+   "class_order": [
+    "B03",
+    "B01",
+    "B07",
+    "B02",
+    "B08",
+    "B06",
+    "B04",
+    "B09",
+    "B10",
+    "B05"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 11.28
+  },
+  {
+   "run_id": "46da8769-d3dd-49f0-9392-d24fe99e21f5",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 6,
+   "class_order": [
+    "B02",
+    "B09",
+    "B07",
+    "B10",
+    "B03",
+    "B08",
+    "B01",
+    "B06",
+    "B04",
+    "B05"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.362
+  },
+  {
+   "run_id": "15105d20-a366-4457-8193-7be8c1fd2abf",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 0,
+   "class_order": [
+    "B01",
+    "B09",
+    "B02",
+    "B04",
+    "B07",
+    "B05",
+    "B08",
+    "B03",
+    "B10",
+    "B06"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 2.892
+  },
+  {
+   "run_id": "78a7d616-d97d-4ce1-b3b4-25cd89a4e655",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 8,
+   "class_order": [
+    "B10",
+    "B02",
+    "B04",
+    "B06",
+    "B08",
+    "B07",
+    "B09",
+    "B05",
+    "B01",
+    "B03"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.098
+  },
+  {
+   "run_id": "df652e2b-3b17-4f19-ac50-0b2f449dedd2",
+   "run_type": "canary_measure",
+   "bug_id": "B10",
+   "tier": "subtle",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 6,
+   "class_order": [
+    "B10",
+    "B04",
+    "B06",
+    "B09",
+    "B08",
+    "B05",
+    "B01",
+    "B02",
+    "B03",
+    "B07"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.502
+  },
+  {
+   "run_id": "d342a71a-7c1f-4a65-9cd1-0983e5d90774",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 1,
+   "class_order": [
+    "B09",
+    "B01",
+    "B06",
+    "B04",
+    "B07",
+    "B10",
+    "B05",
+    "B02",
+    "B08",
+    "B03"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.029
+  },
+  {
+   "run_id": "4e81d4b6-5007-4876-beff-5f5f98fc5fa4",
+   "run_type": "canary_measure",
+   "bug_id": "B04",
+   "tier": "subtle",
+   "flagged": true,
+   "named_class": "B06",
+   "named_position": 0,
+   "class_order": [
+    "B06",
+    "B05",
+    "B08",
+    "B01",
+    "B03",
+    "B07",
+    "B10",
+    "B02",
+    "B04",
+    "B09"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 2.731
+  },
+  {
+   "run_id": "d6d8a5de-3e55-49cd-8151-67a415eea050",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 1,
+   "class_order": [
+    "B10",
+    "B01",
+    "B02",
+    "B09",
+    "B03",
+    "B05",
+    "B04",
+    "B08",
+    "B07",
+    "B06"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.707
+  },
+  {
+   "run_id": "5e9b6b0c-80ab-4257-a0bb-282f7ea11189",
+   "run_type": "canary_measure",
+   "bug_id": "B10",
+   "tier": "obvious",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 5,
+   "class_order": [
+    "B07",
+    "B05",
+    "B09",
+    "B04",
+    "B03",
+    "B01",
+    "B10",
+    "B02",
+    "B06",
+    "B08"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.261
+  },
+  {
+   "run_id": "d2a0c8e1-4aed-4a09-b2d3-265efa07f343",
+   "run_type": "canary_measure",
+   "bug_id": "B06",
+   "tier": "obvious",
+   "flagged": true,
+   "named_class": "B05",
+   "named_position": 0,
+   "class_order": [
+    "B05",
+    "B06",
+    "B01",
+    "B08",
+    "B04",
+    "B03",
+    "B09",
+    "B02",
+    "B07",
+    "B10"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.124
+  },
+  {
+   "run_id": "c8a6c05e-ee98-459c-9fd0-6749e7cb4776",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 6,
+   "class_order": [
+    "B09",
+    "B07",
+    "B03",
+    "B02",
+    "B10",
+    "B08",
+    "B01",
+    "B06",
+    "B05",
+    "B04"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 2.815
+  },
+  {
+   "run_id": "b98a94c0-0f68-4bb3-8cc1-4fbaf830994d",
+   "run_type": "canary_measure",
+   "bug_id": "B03",
+   "tier": "subtle",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 4,
+   "class_order": [
+    "B09",
+    "B08",
+    "B04",
+    "B06",
+    "B01",
+    "B10",
+    "B05",
+    "B02",
+    "B07",
+    "B03"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.355
+  },
+  {
+   "run_id": "c080ae0f-3adc-46e9-a4d6-fb399bf85148",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B03",
+   "named_position": 3,
+   "class_order": [
+    "B07",
+    "B10",
+    "B02",
+    "B03",
+    "B04",
+    "B05",
+    "B06",
+    "B08",
+    "B09",
+    "B01"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 2.986
+  },
+  {
+   "run_id": "101b0fe5-8f68-48fe-bffe-b6cd17d35966",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 2,
+   "class_order": [
+    "B09",
+    "B05",
+    "B01",
+    "B03",
+    "B08",
+    "B04",
+    "B07",
+    "B06",
+    "B02",
+    "B10"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 2.804
+  },
+  {
+   "run_id": "a1220323-f778-49f5-80b9-dcaf55c2f3ea",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 3,
+   "class_order": [
+    "B03",
+    "B10",
+    "B05",
+    "B01",
+    "B02",
+    "B04",
+    "B09",
+    "B08",
+    "B06",
+    "B07"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.515
+  },
+  {
+   "run_id": "5f0631e2-68de-4cef-91be-e748e067f37e",
+   "run_type": "canary_measure",
+   "bug_id": "B08",
+   "tier": "subtle",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 8,
+   "class_order": [
+    "B03",
+    "B08",
+    "B06",
+    "B10",
+    "B09",
+    "B02",
+    "B07",
+    "B05",
+    "B01",
+    "B04"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.098
+  },
+  {
+   "run_id": "43551af9-d48a-4c4c-a901-a818b5c2e8c7",
+   "run_type": "canary_measure",
+   "bug_id": "B02",
+   "tier": "obvious",
+   "flagged": true,
+   "named_class": "B04",
+   "named_position": 1,
+   "class_order": [
+    "B05",
+    "B04",
+    "B06",
+    "B09",
+    "B01",
+    "B02",
+    "B10",
+    "B07",
+    "B08",
+    "B03"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.286
+  },
+  {
+   "run_id": "9ff0ae6b-e6ef-4c28-ad84-c334f6e67b42",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 7,
+   "class_order": [
+    "B02",
+    "B05",
+    "B09",
+    "B04",
+    "B06",
+    "B07",
+    "B10",
+    "B01",
+    "B03",
+    "B08"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.371
+  },
+  {
+   "run_id": "9788b060-bc9e-4631-8331-62a5d7b76cf2",
+   "run_type": "canary_measure",
+   "bug_id": "B08",
+   "tier": "obvious",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 2,
+   "class_order": [
+    "B07",
+    "B05",
+    "B01",
+    "B04",
+    "B02",
+    "B10",
+    "B09",
+    "B08",
+    "B06",
+    "B03"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.497
+  },
+  {
+   "run_id": "bb8b1ddf-30bf-4227-a1d2-752562b850e7",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B05",
+   "named_position": 1,
+   "class_order": [
+    "B10",
+    "B05",
+    "B01",
+    "B06",
+    "B07",
+    "B09",
+    "B03",
+    "B02",
+    "B08",
+    "B04"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.814
+  },
+  {
+   "run_id": "c824f0f0-b7fb-4193-85f6-780100bf5c61",
+   "run_type": "canary_measure",
+   "bug_id": "B05",
+   "tier": "obvious",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 3,
+   "class_order": [
+    "B08",
+    "B04",
+    "B06",
+    "B01",
+    "B10",
+    "B03",
+    "B09",
+    "B02",
+    "B07",
+    "B05"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.572
+  },
+  {
+   "run_id": "47a440bf-fac1-4217-87e7-fbbd52666d0b",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 0,
+   "class_order": [
+    "B01",
+    "B02",
+    "B09",
+    "B10",
+    "B07",
+    "B08",
+    "B04",
+    "B03",
+    "B06",
+    "B05"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.849
+  },
+  {
+   "run_id": "12fe4f93-40a4-4ca5-90e2-52364b1f77fe",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B04",
+   "named_position": 0,
+   "class_order": [
+    "B04",
+    "B03",
+    "B09",
+    "B07",
+    "B10",
+    "B02",
+    "B01",
+    "B05",
+    "B08",
+    "B06"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 2.659
+  },
+  {
+   "run_id": "01cc86ed-caab-4450-9435-e041ee60fb19",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 2,
+   "class_order": [
+    "B06",
+    "B10",
+    "B01",
+    "B05",
+    "B02",
+    "B09",
+    "B04",
+    "B07",
+    "B08",
+    "B03"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.259
+  },
+  {
+   "run_id": "b5e49afc-cb9d-4b08-a621-52187a9a1280",
+   "run_type": "canary_measure",
+   "bug_id": "B06",
+   "tier": "subtle",
+   "flagged": true,
+   "named_class": "B03",
+   "named_position": 3,
+   "class_order": [
+    "B10",
+    "B04",
+    "B05",
+    "B03",
+    "B08",
+    "B09",
+    "B02",
+    "B06",
+    "B07",
+    "B01"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.01
+  },
+  {
+   "run_id": "e5c4189f-440c-49b9-9a51-3048b246fe23",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 2,
+   "class_order": [
+    "B05",
+    "B03",
+    "B01",
+    "B06",
+    "B04",
+    "B10",
+    "B07",
+    "B02",
+    "B09",
+    "B08"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.018
+  },
+  {
+   "run_id": "66a160fc-af25-403a-8a06-f1796f64cfad",
+   "run_type": "canary_measure",
+   "bug_id": "B05",
+   "tier": "subtle",
+   "flagged": true,
+   "named_class": "B08",
+   "named_position": 0,
+   "class_order": [
+    "B08",
+    "B03",
+    "B07",
+    "B10",
+    "B06",
+    "B04",
+    "B09",
+    "B02",
+    "B01",
+    "B05"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.287
+  },
+  {
+   "run_id": "ed38992c-3a80-434b-b032-467990d2d529",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B04",
+   "named_position": 0,
+   "class_order": [
+    "B04",
+    "B03",
+    "B09",
+    "B07",
+    "B06",
+    "B05",
+    "B02",
+    "B01",
+    "B08",
+    "B10"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 2.605
+  },
+  {
+   "run_id": "d15a421c-53b7-4b28-88be-b7cd45301928",
+   "run_type": "canary_measure",
+   "bug_id": "B02",
+   "tier": "subtle",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 0,
+   "class_order": [
+    "B01",
+    "B05",
+    "B10",
+    "B03",
+    "B02",
+    "B06",
+    "B09",
+    "B07",
+    "B08",
+    "B04"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.058
+  },
+  {
+   "run_id": "faf02431-b049-403f-9adb-bd301d011a81",
+   "run_type": "canary_measure",
+   "bug_id": "B03",
+   "tier": "obvious",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 3,
+   "class_order": [
+    "B07",
+    "B05",
+    "B03",
+    "B01",
+    "B10",
+    "B02",
+    "B08",
+    "B09",
+    "B06",
+    "B04"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.156
+  },
+  {
+   "run_id": "7493b130-574a-4c07-b2a9-ba9e3cabe46c",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B06",
+   "named_position": 0,
+   "class_order": [
+    "B06",
+    "B02",
+    "B03",
+    "B09",
+    "B08",
+    "B01",
+    "B05",
+    "B07",
+    "B04",
+    "B10"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.095
+  },
+  {
+   "run_id": "00a19db9-d043-4454-ac1c-6fb8bce3513a",
+   "run_type": "canary_measure",
+   "bug_id": "B09",
+   "tier": "obvious",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 5,
+   "class_order": [
+    "B02",
+    "B09",
+    "B08",
+    "B03",
+    "B04",
+    "B01",
+    "B05",
+    "B10",
+    "B07",
+    "B06"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.25
+  },
+  {
+   "run_id": "af7b2224-7d88-4af9-8c76-9fc5187ca6d9",
+   "run_type": "canary_measure",
+   "bug_id": "B01",
+   "tier": "subtle",
+   "flagged": true,
+   "named_class": "B06",
+   "named_position": 0,
+   "class_order": [
+    "B06",
+    "B10",
+    "B09",
+    "B02",
+    "B04",
+    "B05",
+    "B07",
+    "B03",
+    "B01",
+    "B08"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.315
+  },
+  {
+   "run_id": "96ad8dc6-ee98-4c36-a040-62d86bd24b3d",
+   "run_type": "control",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 0,
+   "class_order": [
+    "B01",
+    "B10",
+    "B04",
+    "B02",
+    "B07",
+    "B09",
+    "B05",
+    "B08",
+    "B06",
+    "B03"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 2.866
+  },
+  {
+   "run_id": "a636aa2c-629b-4c3d-a27e-8a95ca0995fd",
+   "run_type": "canary_measure",
+   "bug_id": "B01",
+   "tier": "obvious",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 8,
+   "class_order": [
+    "B08",
+    "B06",
+    "B10",
+    "B09",
+    "B03",
+    "B07",
+    "B05",
+    "B04",
+    "B01",
+    "B02"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 2.815
+  },
+  {
+   "run_id": "943b220e-59f0-471e-aa86-f5948affe67e",
+   "run_type": "canary_measure",
+   "bug_id": "B09",
+   "tier": "subtle",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 1,
+   "class_order": [
+    "B07",
+    "B01",
+    "B03",
+    "B10",
+    "B08",
+    "B04",
+    "B06",
+    "B09",
+    "B02",
+    "B05"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.586
+  },
+  {
+   "run_id": "6e296716-be87-4b3c-9bb6-3a97fe6c8cd7",
+   "run_type": "sham",
+   "bug_id": null,
+   "tier": null,
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 5,
+   "class_order": [
+    "B05",
+    "B08",
+    "B03",
+    "B04",
+    "B06",
+    "B01",
+    "B09",
+    "B07",
+    "B10",
+    "B02"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.462
+  },
+  {
+   "run_id": "caf96359-4b09-4509-8a55-0417d352ecba",
+   "run_type": "canary_measure",
+   "bug_id": "B07",
+   "tier": "obvious",
+   "flagged": true,
+   "named_class": "B05",
+   "named_position": 0,
+   "class_order": [
+    "B05",
+    "B06",
+    "B04",
+    "B08",
+    "B03",
+    "B10",
+    "B02",
+    "B01",
+    "B07",
+    "B09"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 2.62
+  },
+  {
+   "run_id": "28b727ef-c77a-4f76-92d6-6afd1bb5365a",
+   "run_type": "canary_measure",
+   "bug_id": "B07",
+   "tier": "subtle",
+   "flagged": true,
+   "named_class": "B01",
+   "named_position": 4,
+   "class_order": [
+    "B08",
+    "B06",
+    "B09",
+    "B02",
+    "B01",
+    "B10",
+    "B04",
+    "B03",
+    "B07",
+    "B05"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.087
+  },
+  {
+   "run_id": "c315a8f6-8ccb-4944-87d1-501d91dd3a3b",
+   "run_type": "canary_measure",
+   "bug_id": "B04",
+   "tier": "obvious",
+   "flagged": true,
+   "named_class": "B06",
+   "named_position": 0,
+   "class_order": [
+    "B06",
+    "B09",
+    "B02",
+    "B03",
+    "B04",
+    "B05",
+    "B08",
+    "B10",
+    "B07",
+    "B01"
+   ],
+   "baseline_flagged": true,
+   "baseline_named": "B01",
+   "seconds": 3.232
+  }
+ ]
+}

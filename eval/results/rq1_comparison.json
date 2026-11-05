@@ -1,0 +1,240 @@
+{
+ "batch": "rq1-full",
+ "generated_at": "2026-11-05T13:58:41.186976+00:00",
+ "reviewers": {
+  "skeptic_a": {
+   "role": "skeptic_a",
+   "models": {
+    "gemma3:4b": "68ceab7e468a31c988b44d5a4984a0e21f58c4f7158c6ce29c1804babac38df7"
+   },
+   "reviewed": 180,
+   "any_flag_recall": {
+    "raw": 1.0,
+    "mean": 0.9901960784313726,
+    "interval_90": [
+     0.9707748464609609,
+     0.9994922745363412
+    ],
+    "successes": 100,
+    "n": 100
+   },
+   "right_type_recall": {
+    "raw": 0.1,
+    "mean": 0.10784313725490197,
+    "interval_90": [
+     0.06228888963420837,
+     0.16215457187317905
+    ],
+    "successes": 10,
+    "n": 100
+   },
+   "chance": {
+    "any_flag": 1.0,
+    "any_flag_interval": [
+     0.98,
+     1.0
+    ],
+    "right_type_uniform": 0.1,
+    "right_type_matched": 0.1,
+    "right_type_matched_interval": [
+     0.09,
+     0.1
+    ]
+   },
+   "specificity": {
+    "controls": {
+     "raw": 0.0,
+     "mean": 0.023809523809523808,
+     "interval_90": [
+      0.0012502737164080536,
+      0.07046111727016405
+     ],
+     "successes": 0,
+     "n": 40
+    },
+    "shams": {
+     "raw": 0.0,
+     "mean": 0.023809523809523808,
+     "interval_90": [
+      0.0012502737164080536,
+      0.07046111727016405
+     ],
+     "successes": 0,
+     "n": 40
+    },
+    "combined": {
+     "raw": 0.0,
+     "mean": 0.012195121951219513,
+     "interval_90": [
+      0.0006330500871823894,
+      0.03630878209190426
+     ],
+     "successes": 0,
+     "n": 80
+    }
+   },
+   "youden_j": {
+    "observed_j": 0.0,
+    "youden_j": 0.0026959995653338493,
+    "interval": [
+     -0.021008797259278223,
+     0.028886709393419082
+    ],
+    "p_recall_above_false_alarm": 0.5588
+   },
+   "flag_rate": 1.0,
+   "named_share": {
+    "B01": 1.0,
+    "B02": 0.0,
+    "B03": 0.0,
+    "B04": 0.0,
+    "B05": 0.0,
+    "B06": 0.0,
+    "B07": 0.0,
+    "B08": 0.0,
+    "B09": 0.0,
+    "B10": 0.0
+   },
+   "failed_audits": 0,
+   "seconds_per_audit": {
+    "mean": 3.09855,
+    "median": 3.0095,
+    "n": 180
+   }
+  },
+  "skeptic_b": {
+   "role": "skeptic_b",
+   "models": {
+    "phi4-mini:latest": "78fad5d182a7c33065e153a5f8ba210754207ba9d91973f57dffa7f487363753"
+   },
+   "reviewed": 180,
+   "any_flag_recall": {
+    "raw": 0.97,
+    "mean": 0.9607843137254902,
+    "interval_90": [
+     0.9250210847408965,
+     0.986360919608504
+    ],
+    "successes": 97,
+    "n": 100
+   },
+   "right_type_recall": {
+    "raw": 0.09,
+    "mean": 0.09803921568627451,
+    "interval_90": [
+     0.05470577952086687,
+     0.15034397570763627
+    ],
+    "successes": 9,
+    "n": 100
+   },
+   "chance": {
+    "any_flag": 0.9555555555555556,
+    "any_flag_interval": [
+     0.9,
+     0.99
+    ],
+    "right_type_uniform": 0.09555555555555556,
+    "right_type_matched": 0.09555555555555556,
+    "right_type_matched_interval": [
+     0.08,
+     0.11
+    ]
+   },
+   "specificity": {
+    "controls": {
+     "raw": 0.05,
+     "mean": 0.07142857142857142,
+     "interval_90": [
+      0.02023978708481503,
+      0.14570550339142993
+     ],
+     "successes": 2,
+     "n": 40
+    },
+    "shams": {
+     "raw": 0.075,
+     "mean": 0.09523809523809523,
+     "interval_90": [
+      0.03401599112925994,
+      0.17839535553925906
+     ],
+     "successes": 3,
+     "n": 40
+    },
+    "combined": {
+     "raw": 0.0625,
+     "mean": 0.07317073170731707,
+     "interval_90": [
+      0.03274937278269691,
+      0.12541289083796672
+     ],
+     "successes": 5,
+     "n": 80
+    }
+   },
+   "youden_j": {
+    "observed_j": 0.03249999999999997,
+    "youden_j": 0.03366586793164874,
+    "interval": [
+     -0.020307916559060873,
+     0.09282341180552131
+    ],
+    "p_recall_above_false_alarm": 0.841
+   },
+   "flag_rate": 0.9555555555555556,
+   "named_share": {
+    "B01": 0.9709302325581395,
+    "B02": 0.023255813953488372,
+    "B03": 0.0,
+    "B04": 0.005813953488372093,
+    "B05": 0.0,
+    "B06": 0.0,
+    "B07": 0.0,
+    "B08": 0.0,
+    "B09": 0.0,
+    "B10": 0.0
+   },
+   "failed_audits": 0,
+   "seconds_per_audit": {
+    "mean": 2.4635833333333332,
+    "median": 2.3485,
+    "n": 180
+   }
+  }
+ },
+ "paired": {
+  "n": 180,
+  "both_flag": 172,
+  "both_pass": 0,
+  "only_a_flags": 8,
+  "only_b_flags": 0,
+  "verdict_agreement": 0.9555555555555556,
+  "cohen_kappa": 0.0,
+  "same_named_class_when_both_flag": 167,
+  "by_type": {
+   "canary_measure": {
+    "n": 100,
+    "a_flags": 100,
+    "b_flags": 97,
+    "agree": 97
+   },
+   "control": {
+    "n": 40,
+    "a_flags": 40,
+    "b_flags": 38,
+    "agree": 38
+   },
+   "sham": {
+    "n": 40,
+    "a_flags": 40,
+    "b_flags": 37,
+    "agree": 37
+   }
+  }
+ },
+ "sources": {
+  "skeptic_a": "2026-11-01T10:23:34.227775+00:00",
+  "skeptic_b": "2026-11-05T13:56:16.462706+00:00"
+ }
+}

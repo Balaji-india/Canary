@@ -73,4 +73,5 @@ def family_clashes(models_cfg: dict) -> list[str]:
     """Return the Skeptic roles that share a model family with the Scientist (should be empty)."""
     roles = models_cfg["roles"]
     scientist = roles["scientist"]["family"]
-    return [r for r, cfg in roles.items() if r.startswith("skeptic") and cfg["family"] == scientist]
+    # Aliases (`use_role`) have no family of their own: they share the one of the role they point to.
+    return [r for r, cfg in roles.items() if r.startswith("skeptic") and "use_role" not in cfg and cfg["family"] == scientist]
