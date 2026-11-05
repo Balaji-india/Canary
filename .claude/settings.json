@@ -1,4 +1,9 @@
 {
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "includeCoAuthoredBy": false,
   "statusLine": {
     "type": "command",
     "command": "python .claude/statusline.py",
