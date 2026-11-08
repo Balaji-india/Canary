@@ -122,6 +122,12 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   skeptic_a_grounded, skeptic_a_checklist, skeptic_b, skeptic_b_grounded, skeptic_b_checklist, skeptic_c,
   skeptic_c_grounded, skeptic_c_checklist. To resume: run `powershell -File scripts/task_dev_1.ps1` again; every step skips finished work.
   Then `python -m eval.compare_tasks --batch task-dev-1`.
+  - **Interrupted 05:43 UTC:** Claude Code stopped the background script because the laptop ran low on RAM (1.1 of
+    15.3 GB free; Ollama's llama-server held 8.7 GB, since llama3.1:8b runs 25% on the CPU). 7 of 9 cells were done
+    (40/40 each, 0 failed). skeptic_c_grounded had 25 of 40 stored; skeptic_c_checklist had not started. `ledger verify`
+    OK (1497 entries). Resuming needs about 55 llama audits, roughly 9 s each.
+  - Earlier stop, 05:18 UTC: the batch log crashed on the first checklist reply (no `verdict` field). Fixed in
+    `33c73ae` with a test; the stored review was kept.
 
 ## Decisions
 - **Ollama only for now, no API keys.** A cloud model is added later with `/api`. Mission 1.3 must build `llm.py`
