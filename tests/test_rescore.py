@@ -68,6 +68,8 @@ def test_a_different_reply_gets_no_score(tmp_path):
     client, _ = scoring_client(tmp_path, [FLAG_REPLY])
     record = skeptic.rescore(client, led, "skeptic_a", {"r1"}, runs)[0]
     assert record["outcome"] == "reply_differs" and record["score"] is None
+    assert record["verdict_changed"] is True and record["new_decision"]["verdict"] == "flag"
+    assert record["fields_changed"] == ["bug_class", "confidence", "evidence", "verdict"]
 
 
 def test_an_edited_file_is_refused_without_asking_the_model(tmp_path):

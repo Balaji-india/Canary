@@ -233,6 +233,13 @@ def rescore(client: llm.LLM, led: ledger.Ledger, role: str, run_ids: set[str], r
                 record = {**base, "outcome": "matched" if matched else "reply_differs", "model": result.model,
                           "attempts": result.attempts, "seconds": round(result.seconds, 3),
                           "score": review_tasks.score(task, result.logprobs, bug_ids) if matched else None}
+                if not matched:
+                    # Diagnostics only: did the repeat change the verdict, or only the wording? It decides nothing.
+                    stored = audit.payload.get("decision") or audit.payload["audit"]
+                    new = review_tasks.decide(task, result.data, job.blinded)
+                    changed = sorted(k for k in result.data if result.data.get(k) != audit.payload["audit"].get(k))
+                    record.update({"new_decision": new, "verdict_changed": new["verdict"] != stored["verdict"],
+                                   "fields_changed": changed})
         records.append(record)
         if on_record:
             on_record(record)
