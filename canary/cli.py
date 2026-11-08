@@ -201,11 +201,11 @@ def _run_audits(client: llm.LLM, led: ledger.Ledger) -> int:
     """Review every run still waiting and print the outcome. Returns 1 if any could not be reviewed."""
     report = skeptic.audit_pending(client, led)
     for item in report.audited:
-        audit = item["audit"]
+        audit = item.get("decision") or item["audit"]  # the code's verdict, whatever the review task
         label = audit["verdict"] + (f" {audit['bug_class']}" if audit["bug_class"] else "")
         source = "cache" if item["cached"] else f"{item['attempts']} attempt(s)"
         print(f"Audit {item['hypothesis_id'][:8]} by {item['model']} ({source}): {label}, "
-              f"confidence {audit['confidence']}")
+              f"confidence {item['audit'].get('confidence')}")
         print(f"  Evidence: {audit['evidence']}")
     for item in report.no_results:
         print(f"Graveyard {item['hypothesis_id'][:8]}: {item['cause']}")

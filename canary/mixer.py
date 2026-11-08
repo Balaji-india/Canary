@@ -238,7 +238,8 @@ def _audit_and_log(client: llm.LLM, led: ledger.Ledger, batch: str, runs_dir: Pa
     started = time.perf_counter()
 
     def progress(done: int, total: int, item: dict) -> None:
-        state = item["audit"]["verdict"] if "audit" in item else f"FAILED ({item['kind']})"
+        # The code's verdict: a checklist reply has no verdict of its own, and a grounded one may be overruled.
+        state = (item.get("decision") or item["audit"])["verdict"] if "audit" in item else f"FAILED ({item['kind']})"
         _log(log_path, f"batch {batch}: audit {done}/{total} {state} [{time.perf_counter() - started:.0f} s so far]")
 
     report = skeptic.audit_pending(client, led, runs_dir, role=role, on_progress=progress, run_ids=run_ids,

@@ -247,3 +247,19 @@ def test_a_role_with_an_unknown_task_is_refused():
     with pytest.raises(ValueError, match="unknown review task"):
         skeptic.task_of(cfg, "skeptic_x")
     assert skeptic.task_of(CFG, "skeptic_a") == "baseline"
+
+
+def test_the_batch_log_shows_the_codes_verdict_for_a_checklist_reply(tmp_path):
+    """A checklist reply has no "verdict" field: the progress line crashed on it (task-dev-1, 2026-11-08)."""
+    from canary import mixer
+
+    led = Ledger(tmp_path / "ledger.db")
+    runs = tmp_path / "runs"
+    add_ran_run(led, runs)
+    cfg = copy.deepcopy(CFG)
+    cfg["roles"]["skeptic_a_checklist"] = {"use_role": "skeptic_a", "task": "checklist"}
+    reply = json.dumps({b: {"line": "", "answer": "no"} for b in IDS})
+    client = llm.LLM(cfg, {"fake": ScoringProvider([reply])}, tmp_path / "c.db")
+    log = tmp_path / "campaign.log"
+    mixer._audit_and_log(client, led, "b", runs, log, role="skeptic_a_checklist", run_ids={"r1"})
+    assert "audit 1/1 pass" in log.read_text(encoding="utf-8")
