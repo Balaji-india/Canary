@@ -1,0 +1,15 @@
+{
+ "role": "skeptic_c_checklist",
+ "batch": "task-dev-1",
+ "rule": "highest J; on a tie, the lowest cut-off",
+ "scored_buggy": 20,
+ "scored_clean": 20,
+ "auc_on_these_scores": 0.735,
+ "cutoff": 0.3845205,
+ "j": 0.39999999999999997,
+ "recall": 0.85,
+ "false_alarm_rate": 0.45,
+ "tied_candidates": 2,
+ "caveat": "chosen on task-dev-1, whose canaries were longer than its clean runs (line-count AUC 0.85): length-confounded data, so the cut-off may not transfer to a length-matched batch",
+ "chosen_at": "2026-11-08T13:30:33.370707+00:00"
+}

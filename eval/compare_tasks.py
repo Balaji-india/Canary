@@ -30,11 +30,13 @@ import numpy as np
 from scipy import stats
 
 from canary import blinding, codegen, config, ledger, mixer, sandbox, sealed, trust
+from canary.separation import auc, base_bootstrap, bootstrap  # noqa: F401 (also used by tests via this module)
+from canary.separation import auc_stat as _auc_stat
+from canary.separation import auc_summary as _auc_of
 
 RESULTS_DIR = Path(__file__).parent / "results"
 TASKS = ("baseline", "grounded", "checklist")
 REVIEWERS = ("skeptic_a", "skeptic_b", "skeptic_c")
-BOOTSTRAP_DRAWS = 2000
 
 
 def role_name(reviewer: str, task: str) -> str:
@@ -50,60 +52,17 @@ def first_audits(led: ledger.Ledger, role: str, run_ids: set[str]) -> dict[str, 
     return audits
 
 
-def auc(scores_bug: list[float], scores_clean: list[float]) -> float | None:
-    """P(a buggy run scores above a clean one), ties counting half (the Mann-Whitney form). 0.5 is chance."""
-    if not scores_bug or not scores_clean:
-        return None
-    b, c = np.asarray(scores_bug)[:, None], np.asarray(scores_clean)[None, :]
-    return float(np.mean((b > c) + 0.5 * (b == c)))
-
-
 def _observed_j(flags_bug: np.ndarray, flags_clean: np.ndarray) -> float:
     return float(flags_bug.mean() - flags_clean.mean())
 
 
-def bootstrap(bug: list, clean: list, statistic, seed: int = 0) -> list[float] | None:
-    """90% percentile interval, resampling buggy and clean runs separately so each draw keeps the batch's mix."""
-    if not bug or not clean:
-        return None
-    rng = np.random.default_rng(seed)
-    bug_arr, clean_arr = np.asarray(bug), np.asarray(clean)
-    values = [statistic(bug_arr[rng.integers(0, len(bug_arr), len(bug_arr))],
-                        clean_arr[rng.integers(0, len(clean_arr), len(clean_arr))]) for _ in range(BOOTSTRAP_DRAWS)]
-    values = [v for v in values if v is not None]
-    return [float(v) for v in np.percentile(values, trust.INTERVAL_PERCENTILES)] if values else None
-
-
-def base_bootstrap(items: list[tuple[str, bool, float]], statistic, seed: int = 0,
-                   draws: int = BOOTSTRAP_DRAWS) -> list[float] | None:
-    """90% interval resampling whole bases: `items` holds (base, is_buggy, value) per run.
-
-    A draw that happens to contain no buggy or no clean run has no AUC and is skipped. With one base it degenerates to
-    a single value, which is the honest answer: one base says nothing about other bases.
-    """
-    by_base: dict[str, list[tuple[bool, float]]] = {}
-    for base, buggy, value in items:
-        by_base.setdefault(base, []).append((buggy, value))
-    bases = sorted(by_base)
-    if not bases:
-        return None
-    rng = np.random.default_rng(seed)
-    values = []
-    for _ in range(draws):
-        picked = [row for i in rng.integers(0, len(bases), len(bases)) for row in by_base[bases[i]]]
-        v = statistic([x for b, x in picked if b], [x for b, x in picked if not b])
-        if v is not None:
-            values.append(v)
-    return [float(v) for v in np.percentile(values, trust.INTERVAL_PERCENTILES)] if values else None
-
-
-FEATURES = ("line_count", "effect_spread", "effect_size", "top_score")
+FEATURES = ("line_count", "char_count", "effect_spread", "effect_size", "top_score")
 
 
 def run_features(run_id: str, runs_dir: Path = sandbox.RUNS_DIR) -> dict[str, float] | None:
     """Signals visible to the reviewer that need no understanding of any bug. None if the run's files are missing.
 
-    line_count: lines of the blinded script. effect_spread: standard deviation across seeds of treatment - control.
+    line_count, char_count: lines and characters of the blinded script. effect_spread: standard deviation across seeds of treatment - control.
     effect_size: |mean(treatment - control)|. top_score: the better arm's mean score.
     """
     run_dir = runs_dir / run_id
@@ -111,16 +70,13 @@ def run_features(run_id: str, runs_dir: Path = sandbox.RUNS_DIR) -> dict[str, fl
         script = (run_dir / codegen.SCRIPT_NAME).read_text(encoding="utf-8")
         results = json.loads((run_dir / sandbox.RESULTS_NAME).read_text(encoding="utf-8"))
         effect = np.asarray(results["treatment"], dtype=float) - np.asarray(results["control"], dtype=float)
-        return {"line_count": float(len(blinding.blind_script(script).splitlines())),
+        blinded = blinding.blind_script(script)
+        return {"line_count": float(len(blinded.splitlines())), "char_count": float(len(blinded)),
                 "effect_spread": float(effect.std(ddof=1)) if len(effect) > 1 else 0.0,
                 "effect_size": float(abs(effect.mean())),
                 "top_score": float(max(np.mean(results["control"]), np.mean(results["treatment"])))}
     except (OSError, ValueError, KeyError, SyntaxError):
         return None
-
-
-def _auc_stat(b, c):
-    return auc(list(b), list(c))
 
 
 def _spearman(pairs: list[tuple[float | None, dict | None]]) -> dict | None:
@@ -133,17 +89,6 @@ def _spearman(pairs: list[tuple[float | None, dict | None]]) -> dict | None:
         return None
     rho, p = stats.spearmanr([x for x, _ in xy], [y for _, y in xy])
     return {"rho": float(rho), "p": float(p), "n": len(xy)}
-
-
-def _auc_of(values: dict[str, float | None], buggy: set[str], base_of: dict[str, str]) -> dict:
-    """AUC with run-level and base-level 90% intervals for the runs in `values` that have a value."""
-    scored = {r: v for r, v in values.items() if v is not None}
-    bug = [v for r, v in scored.items() if r in buggy]
-    clean = [v for r, v in scored.items() if r not in buggy]
-    return {"value": auc(bug, clean), "interval_90": bootstrap(bug, clean, _auc_stat),
-            "interval_90_base": base_bootstrap([(base_of[r], r in buggy, v) for r, v in scored.items()], _auc_stat),
-            "scored_buggy": len(bug), "scored_clean": len(clean),
-            "bases": len({base_of[r] for r in scored})}
 
 
 def feature_baselines(run_ids: set[str], buggy: set[str], base_of: dict[str, str],

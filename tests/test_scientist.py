@@ -268,3 +268,16 @@ def test_focus_limits_the_choices_in_schema_and_prompt(tmp_path, led, table):
     locked, _ = scientist.propose(fake_client, "q1", led, table, focus)
     assert locked["dataset"] == "wine"
     assert "breast_cancer" not in provider.calls[0]["prompt"] and "gaussian_nb" not in provider.calls[0]["prompt"]
+
+
+def test_an_avoided_base_is_shown_and_refused_as_a_duplicate(tmp_path, led, table):
+    focus = {"dataset": "wine", "metric": "accuracy", "model": "knn"}
+    arm = {"model": "knn", "params": {"n_neighbors": 3}, "preprocessing": []}
+    other = {"model": "knn", "params": {"n_neighbors": 9}, "preprocessing": []}
+    old = reply(dataset="wine", metric="accuracy", control_config=arm, treatment_config=other)
+    new = reply(dataset="wine", metric="accuracy", control_config=arm, treatment_config={**other, "params": {"n_neighbors": 15}})
+    avoided = scientist.prereg.build_prereg(json.loads(old), "q", load_yaml("campaign.yaml")["science"], 5)
+    fake_client, provider = client(tmp_path, [old, new])
+    locked, _ = scientist.propose(fake_client, "q1", led, table, focus, avoid=[avoided])
+    assert locked["treatment_config"]["params"] == {"n_neighbors": 15}  # the repeat was rejected and retried
+    assert avoided["hypothesis"] in provider.calls[0]["prompt"]  # and the old proposal was listed to avoid

@@ -21,7 +21,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from canary import blinding, codegen, prereg, sandbox, sealed
+from canary import blinding, codegen, padding, prereg, sandbox, sealed
 from canary.config import DATA_DIR
 from canary.saboteur import impact
 from canary.saboteur.classes import IMBALANCE_RATIO, NotApplicable, class_counts
@@ -168,36 +168,50 @@ def _require_clean(config: dict) -> None:
         raise NotApplicable(reason)
 
 
+def _pad(script: str, padder: padding.Padder | None) -> tuple[str, dict]:
+    """Length-match the script if asked (see canary/padding.py). The details go to the sealed table only."""
+    if padder is None:
+        return script, {}
+    padded = padder.pad(script)
+    return padded.script, {"padding": padder.details(padded)}
+
+
 def run_control(config: dict, table: sealed.SealedTable, runs_dir: Path = sandbox.RUNS_DIR,
-                source: str | None = None, extra: dict | None = None) -> dict:
+                source: str | None = None, extra: dict | None = None, padder: padding.Padder | None = None) -> dict:
     """Run and seal a control. Sealing comes before anything reviews the run, so its type cannot depend on the review."""
     _require_clean(config)
-    record = sandbox.run_config(config, runs_dir)
-    table.seal(record["run_id"], sealed.CONTROL, source=source, details={"status": record["status"], **(extra or {})})
+    script, pad_details = _pad(codegen.render_script(config), padder)
+    record = sandbox.run_config(config, runs_dir, script=script if padder else None)
+    table.seal(record["run_id"], sealed.CONTROL, source=source,
+               details={"status": record["status"], **pad_details, **(extra or {})})
     return record
 
 
 def run_sham(config: dict, table: sealed.SealedTable, rng: random.Random, runs_dir: Path = sandbox.RUNS_DIR,
-             source: str | None = None, extra: dict | None = None) -> dict:
+             source: str | None = None, extra: dict | None = None, padder: padding.Padder | None = None) -> dict:
     _require_clean(config)
     sham = make_sham(config, rng)
-    record = sandbox.run_config(config, runs_dir, script=sham.script)
+    script, pad_details = _pad(sham.script, padder)
+    record = sandbox.run_config(config, runs_dir, script=script)
     table.seal(record["run_id"], sealed.SHAM, source=source, details={"status": record["status"], "renames": sham.renames,
-                                                                     **(extra or {})})
+                                                                     **pad_details, **(extra or {})})
     return record
 
 
 def run_canary(config: dict, bug_id: str, tier: str, table: sealed.SealedTable, runs_dir: Path = sandbox.RUNS_DIR,
                twin_dir: Path = TWINS_DIR, source: str | None = None,
-               run_type: str = sealed.CANARY_MEASURE, extra: dict | None = None) -> impact.CanaryRecord:
+               run_type: str = sealed.CANARY_MEASURE, extra: dict | None = None,
+               padder: padding.Padder | None = None) -> impact.CanaryRecord:
     """Plant a bug, run it and its clean twin, and seal the record with its impact.
 
     The base must be clean: with a second, unplanned bug, a flag naming that one could not be scored fairly.
     """
     _require_clean(config)
-    record = impact.run_canary(config, bug_id, tier, runs_dir, twin_dir)
+    record = impact.run_canary(config, bug_id, tier, runs_dir, twin_dir, padder)
+    pad_details = {"padding": record.padding} if record.padding else {}
     table.seal(record.run_id, run_type, bug_id, tier, record.twin_run_id, source,
-               {"status": record.status, "reason": record.reason, "impact": record.impact, **(extra or {})})
+               {"status": record.status, "reason": record.reason, "impact": record.impact, **pad_details,
+                **(extra or {})})
     return record
 
 

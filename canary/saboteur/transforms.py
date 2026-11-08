@@ -343,26 +343,29 @@ def _weakened_params(config: dict) -> dict:
     raise NotApplicable("B09 subtle: no setting lowers this control by the minimum effect")
 
 
-def _sabotaged_config(config: dict, bug_id: str, tier: str) -> dict:
+def _sabotaged_config(config: dict, bug_id: str, tier: str, measure: bool = True) -> dict:
     changed = copy.deepcopy(config)
     if bug_id == "B06":
         changed["metric"] = "accuracy" if tier == OBVIOUS else "f1"
     elif bug_id == "B09":
-        crippled = CRIPPLED[changed["control"]["model"]] if tier == OBVIOUS else _weakened_params(config)
+        # Without measuring, B09 subtle takes the ladder's first rung: right length, maybe not the setting a run uses.
+        crippled = (CRIPPLED[changed["control"]["model"]] if tier == OBVIOUS else
+                    _weakened_params(config) if measure else WEAKENING_LADDER[config["control"]["model"]][0])
         changed["control"]["params"].update(crippled)
     return changed
 
 
-def sabotage(config: dict, bug_id: str, tier: str) -> Sabotaged:
+def sabotage(config: dict, bug_id: str, tier: str, measure: bool = True) -> Sabotaged:
     """Return the experiment with this bug planted. The same input always gives the same script.
 
     Raises NotApplicable if the bug makes no sense here, and TransformError if planting it would change nothing.
     B09 subtle runs the experiment to choose its setting, so unlike the others it takes seconds and needs the dataset.
+    `measure=False` skips that (the length gate's dry check only needs the script's size, not the exact setting).
     """
     reason = why_not_applicable(bug_id, tier, config)
     if reason:
         raise NotApplicable(f"{bug_id} {tier}: {reason}")
-    changed = _sabotaged_config(config, bug_id, tier)
+    changed = _sabotaged_config(config, bug_id, tier, measure)
     tree = ast.parse(codegen.render_script(changed))
     TRANSFORMS[bug_id, tier](tree, changed)
     script = ast.unparse(tree)

@@ -1,0 +1,5 @@
+# Locked files are checked by SHA-256 (eval/confirm.py). Git must store and check them out byte for byte, or
+# core.autocrlf would turn LF into CRLF on checkout and every hash check would fail.
+docs/plans/*.md -text
+docs/plans/*.sha256 -text
+eval/results/task_dev_1/llama_checklist_cutoff.json -text

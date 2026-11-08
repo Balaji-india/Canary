@@ -16,7 +16,7 @@ import statistics
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from canary import sandbox
+from canary import padding, sandbox
 from canary.config import load_yaml
 from canary.saboteur.classes import OBVIOUS
 from canary.saboteur.transforms import sabotage
@@ -36,6 +36,7 @@ class CanaryRecord:
     status: str  # sandbox status of the canary, or of the twin if that is what failed
     reason: str | None
     impact: dict | None  # None when a run failed, so no comparison exists
+    padding: dict | None = None  # length matching, if used: secret, because canaries get a smaller helper
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -78,19 +79,22 @@ def _results(record: dict, runs_dir: Path) -> dict:
 
 
 def run_canary(config: dict, bug_id: str, tier: str, runs_dir: Path = sandbox.RUNS_DIR,
-               twin_dir: Path | None = None) -> CanaryRecord:
+               twin_dir: Path | None = None, padder: padding.Padder | None = None) -> CanaryRecord:
     """Plant the bug, run the canary and its clean twin, and return the record. Failures are recorded, not raised.
 
     `twin_dir` defaults to `runs_dir`; controls.run_canary passes a separate folder for real campaigns.
     """
     twin_dir = runs_dir if twin_dir is None else twin_dir
     planted = sabotage(config, bug_id, tier)
+    # Every run of the batch is padded to the same length, so a canary ends exactly as long as a clean run.
+    padded = padder.pad(planted.script) if padder else None
     twin = sandbox.run_config(twin_config(config, planted.config, bug_id, tier), twin_dir)
-    run = sandbox.run_config(planted.config, runs_dir, script=planted.script)
+    run = sandbox.run_config(planted.config, runs_dir, script=padded.script if padded else planted.script)
     failed = next((r for r in (run, twin) if r["status"] != sandbox.STATUS_OK), None)
     found = None
     if failed is None:
         comparable = (bug_id, tier) != ("B06", OBVIOUS)
         found = compute_impact(_results(twin, twin_dir), _results(run, runs_dir), comparable)
     return CanaryRecord(bug_id, tier, run["run_id"], twin["run_id"], planted.config,
-                        failed["status"] if failed else sandbox.STATUS_OK, failed["reason"] if failed else None, found)
+                        failed["status"] if failed else sandbox.STATUS_OK, failed["reason"] if failed else None, found,
+                        padder.details(padded) if padded else None)

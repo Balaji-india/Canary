@@ -106,11 +106,15 @@ def seal_unsealed_runs_as_real(led: Ledger, table: sealed.SealedTable) -> int:
 
 
 def propose(client: llm.LLM, question_id: str, led: Ledger, table: sealed.SealedTable,
-            focus: dict | None = None) -> tuple[dict, str]:
+            focus: dict | None = None, avoid: list[dict] | None = None) -> tuple[dict, str]:
     """Ask for a proposal until one passes the checks. Returns the record to lock and the model used.
 
     With a `focus`, the prompt offers only that choice and lists no earlier hypotheses, so a pool of focused
     proposals does not depend on the order it was built in.
+
+    `avoid` holds pre-registrations a new pool must not repeat (an earlier pool's bases). They count as duplicates,
+    and with a focus the ones on the same dataset are listed as earlier hypotheses. Without that, the same focused
+    prompt would hit the LLM cache and return the earlier pool's proposal word for word.
     """
     campaign = load_yaml("campaign.yaml")
     science = campaign["science"]
@@ -124,6 +128,10 @@ def propose(client: llm.LLM, question_id: str, led: Ledger, table: sealed.Sealed
         datasets_offered = [d for d in datasets_offered if d["name"] == focus["dataset"]]
         model_params = {focus["model"]: codegen.MODEL_PARAMS[focus["model"]]}
         metrics, previous = [focus["metric"]], []
+    if avoid:
+        earlier_keys |= {_experiment_key(p) for p in avoid}
+        shown = [p for p in avoid if not focus or p["dataset"] == focus["dataset"]]
+        previous = (previous + [p["hypothesis"] for p in shown])[-PREVIOUS_SHOWN:]
     schema = proposal_schema(science["min_effect_floor"], focus)
     question = campaign["questions"][question_id]
     feedback = None

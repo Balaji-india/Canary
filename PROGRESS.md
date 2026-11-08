@@ -71,18 +71,68 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen and its AUC rescore
 are finished (all 360 rescore records; the llama passes ran from the student's own window, ending 2026-11-08 12:27 UTC).
-- **Fresh pass, stopped at: gemma and phi done (47 records), llama's 26 not started.** In your own PowerShell window
-  (close Edge first), run:
+The fresh pass is complete (73 records; llama's ran from the student's window).
+- **Confirmation batch `confirm-llama-1`: built, locked, NOT started. Waiting for the student's "go".** Plan
+  `docs/plans/llama_checklist_confirmation.md` (SHA-256 in its `.sha256` file), cut-off locked in
+  `eval/results/task_dev_1/llama_checklist_cutoff.json`. `python -m eval.confirm` checks both hashes. Steps, in the
+  student's own PowerShell window with Edge closed (each resumes by running it again; step 3 with `--resume`):
 
   ```powershell
   cd "C:\Users\Balaji Keerthi\Downloads\canary"
-  .venv\Scripts\python.exe -m canary.cli rescore --batch task-dev-1 --reviewer skeptic_c --fresh
-  .venv\Scripts\python.exe -m eval.compare_tasks --batch task-dev-1
+  .venv\Scripts\python.exe -m canary.cli build-pool --out data/calibration/pool-2.json --avoid data/calibration/pool.json
+  .venv\Scripts\python.exe -m canary.cli length-check --dry --pool data/calibration/pool-2.json --runs 100 --seed 1109
+  .venv\Scripts\python.exe -m canary.cli calibrate --runs 100 --batch confirm-llama-1 --pool data/calibration/pool-2.json --role skeptic_c_checklist --seed 1109
+  .venv\Scripts\python.exe -m canary.cli rescore --batch confirm-llama-1 --reviewer skeptic_c
+  .venv\Scripts\python.exe -m eval.confirm --batch confirm-llama-1
   ```
 
-  About 5 min (range 4-10). The same line resumes. Then commit `compare_tasks.json`.
-- **Waiting for the student's OK:** the outline of the llama-checklist confirmation pre-registration (in the chat of
-  2026-11-08). Nothing of it is written yet.
+  Stop and report if step 2 prints FAILED, or if step 3 says "length gate failed" (it then audits nothing).
+
+## Finding (2026-11-08): a trivial line-count baseline beat every LLM reviewer
+**The trivial line-count baseline (AUC 0.85) beat every LLM reviewer, exposing a length cue in the canaries.** On
+task-dev-1, blinded line count alone gave AUC 0.850, base 90% [0.75, 0.94]; character count 0.709 [0.59, 0.86]; the
+best reviewer, llama3.1:8b with every run scored, 0.718 / 0.690 / 0.735 (baseline / grounded / checklist). All numbers:
+`eval/results/task_dev_1/compare_tasks.json`.
+- **Why (`/analyze`):** the template gives every clean script 84 blinded lines; a bug is code, so planting it adds
+  code. Measured on all 18 pool-1 bases: B10 subtle +15 lines (a helper plus 9 lines in `run_arm`), B04 subtle +8,
+  B07 subtle +7, B10 obvious +7, B01 subtle / B04 obvious / B07 obvious +4, B05 subtle / B08 subtle +3, B01 obvious /
+  B02 / B03 subtle / B05 obvious / B08 obvious +1. Only bugs that change a value or swap a statement keep the length:
+  B03 obvious and B09 (0), B06 obvious (0, config only) and B06 subtle (-1). Shams and controls stay at 84 by design.
+  The 2.2 indistinguishability test compared shams with controls only, never canaries with clean runs.
+- **Consequence:** any reviewer that tends to flag longer code looks discriminating. rq1-full used the same template
+  and saboteur, so it likely has the same cue (not re-measured; its result was no discrimination anyway).
+
+## Length matching and the confirmation plan (2026-11-08)
+- **`canary/padding.py`:** every calibration run gets one never-used helper, `describe_settings`, sized so every
+  blinded script in a batch has the same line count and character count (one target per batch, from the pool's
+  clean scripts: lines = longest + 28, characters = median + 28 x 49). A first version drew a random target per run;
+  it was type-blind too, but its rank noise (about +-0.06 AUC) could fail the gate by luck, so it was replaced.
+  Constants tuned on all 18 pool-1 bases: every variant, clean run and sham (1,140 scripts) hit the target exactly.
+  A padded run gives identical numbers (slow test).
+- **Dry gate on pool 1 (100-run plan, seed 1109):** unpadded, line-count AUC 0.850 [0.80, 0.90] and characters 0.742
+  [0.67, 0.81]: FAILED. Padded: both 0.500 [0.50, 0.50]: passed. Same on seeds 1 and 2.
+- **New cue, measured, not gating:** helper size. A canary's bug lines replace helper lines, so canaries get smaller
+  helpers: helper-size AUC 0.15 on the pool-1 dry run (two long statements are needed mostly by B10 subtle). A
+  reviewer would have to react to how much settings-copying code a script has. Reported in every gate and result.
+- **Gate in the pipeline:** `plan_batch` pads new plans by default (`length_match`, old plans resume unpadded);
+  `run_batch` runs `batch_length_check` after the experiments and audits nothing if it fails (also if a prompt is too
+  large for the role). `length-check --dry` checks a plan without running. `run_batch` now audits only its own
+  batch, with the plan's `role` (a new role would otherwise have picked up every old run).
+- **Pool-2:** `build-pool --avoid` asks the same fixed grid again, shows the Scientist the old pool's hypotheses on
+  the same dataset and refuses duplicates. Without the avoid list the same focused prompt would hit the LLM cache and
+  return pool 1 word for word.
+- **Cut-off (`eval/cutoff.py`, locked, write-once):** 0.38452 on task-dev-1 fresh scores, J +0.40 (recall 0.85, false
+  alarms 0.45), 2 tied candidates, lowest taken. Its file records that it was chosen on length-confounded data.
+- **Plan locked:** `docs/plans/llama_checklist_confirmation.md` with the student's changes A-E; `eval/confirm.py`
+  computes H1-H3 and refuses to run if the plan or cut-off changed. Two consequences are written in the plan: H1 or H2
+  allows up to about 10% false positives; with constant length, line count's AUC is exactly 0.5, so H3 reduces to H2
+  and H1 alone cannot confirm. Power (`eval/results/confirm_llama_1/power.json`, design effect 1.27): H2 0.46 / 0.78 /
+  0.96 at true AUC 0.60 / 0.65 / 0.70.
+- **Fixes on the way:** bootstrap intervals depended on Python's set order (they moved by 0.01 between processes);
+  runs are now sorted before resampling. `.gitattributes` keeps locked files byte-exact (`core.autocrlf` is on).
+  The AUC and bootstrap helpers moved to `canary/separation.py` (the gate needs them inside `canary/`).
+- **Tests:** 582 passed, 11 deselected in 28.8 s (bootstrap draws lowered to 400 in tests by `tests/conftest.py`);
+  `pytest -m slow` 11 passed.
 
 ## Review-task screen (2026-11-08): can another way of asking give J clearly above 0?
 Plan and decision rule, committed before the batch ran: `docs/plans/review_task_screen.md`. Fresh batch `task-dev-1`
@@ -444,10 +494,10 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   before each commit that touches those areas; `pytest -m "slow or not slow"` runs everything.
 - **Real runs with a bug-like design are not caught yet.** `why_not_clean` only protects clones. A real run using accuracy
   above 3:1 is really buggy; Mission 5.1's B06 tripwire should catch it.
-- **Canaries are longer than clean runs.** Every clean task-dev-1 run has 84 blinded lines; most canaries have more
-  (line-count AUC 0.850). Likely true of rq1-full too (same template and saboteur), so RQ1's recall can be inflated by
-  any reviewer behaviour that tracks code size. Needs a length-matching fix (pad clean runs or keep transforms
-  line-neutral) and a test comparing canaries with clean runs, not only shams with controls.
+- **Canaries were longer than clean runs (fixed for new batches).** rq1-full and task-dev-1 keep the cue; new plans
+  are length-matched and gated (see "Length matching"). Left: the helper-size cue (AUC 0.15 on a dry run), and
+  **real runs are not padded yet**: before Mission 4.1 applies calibration numbers to real findings, real runs must
+  get the same helper and target, or controls would no longer look like real runs.
 - **A sham's edits can be told apart in principle.** Its imports are out of the template's usual order, and its names are
   slightly longer on average (about 1-2% more characters). A stateless reviewer sees one run at a time and has no template to
   compare with, so this should not matter, but a reviewer that learned the template could separate them.
@@ -468,7 +518,13 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Run the llama fresh pass (command under "In progress"), then OK or change the confirmation outline.
-2. Fix the length cue before any new batch: canaries must not be told apart by line count (see the fresh-pass
-   finding). Then `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule.
-3. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.
+1. On the student's "go": run the confirmation steps under "In progress", then `/evaluate` the result honestly.
+2. `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule; then Mission 3.1.
+3. Plan only (nothing built yet, each needs the student's OK):
+   - **Cloud ceiling check on 40 runs:** one strong cloud reviewer (a different family from the Scientist) on a
+     length-matched 40-run batch, to learn whether the task is hard or only the small local models are weak. Needs an
+     API key and `/api`.
+   - **Mission 5.1 tripwires plus llama as a union reviewer:** flag if a tripwire fires or llama flags; measure the
+     union's recall and specificity against each alone (feeds RQ2).
+   - **4B vs 8B vs cloud comparison for the report:** gemma3:4b and phi4-mini vs llama3.1:8b vs the cloud model, on
+     the same length-matched batch, with AUC and J and base-level intervals.

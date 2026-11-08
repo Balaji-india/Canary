@@ -378,13 +378,22 @@ def cmd_calibrate(args: argparse.Namespace) -> int:
         if path.exists():
             print(f"Batch {args.batch} already exists. Use --resume, or another batch name.")
             return 2
-        pool = (json.loads(mixer.POOL_PATH.read_text(encoding="utf-8")) if mixer.POOL_PATH.exists()
+        pool_path = Path(args.pool) if args.pool else mixer.POOL_PATH
+        if args.pool and not pool_path.exists():
+            print(f"No pool at {pool_path}. Build it first: python -m canary.cli build-pool --out {args.pool}")
+            return 2
+        if args.role not in client.cfg["roles"]:
+            print(f"Unknown role {args.role}. Roles: {', '.join(client.cfg['roles'])}")
+            return 2
+        pool = (json.loads(pool_path.read_text(encoding="utf-8")) if pool_path.exists()
                 else mixer.build_pool(client, led, table))
         try:
-            plan = mixer.plan_batch(args.batch, args.runs, pool, settings["seed"] if args.seed is None else args.seed)
+            plan = mixer.plan_batch(args.batch, args.runs, pool, settings["seed"] if args.seed is None else args.seed,
+                                    role=args.role)
         except mixer.MixerError as exc:
             print(f"Cannot plan this batch: {exc}")
             return 1
+        plan["pool"] = str(pool_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(plan, indent=1), encoding="utf-8")
     report = mixer.run_batch(client, plan, led, table)
@@ -393,6 +402,52 @@ def cmd_calibrate(args: argparse.Namespace) -> int:
         return 1
     print(f"Batch {args.batch} finished. Results: python -m eval.rq1 --batch {args.batch}")
     return 0
+
+
+def cmd_build_pool(args: argparse.Namespace) -> int:
+    """Ask the Scientist for a new pool of bases over the fixed grid, avoiding an earlier pool's bases."""
+    out = Path(args.out)
+    if out.exists():
+        print(f"{out} already exists. A pool is written once; choose another file name.")
+        return 2
+    avoid = json.loads(Path(args.avoid).read_text(encoding="utf-8")) if args.avoid else None
+    client, led, table = llm.LLM(), ledger.Ledger(), sealed.SealedTable()
+    try:
+        pool = mixer.build_pool(client, led, table, out, avoid_pool=avoid)
+    except mixer.MixerError as exc:
+        print(f"Pool refused: {exc}")
+        return 1
+    finally:
+        client.release()
+    shared = len(mixer.pool_keys(pool) & mixer.pool_keys(avoid)) if avoid else 0
+    print(f"Pool written to {out}: {len(pool['bases'])} bases kept, {len(pool['dropped'])} dropped, "
+          f"{shared} shared with {args.avoid or 'no earlier pool'}.")
+    return 0
+
+
+def cmd_length_check(args: argparse.Namespace) -> int:
+    """The length gate. --dry plans a batch from a pool and checks its scripts without running anything."""
+    if args.dry:
+        if not (args.pool and args.runs and args.seed is not None):
+            print("--dry needs --pool, --runs and --seed (the same ones calibrate will use).")
+            return 2
+        pool = json.loads(Path(args.pool).read_text(encoding="utf-8"))
+        check = mixer.dry_length_check(mixer.plan_batch("dry-check", args.runs, pool, args.seed))
+        extra = f"largest blinded script {check['largest_script_chars']} characters"
+    else:
+        if not args.batch:
+            print("Give --batch B (runs already made), or --dry with --pool, --runs and --seed.")
+            return 2
+        client, led, table = llm.LLM(), ledger.Ledger(), sealed.SealedTable()
+        plan = json.loads(mixer.plan_path(args.batch).read_text(encoding="utf-8"))
+        check = mixer.batch_length_check(client, led, table, args.batch, plan.get("role", skeptic.DEFAULT_ROLE))
+        extra = f"largest prompt {check['largest_prompt_chars']} characters, {check['prompts_too_large']} too large"
+    helper = check.get("helper_statements_auc")
+    print(f"Length gate {'PASSED' if check['passes'] else 'FAILED'}: {mixer.gate_text(check)}; {extra}.")
+    if helper and helper["value"] is not None:
+        print(f"Diagnostic, not gating: helper size AUC {helper['value']:.3f} (canaries get a smaller helper by design).")
+    print(f"{check['runs']} runs, {check['buggy']} canaries. Rule: {check['rule']}.")
+    return 0 if check["passes"] else 1
 
 
 def cmd_reaudit(args: argparse.Namespace) -> int:
@@ -488,7 +543,20 @@ def main(argv: list[str] | None = None) -> int:
     calibrate_parser.add_argument("--batch", required=True, help="the batch's name; RQ1 reports one batch at a time")
     calibrate_parser.add_argument("--seed", type=int, help="seed for the plan (default in config/campaign.yaml)")
     calibrate_parser.add_argument("--resume", action="store_true", help="continue a batch after an interruption")
+    calibrate_parser.add_argument("--pool", help="pool file of bases (default data/calibration/pool.json)")
+    calibrate_parser.add_argument("--role", default=skeptic.DEFAULT_ROLE, help="the reviewer role that audits the batch")
     calibrate_parser.set_defaults(func=cmd_calibrate)
+    pool_parser = sub.add_parser("build-pool", help="ask the Scientist for a new pool of bases over the fixed grid")
+    pool_parser.add_argument("--out", required=True, help="new pool file, e.g. data/calibration/pool-2.json")
+    pool_parser.add_argument("--avoid", help="an earlier pool whose bases must not come back")
+    pool_parser.set_defaults(func=cmd_build_pool)
+    length_parser = sub.add_parser("length-check", help="the length gate: blinded size must not reveal run types")
+    length_parser.add_argument("--batch", help="check a batch's runs (after they ran, before any audit)")
+    length_parser.add_argument("--dry", action="store_true", help="plan from a pool and check without running anything")
+    length_parser.add_argument("--pool")
+    length_parser.add_argument("--runs", type=int)
+    length_parser.add_argument("--seed", type=int)
+    length_parser.set_defaults(func=cmd_length_check)
     reaudit_parser = sub.add_parser("reaudit", help="have another reviewer role review a finished batch (no new runs)")
     reaudit_parser.add_argument("--batch", required=True)
     reaudit_parser.add_argument("--role", required=True, help="a role from config/models.yaml, e.g. skeptic_b")

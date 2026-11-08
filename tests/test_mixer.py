@@ -124,7 +124,8 @@ SHORT = 8  # a real batch's slots, but few: each ledger write costs real time, a
 
 
 def short_plan():
-    plan = mixer.plan_batch("b", 30, POOL, 1)
+    # Unpadded: these tests are about batch mechanics, and the fake scripts have no main() to pad.
+    plan = mixer.plan_batch("b", 30, POOL, 1, length_match=False)
     return {**plan, "slots": plan["slots"][:SHORT]}
 
 
@@ -225,3 +226,30 @@ def test_clone_keeps_its_base_wording_and_gets_new_seeds(world):
 def test_plan_can_be_saved_as_json_unchanged():
     plan = mixer.plan_batch("b", 30, POOL, 1)
     assert json.loads(json.dumps(plan)) == copy.deepcopy(plan)
+
+
+def test_the_dry_gate_fails_unpadded_plans_and_passes_padded_ones():
+    unpadded = mixer.dry_length_check(mixer.plan_batch("b", 30, POOL, 1, length_match=False))
+    assert not unpadded["passes"] and unpadded["features"]["line_count"]["value"] > 0.6
+    padded = mixer.dry_length_check(mixer.plan_batch("b", 30, POOL, 1))
+    assert padded["passes"] and padded["slots_without_base"] == 0
+    assert {f["value"] for f in padded["features"].values()} == {0.5}  # one size for every script
+
+
+def test_a_failed_length_gate_stops_before_any_audit(world, monkeypatch):
+    plan = {**short_plan(), "length_match": True, "role": "skeptic_a"}
+    monkeypatch.setattr(mixer, "_padder", lambda *_: None)  # the fake scripts cannot be padded
+    failing = {"passes": False, "features": {}, "prompts_too_large": 0}
+    monkeypatch.setattr(mixer, "batch_length_check", lambda *_: failing)
+    report = run(world, plan)
+    assert report.stopped.startswith("length gate failed") and report.audited == []
+    assert world["provider"].calls == []  # no reviewer was asked anything
+    assert json.loads((world["plans"] / "b.length_check.json").read_text(encoding="utf-8")) == failing
+    monkeypatch.setattr(mixer, "batch_length_check", lambda *_: {**failing, "passes": True})
+    assert len(run(world, plan).audited) == SHORT  # once the gate passes, the resume audits the batch
+
+
+def test_a_new_pool_must_not_repeat_the_old_one():
+    assert mixer.pool_keys(POOL) and mixer.pool_keys(POOL) == mixer.pool_keys(copy.deepcopy(POOL))
+    other = {"bases": [base("wine", "f1")]}
+    assert not mixer.pool_keys(other) & mixer.pool_keys(POOL)
