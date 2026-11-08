@@ -429,7 +429,7 @@ def cmd_rescore(args: argparse.Namespace) -> int:
     if not mixer.batch_run_ids(table, args.batch):
         print(f"Batch {args.batch} has no sealed runs.")
         return 2
-    counts = mixer.rescore_batch(client, led, table, args.batch, args.reviewer)
+    counts = mixer.rescore_batch(client, led, table, args.batch, args.reviewer, fresh=args.fresh)
     for role, tally in counts.items():
         print(f"{role}: {tally}")
     if any(t.get("call_failed") for t in counts.values()):
@@ -500,6 +500,8 @@ def main(argv: list[str] | None = None) -> int:
     rescore_parser = sub.add_parser("rescore", help="token-probability scores for a batch's unscored audits (no verdict changes)")
     rescore_parser.add_argument("--batch", required=True)
     rescore_parser.add_argument("--reviewer", required=True, help="skeptic_a, skeptic_b or skeptic_c: all its task roles, one model")
+    rescore_parser.add_argument("--fresh", action="store_true",
+                                help="ask again for runs whose reply differed, and keep the new reply's score")
     rescore_parser.set_defaults(func=cmd_rescore)
     args = parser.parse_args(argv)
     return args.func(args)

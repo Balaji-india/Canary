@@ -1,4 +1,6 @@
 """The review-task screen's arithmetic: AUC, the paired delta J, the fixed pass rule, and the rq1-full refusal."""
+import json
+
 import numpy as np
 import pytest
 
@@ -89,3 +91,38 @@ def test_other_batches_and_other_roles_are_left_out(stores):
 
 def test_the_screen_refuses_the_baseline_batch():
     assert compare_tasks.main(["--batch", "rq1-full"]) == 2
+
+
+def test_the_base_bootstrap_resamples_whole_bases():
+    # Two bases, each perfectly separated inside but in opposite directions: pooled AUC 0.5, base draws swing widely.
+    items = [("a", True, 0.9), ("a", False, 0.1), ("b", True, 0.1), ("b", False, 0.9)]
+    low, high = compare_tasks.base_bootstrap(items, compare_tasks._auc_stat, draws=300)
+    assert low <= 0.0 + 1e-9 and high >= 1.0 - 1e-9  # a draw of only "a" gives 1, only "b" gives 0
+    # One base cannot be resampled into anything else, so the interval is one value.
+    one = compare_tasks.base_bootstrap([("a", True, 0.9), ("a", False, 0.1)], compare_tasks._auc_stat, draws=50)
+    assert one == [1.0, 1.0]
+    assert compare_tasks.base_bootstrap([], compare_tasks._auc_stat) is None
+
+
+def test_run_features_read_only_what_the_reviewer_sees(tmp_path):
+    run = tmp_path / "r1"
+    run.mkdir()
+    (run / "experiment.py").write_text("# a comment\nx = 1\n\n\ny = 2\n", encoding="utf-8")
+    (run / "results.json").write_text(json.dumps({"control": [0.5, 0.6, 0.7], "treatment": [0.6, 0.8, 0.7]}),
+                                      encoding="utf-8")
+    f = compare_tasks.run_features("r1", tmp_path)
+    assert f["line_count"] == 2  # blinded: the comment and blank lines are gone
+    assert f["effect_size"] == pytest.approx(0.1) and f["top_score"] == pytest.approx(0.7)
+    assert f["effect_spread"] == pytest.approx(np.std([0.1, 0.2, 0.0], ddof=1))
+    assert compare_tasks.run_features("missing", tmp_path) is None
+
+
+def test_a_feature_that_tracks_the_truth_scores_one_and_rho_needs_variation():
+    buggy, base_of = {"b1", "b2"}, {"b1": "x", "b2": "y", "c1": "x", "c2": "y"}
+    feats = {"b1": {n: 9.0 for n in compare_tasks.FEATURES}, "b2": {n: 8.0 for n in compare_tasks.FEATURES},
+             "c1": {n: 1.0 for n in compare_tasks.FEATURES}, "c2": None}
+    fb = compare_tasks.feature_baselines({"b1", "b2", "c1", "c2"}, buggy, base_of, feats)
+    assert fb["line_count"]["value"] == 1.0 and fb["line_count"]["scored_clean"] == 1  # c2 has no files
+    assert compare_tasks._spearman([(0.1, {"line_count": 3})] * 6) is None  # no variation, no rho
+    rho = compare_tasks._spearman([(i / 10, {"line_count": i}) for i in range(6)])
+    assert rho["rho"] == pytest.approx(1.0) and rho["n"] == 6

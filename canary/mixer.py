@@ -315,12 +315,15 @@ def reaudit(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable, batc
 RESCORE_DIR = DATA_DIR / "rescore"
 
 
-def rescore_path(batch: str, directory: Path = RESCORE_DIR) -> Path:
-    return directory / f"{batch}.jsonl"
+FRESH = "fresh"  # the pass that scores every new reply, kept in its own file so the first records stay as written
 
 
-def read_rescores(batch: str, directory: Path = RESCORE_DIR) -> list[dict]:
-    path = rescore_path(batch, directory)
+def rescore_path(batch: str, directory: Path = RESCORE_DIR, kind: str = "") -> Path:
+    return directory / (f"{batch}.{kind}.jsonl" if kind else f"{batch}.jsonl")
+
+
+def read_rescores(batch: str, directory: Path = RESCORE_DIR, kind: str = "") -> list[dict]:
+    path = rescore_path(batch, directory, kind)
     if not path.exists():
         return []
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -335,22 +338,31 @@ def reviewer_roles(models_cfg: dict, reviewer: str, led: ledger.Ledger, run_ids:
 
 def rescore_batch(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable, batch: str, reviewer: str,
                   runs_dir: Path = sandbox.RUNS_DIR, log_path: Path = sandbox.RUNS_DIR / "campaign.log",
-                  directory: Path = RESCORE_DIR) -> dict[str, dict[str, int]]:
+                  directory: Path = RESCORE_DIR, fresh: bool = False) -> dict[str, dict[str, int]]:
     """Rescore every audit of the batch by one reviewer's roles. Safe to run again: finished records are skipped.
 
     Records are appended one at a time, so a crash or a stop loses at most the call in progress. Failed calls are not
     stored and are tried again on the next run. Returns the outcome counts per role.
+
+    `fresh` asks again only for runs whose first rescore reply differed from the stored audit, and keeps the new
+    reply's score whatever it says, in `<batch>.fresh.jsonl`. The first rescore file is only read.
     """
     ids = batch_run_ids(table, batch)
-    path = rescore_path(batch, directory)
+    kind = FRESH if fresh else ""
+    path = rescore_path(batch, directory, kind)
     path.parent.mkdir(parents=True, exist_ok=True)
     finished: dict[str, set[str]] = {}
-    for record in read_rescores(batch, directory):
+    for record in read_rescores(batch, directory, kind):
         finished.setdefault(record["role"], set()).add(record["run_id"])
+    differing: dict[str, set[str]] = {}
+    for record in read_rescores(batch, directory) if fresh else []:
+        if record["outcome"] == "reply_differs":
+            differing.setdefault(record["role"], set()).add(record["run_id"])
     counts: dict[str, dict[str, int]] = {}
     for role in reviewer_roles(client.cfg, reviewer, led, ids):
-        todo = len(ids) - len(finished.get(role, set()))
-        _log(log_path, f"batch {batch}: rescore by {role}, {todo} to do")
+        scope = differing.get(role, set()) if fresh else ids
+        todo = len(scope - finished.get(role, set()))
+        _log(log_path, f"batch {batch}: {'fresh ' if fresh else ''}rescore by {role}, {todo} to do")
         started, done = time.perf_counter(), 0
         tally = counts.setdefault(role, {})
 
@@ -366,7 +378,8 @@ def rescore_batch(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable
             _log(log_path, f"batch {batch}: rescore {role} {done}/{todo} {record['outcome']} "
                            f"[{time.perf_counter() - started:.0f} s so far]")
 
-        skeptic.rescore(client, led, role, ids, runs_dir, finished.get(role, set()), store)
+        if todo:
+            skeptic.rescore(client, led, role, scope, runs_dir, finished.get(role, set()), store, always_score=fresh)
         _log(log_path, f"batch {batch}: rescore by {role} finished: {tally}")
     client.release()
     return counts

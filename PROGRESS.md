@@ -71,6 +71,18 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen and its AUC rescore
 are finished (all 360 rescore records; the llama passes ran from the student's own window, ending 2026-11-08 12:27 UTC).
+- **Fresh pass, stopped at: gemma and phi done (47 records), llama's 26 not started.** In your own PowerShell window
+  (close Edge first), run:
+
+  ```powershell
+  cd "C:\Users\Balaji Keerthi\Downloads\canary"
+  .venv\Scripts\python.exe -m canary.cli rescore --batch task-dev-1 --reviewer skeptic_c --fresh
+  .venv\Scripts\python.exe -m eval.compare_tasks --batch task-dev-1
+  ```
+
+  About 5 min (range 4-10). The same line resumes. Then commit `compare_tasks.json`.
+- **Waiting for the student's OK:** the outline of the llama-checklist confirmation pre-registration (in the chat of
+  2026-11-08). Nothing of it is written yet.
 
 ## Review-task screen (2026-11-08): can another way of asking give J clearly above 0?
 Plan and decision rule, committed before the batch ran: `docs/plans/review_task_screen.md`. Fresh batch `task-dev-1`
@@ -157,6 +169,24 @@ result and figure hashes are in `eval/results/task_dev_1/baseline_sha256_before.
       0.99 and are usable.
     - **llama checklist is the most robust number:** 38 of 40 scored, bounds [0.64, 0.73], though it flagged 0 of 40.
       Its raw J was +0.135 [-0.005, +0.290]. A pointer, not a pass: it is one of 9 cells seen after the fact.
+  - **Fresh pass and baselines (2026-11-08, later).** `rescore --fresh` asks again only for runs whose reply differed
+    and keeps the new reply's score, in `data/rescore/task-dev-1.fresh.jsonl` (the first file is only read).
+    `compare_tasks` now also reports, all deciding nothing: base-level 90% intervals (resampling the 17 bases, since
+    clones of a base are not independent), fresh AUC on all 40 runs, trivial-feature AUCs (blinded line count,
+    per-seed effect spread, effect size, best arm's score), the same features on each cell's matched-only runs, and
+    Spearman rho of score vs line count within buggy and within clean runs. All numbers: `compare_tasks.json`.
+    - gemma (2 runs) and phi (45 runs) done in the background, 183 s of calls. phi's third reply matched its stored
+      one only 17 of 45 times. llama's 26 not run yet (command under "In progress").
+    - **phi with every run scored:** baseline 0.640, grounded 0.545, checklist 0.583; every base-level interval
+      includes 0.5. The matched-only numbers did not hide a signal.
+    - **Major finding: script length gives canaries away.** All 20 clean runs (controls and shams) have exactly 84
+      blinded lines; canaries have 83-99, and only B03 (one), B09 (both) and none of the others sit at 84. Line count
+      alone has AUC 0.850, base 90% [0.75, 0.94], higher than every reviewer cell. The 2.2 indistinguishability test
+      compared shams with controls only, never canaries with clean runs. A reviewer cannot use this without knowing
+      the template's length, but any score that rises with code size would look discriminating: llama checklist's
+      score rises with length within buggy runs (rho +0.46, p 0.05, n 18). Within clean runs rho cannot be computed
+      (no variation). So llama's AUC may partly be a length effect. The confirmation must control for it.
+    - Tests: 567 passed, 10 deselected in 27.1 s (32 s while phi ran in the background).
   - **Finding: phi4-mini is not fully repeatable at temperature 0.** It gave its stored reply again only 75 of 120 times
     (baseline 24/40, grounded 23/40, checklist 28/40). gemma3:4b repeated 118 of 120 (40, 40, 38). phi's mismatches hit
     buggy and clean runs about equally (24/60 and 21/60), but that does not make them random. AUC for phi will rest on
@@ -414,6 +444,10 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   before each commit that touches those areas; `pytest -m "slow or not slow"` runs everything.
 - **Real runs with a bug-like design are not caught yet.** `why_not_clean` only protects clones. A real run using accuracy
   above 3:1 is really buggy; Mission 5.1's B06 tripwire should catch it.
+- **Canaries are longer than clean runs.** Every clean task-dev-1 run has 84 blinded lines; most canaries have more
+  (line-count AUC 0.850). Likely true of rq1-full too (same template and saboteur), so RQ1's recall can be inflated by
+  any reviewer behaviour that tracks code size. Needs a length-matching fix (pad clean runs or keep transforms
+  line-neutral) and a test comparing canaries with clean runs, not only shams with controls.
 - **A sham's edits can be told apart in principle.** Its imports are out of the template's usual order, and its names are
   slightly longer on average (about 1-2% more characters). A stateless reviewer sees one run at a time and has no template to
   compare with, so this should not matter, but a reviewer that learned the template could separate them.
@@ -434,7 +468,7 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Following the fixed rule (no cell passed): `/mission 5.1` (deterministic tripwires) as the main defence.
-2. Before any llama AUC claim: store a score for every fresh reply (labelled "fresh", beside the matched-only AUC), and
-   pre-register a llama-checklist AUC threshold for the confirmation batch on a new pool (`/outline` the plan first).
+1. Run the llama fresh pass (command under "In progress"), then OK or change the confirmation outline.
+2. Fix the length cue before any new batch: canaries must not be told apart by line count (see the fresh-pass
+   finding). Then `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule.
 3. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.

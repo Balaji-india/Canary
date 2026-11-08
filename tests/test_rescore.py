@@ -118,3 +118,31 @@ def test_reviewer_roles_are_the_ones_on_that_model_that_audited_the_batch(tmp_pa
     cfg["roles"]["skeptic_a_grounded"] = {"use_role": "skeptic_a", "task": "grounded"}
     assert mixer.reviewer_roles(cfg, "skeptic_a", led, {"r1"}) == ["skeptic_a"]  # the grounded role has no audit here
     assert mixer.reviewer_roles(cfg, "skeptic_b", led, {"r1"}) == []
+
+
+def test_the_fresh_pass_scores_only_differing_runs_and_keeps_the_first_file(tmp_path):
+    led, runs = audited_run(tmp_path, reply=PASS_REPLY)
+    led, runs = audited_run(tmp_path, reply=FLAG_REPLY, run_id="r2", hypothesis_id="h2", led=led, script="y = 2\n")
+    table = sealed.SealedTable(tmp_path / "sealed.db")
+    table.seal("r1", sealed.CONTROL, source="base-1", details={"batch": "b"})
+    table.seal("r2", sealed.CANARY_MEASURE, "B03", "obvious", source="base-2", details={"batch": "b"})
+    log, out = tmp_path / "campaign.log", tmp_path / "rescore"
+    client, _ = scoring_client(tmp_path, [PASS_REPLY, PASS_REPLY])
+    mixer.rescore_batch(client, led, table, "b", "skeptic_a", runs, log, out)  # r1 matched, r2 differs
+    first_file = mixer.rescore_path("b", out).read_text(encoding="utf-8")
+
+    fresh_client, provider = scoring_client(tmp_path, [PASS_REPLY], p=0.4, name="fresh.db")
+    counts = mixer.rescore_batch(fresh_client, led, table, "b", "skeptic_a", runs, log, out, fresh=True)
+    assert counts == {"skeptic_a": {"reply_differs": 1}} and len(provider.calls) == 1  # only r2 was asked again
+    record = mixer.read_rescores("b", out, mixer.FRESH)[0]
+    assert record["run_id"] == "r2" and record["score"]["p_flag"] == pytest.approx(0.4)
+    assert record["verdict_changed"] is True  # the stored audit flagged; the fresh reply passed
+    assert mixer.rescore_path("b", out).read_text(encoding="utf-8") == first_file
+    assert mixer.rescore_batch(fresh_client, led, table, "b", "skeptic_a", runs, log, out, fresh=True) == {"skeptic_a": {}}
+
+    c = compare_tasks.build(table, led, "b", ["B03"], 1000, out, runs)["cells"]["skeptic_a"]
+    assert c["auc"]["value"] is None  # matched-only still has the clean run alone
+    fresh = c["auc_fresh"]
+    assert fresh["complete"] and fresh["sources"] == {"matched_first": 1, "fresh": 1, "missing": 0}
+    assert fresh["value"] == 0.0  # buggy 0.4 below clean 0.7
+    assert fresh["verdict_changed"] == 1 and c["youden_j"]["observed_j"] == 1.0  # verdicts still from the audits

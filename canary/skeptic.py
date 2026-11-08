@@ -183,13 +183,18 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
 
 def rescore(client: llm.LLM, led: ledger.Ledger, role: str, run_ids: set[str], runs_dir: Path = sandbox.RUNS_DIR,
             done: set[str] | None = None, on_record: Callable[[dict], None] | None = None,
-            stop_after: int = DEFAULT_STOP_AFTER) -> list[dict]:
+            stop_after: int = DEFAULT_STOP_AFTER, always_score: bool = False) -> list[dict]:
     """Ask the same question again to get token probabilities for audits stored without a score.
 
     Why it is safe: the prompt is rebuilt from the same files and must hash to the audit's stored `prompt_sha256`,
     and a score is kept only when the new reply equals the stored one. The ledger, the stored verdicts and the LLM
     cache are not written; the caller stores each record. `done` holds run IDs already rescored for this role.
     Only the first audit of a run counts, as everywhere else. Returns one record per run tried.
+
+    `always_score` (the "fresh" pass) keeps the score of a reply that differs from the stored one too. Matched-only
+    AUC rests on the runs where the model happened to repeat itself, which may be its most certain ones; a fresh score
+    for every run removes that selection. It is a score of the new reply, not of the stored verdict, and is reported
+    as such.
     """
     task = task_of(client.cfg, role)
     bugs = config.load_yaml("bug_classes.yaml")
@@ -232,7 +237,7 @@ def rescore(client: llm.LLM, led: ledger.Ledger, role: str, run_ids: set[str], r
                 matched = result.data == audit.payload["audit"]
                 record = {**base, "outcome": "matched" if matched else "reply_differs", "model": result.model,
                           "attempts": result.attempts, "seconds": round(result.seconds, 3),
-                          "score": review_tasks.score(task, result.logprobs, bug_ids) if matched else None}
+                          "score": review_tasks.score(task, result.logprobs, bug_ids) if matched or always_score else None}
                 if not matched:
                     # Diagnostics only: did the repeat change the verdict, or only the wording? It decides nothing.
                     stored = audit.payload.get("decision") or audit.payload["audit"]
