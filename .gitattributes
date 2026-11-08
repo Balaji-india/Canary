@@ -3,3 +3,12 @@
 docs/plans/*.md -text
 docs/plans/*.sha256 -text
 eval/results/task_dev_1/llama_checklist_cutoff.json -text
+# Code and config whose SHA-256 the confirmation plan records (section 2).
+canary/review_tasks.py -text
+canary/padding.py -text
+canary/separation.py -text
+canary/mixer.py -text
+eval/confirm.py -text
+eval/compare_tasks.py -text
+config/models.yaml -text
+config/bug_classes.yaml -text
