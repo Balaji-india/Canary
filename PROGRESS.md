@@ -72,7 +72,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen and its AUC rescore
 are finished (all 360 rescore records; the llama passes ran from the student's own window, ending 2026-11-08 12:27 UTC).
 The fresh pass is complete (73 records; llama's ran from the student's window).
-- **Confirmation batch `confirm-llama-1`: built, locked, NOT started. Waiting for the student's "go".** Plan
+- **Confirmation batch `confirm-llama-1`: built and locked, NOT started, ON HOLD (student, 2026-11-08): fix the
+  helper-size cue first (Next action 1).** That amends H3, so the plan gets a new hash before any data; do not run
+  the steps below until then. The cut-off stays as locked. Plan
   `docs/plans/llama_checklist_confirmation.md` (SHA-256 in its `.sha256` file), cut-off locked in
   `eval/results/task_dev_1/llama_checklist_cutoff.json`. `python -m eval.confirm` checks both hashes. Steps, in the
   student's own PowerShell window with Edge closed (each resumes by running it again; step 3 with `--resume`):
@@ -275,7 +277,8 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 - None running. `task-dev-1` finished 2026-11-08 at 05:59 UTC after two stops (a batch log bug and low RAM; see the
   review-task screen above). The last part ran from the student's own PowerShell window.
 - The task-dev-1 rescore is complete (360 of 360 records; llama passes took 566 s for the checklist alone, from the
-  student's own window).
+  student's own window), and so is its fresh pass (73 records).
+- `confirm-llama-1` has not started (no pool-2, no runs, no audits): on hold for the helper-size fix.
 
 ## Decisions
 - **Ollama only for now, no API keys.** A cloud model is added later with `/api`. Mission 1.3 must build `llm.py`
@@ -517,10 +520,20 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   already cached.
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
-## Next 3 actions
-1. On the student's "go": run the confirmation steps under "In progress", then `/evaluate` the result honestly.
-2. `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule; then Mission 3.1.
-3. Plan only (nothing built yet, each needs the student's OK):
+## Next actions
+1. **First, before "go": fix the helper-size cue** (helper-size AUC 0.15 on the pool-1 dry run).
+   - **Amend H3:** the score's AUC minus the AUC of the *strongest* trivial feature on the same runs, helper size
+     included (line count, character count, helper size, effect spread, effect size, best arm's score). Direction
+     does not matter, so each feature counts as max(AUC, 1 - AUC). Paired, base-level 90% interval, lower bound above
+     0. This also ends "H3 reduces to H2", since line count is constant.
+   - **Cue-sensitivity probe on about 20 clean controls:** pad each control twice, with the smallest and the largest
+     helper a run of the batch would get (same code otherwise), and score both with llama-checklist. If P(flag)
+     moves with helper size on clean code, the cue is live for this reviewer. Probe runs stay out of every recall,
+     specificity and AUC estimate. About 40 llama calls, roughly 10 min in the student's own window.
+   - Then amend the plan, re-hash it and commit before any pool-2 or batch data exist. The cut-off stays as locked.
+2. On the student's "go": run the confirmation steps under "In progress", then `/evaluate` the result honestly.
+3. `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule; then Mission 3.1.
+4. Plan only (nothing built yet, each needs the student's OK):
    - **Cloud ceiling check on 40 runs:** one strong cloud reviewer (a different family from the Scientist) on a
      length-matched 40-run batch, to learn whether the task is hard or only the small local models are weak. Needs an
      API key and `/api`.
