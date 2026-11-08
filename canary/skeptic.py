@@ -179,3 +179,61 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
             report.stopped = f"{server_failures} server failures in a row: is Ollama running?"
             break
     return report
+
+
+def rescore(client: llm.LLM, led: ledger.Ledger, role: str, run_ids: set[str], runs_dir: Path = sandbox.RUNS_DIR,
+            done: set[str] | None = None, on_record: Callable[[dict], None] | None = None,
+            stop_after: int = DEFAULT_STOP_AFTER) -> list[dict]:
+    """Ask the same question again to get token probabilities for audits stored without a score.
+
+    Why it is safe: the prompt is rebuilt from the same files and must hash to the audit's stored `prompt_sha256`,
+    and a score is kept only when the new reply equals the stored one. The ledger, the stored verdicts and the LLM
+    cache are not written; the caller stores each record. `done` holds run IDs already rescored for this role.
+    Only the first audit of a run counts, as everywhere else. Returns one record per run tried.
+    """
+    task = task_of(client.cfg, role)
+    bugs = config.load_yaml("bug_classes.yaml")
+    bug_ids = sorted(bugs)
+    top_logprobs = client.cfg["llm"].get("review_top_logprobs") or review_tasks.TOP_LOGPROBS
+    done = done or set()
+    locks, ran, first = {}, {}, {}
+    for entry in led.entries():
+        if entry.status == ledger.PREREGISTERED:
+            locks[entry.hypothesis_id] = entry.payload
+        elif entry.status == ledger.RAN and "run_id" in entry.payload:
+            ran[entry.payload["run_id"]] = entry
+        elif entry.status == ledger.AUDITED and entry.payload.get("role") == role and entry.payload["run_id"] in run_ids:
+            first.setdefault(entry.payload["run_id"], entry)
+    records, server_failures = [], 0
+    for run_id in sorted(set(first) - done):
+        audit = first[run_id]
+        base = {"role": role, "run_id": run_id, "task": task, "audit_entry_hash": audit.hash,
+                "prompt_sha256": audit.payload["prompt_sha256"]}
+        try:
+            job = _prepare(ran[run_id], locks[ran[run_id].hypothesis_id], runs_dir)
+        except (OSError, ValueError, SyntaxError, KeyError) as exc:
+            record = {**base, "outcome": "files_changed", "detail": str(exc)}
+        else:
+            system, prompt, schema = review_tasks.build(task, job.blinded, bugs, audit.payload.get("class_order"))
+            if prereg.sha256_text(prompt) != audit.payload["prompt_sha256"]:
+                record = {**base, "outcome": "prompt_changed"}
+            else:
+                try:
+                    result = client.call(role, prompt, schema, system=system, top_logprobs=top_logprobs,
+                                         cache_write=False)
+                except llm.LLMError as exc:
+                    server_failures = server_failures + 1 if exc.kind == llm.KIND_TIMEOUT_OR_SERVER else 0
+                    if on_record:
+                        on_record({**base, "outcome": "call_failed", "kind": exc.kind, "retry": True})
+                    if server_failures >= stop_after:
+                        break
+                    continue  # not stored, so a resume tries it again
+                server_failures = 0
+                matched = result.data == audit.payload["audit"]
+                record = {**base, "outcome": "matched" if matched else "reply_differs", "model": result.model,
+                          "attempts": result.attempts, "seconds": round(result.seconds, 3),
+                          "score": review_tasks.score(task, result.logprobs, bug_ids) if matched else None}
+        records.append(record)
+        if on_record:
+            on_record(record)
+    return records

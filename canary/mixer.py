@@ -309,3 +309,64 @@ def reaudit(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable, batc
     ids = batch_run_ids(table, batch) if run_ids is None else set(run_ids)
     _log(log_path, f"batch {batch}: re-audit by {role}, {len(ids)} runs in scope")
     return _audit_and_log(client, led, batch, runs_dir, log_path, role, ids, class_order)
+
+
+# Rescoring: token probabilities for audits stored without them (task-dev-1's scores were lost to a parsing bug).
+RESCORE_DIR = DATA_DIR / "rescore"
+
+
+def rescore_path(batch: str, directory: Path = RESCORE_DIR) -> Path:
+    return directory / f"{batch}.jsonl"
+
+
+def read_rescores(batch: str, directory: Path = RESCORE_DIR) -> list[dict]:
+    path = rescore_path(batch, directory)
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def reviewer_roles(models_cfg: dict, reviewer: str, led: ledger.Ledger, run_ids: set[str]) -> list[str]:
+    """The roles running on `reviewer`'s model that audited this batch, in config order. One model, so one load."""
+    audited = {e.payload["role"] for e in led.entries(ledger.AUDITED) if e.payload["run_id"] in run_ids}
+    return [r for r, cfg in models_cfg["roles"].items()
+            if (r == reviewer or cfg.get("use_role") == reviewer) and r in audited]
+
+
+def rescore_batch(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable, batch: str, reviewer: str,
+                  runs_dir: Path = sandbox.RUNS_DIR, log_path: Path = sandbox.RUNS_DIR / "campaign.log",
+                  directory: Path = RESCORE_DIR) -> dict[str, dict[str, int]]:
+    """Rescore every audit of the batch by one reviewer's roles. Safe to run again: finished records are skipped.
+
+    Records are appended one at a time, so a crash or a stop loses at most the call in progress. Failed calls are not
+    stored and are tried again on the next run. Returns the outcome counts per role.
+    """
+    ids = batch_run_ids(table, batch)
+    path = rescore_path(batch, directory)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    finished: dict[str, set[str]] = {}
+    for record in read_rescores(batch, directory):
+        finished.setdefault(record["role"], set()).add(record["run_id"])
+    counts: dict[str, dict[str, int]] = {}
+    for role in reviewer_roles(client.cfg, reviewer, led, ids):
+        todo = len(ids) - len(finished.get(role, set()))
+        _log(log_path, f"batch {batch}: rescore by {role}, {todo} to do")
+        started, done = time.perf_counter(), 0
+        tally = counts.setdefault(role, {})
+
+        def store(record: dict) -> None:
+            nonlocal done
+            tally[record["outcome"]] = tally.get(record["outcome"], 0) + 1
+            if record.get("retry"):
+                _log(log_path, f"batch {batch}: rescore {role} FAILED ({record['kind']}), will retry")
+                return
+            done += 1
+            with path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(record) + "\n")
+            _log(log_path, f"batch {batch}: rescore {role} {done}/{todo} {record['outcome']} "
+                           f"[{time.perf_counter() - started:.0f} s so far]")
+
+        skeptic.rescore(client, led, role, ids, runs_dir, finished.get(role, set()), store)
+        _log(log_path, f"batch {batch}: rescore by {role} finished: {tally}")
+    client.release()
+    return counts

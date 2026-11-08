@@ -420,6 +420,25 @@ def cmd_reaudit(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_rescore(args: argparse.Namespace) -> int:
+    """Token-probability scores for a batch's audits that have none. Same prompts; scored only if the reply repeats."""
+    client, led, table = llm.LLM(), ledger.Ledger(), sealed.SealedTable()
+    if args.reviewer not in client.cfg["roles"] or "use_role" in client.cfg["roles"][args.reviewer]:
+        print(f"Give a reviewer with its own model, e.g. skeptic_a, skeptic_b or skeptic_c (not {args.reviewer}).")
+        return 2
+    if not mixer.batch_run_ids(table, args.batch):
+        print(f"Batch {args.batch} has no sealed runs.")
+        return 2
+    counts = mixer.rescore_batch(client, led, table, args.batch, args.reviewer)
+    for role, tally in counts.items():
+        print(f"{role}: {tally}")
+    if any(t.get("call_failed") for t in counts.values()):
+        print("Some calls failed and were not stored. Run the same command again to retry them.")
+        return 1
+    print(f"Rescore of {args.batch} by {args.reviewer} finished. Results: python -m eval.compare_tasks --batch {args.batch}")
+    return 0
+
+
 def cmd_ledger(args: argparse.Namespace) -> int:
     led = ledger.Ledger(Path(args.db))
     if args.action == "show":
@@ -478,6 +497,10 @@ def main(argv: list[str] | None = None) -> int:
                                      "list shuffled per run: the position-bias diagnostic")
     reaudit_parser.add_argument("--seed", type=int, default=0, help="seed for the sample and the shuffles")
     reaudit_parser.set_defaults(func=cmd_reaudit)
+    rescore_parser = sub.add_parser("rescore", help="token-probability scores for a batch's unscored audits (no verdict changes)")
+    rescore_parser.add_argument("--batch", required=True)
+    rescore_parser.add_argument("--reviewer", required=True, help="skeptic_a, skeptic_b or skeptic_c: all its task roles, one model")
+    rescore_parser.set_defaults(func=cmd_rescore)
     args = parser.parse_args(argv)
     return args.func(args)
 

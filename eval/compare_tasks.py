@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
-from canary import config, ledger, sealed, trust
+from canary import config, ledger, mixer, sealed, trust
 
 RESULTS_DIR = Path(__file__).parent / "results"
 TASKS = ("baseline", "grounded", "checklist")
@@ -63,7 +63,8 @@ def bootstrap(bug: list, clean: list, statistic, seed: int = 0) -> list[float] |
     return [float(v) for v in np.percentile(values, trust.INTERVAL_PERCENTILES)] if values else None
 
 
-def cell(table: sealed.SealedTable, led: ledger.Ledger, batch: str, role: str, bug_ids: list[str], draws: int) -> dict | None:
+def cell(table: sealed.SealedTable, led: ledger.Ledger, batch: str, role: str, bug_ids: list[str], draws: int,
+         rescores: dict[tuple[str, str], dict] | None = None) -> dict | None:
     observations, excluded = trust.collect_observations(table, led, role, batch)
     observations = [o for o in observations if o.run_type in (sealed.CANARY_MEASURE, sealed.CONTROL, sealed.SHAM)]
     if not observations:
@@ -81,7 +82,22 @@ def cell(table: sealed.SealedTable, led: ledger.Ledger, batch: str, role: str, b
 
     buggy = [o for o in observations if o.run_type == sealed.CANARY_MEASURE]
     clean = [o for o in observations if o.run_type != sealed.CANARY_MEASURE]
-    scores = {o.run_id: (audits[o.run_id].get("score") or {}).get("p_flag") for o in observations}
+    # The audit's own score; else a rescore, used only if it belongs to this very audit and the reply repeated exactly.
+    rescores = rescores or {}
+    scores, sources, one_sided = {}, {"audit": 0, "rescore": 0, "none": 0}, 0
+    for o in observations:
+        score = audits[o.run_id].get("score")
+        source = "audit" if score else "none"
+        record = rescores.get((role, o.run_id))
+        if not score and record and record["outcome"] == "matched" and record["prompt_sha256"] == audits[o.run_id]["prompt_sha256"]:
+            score, source = record["score"], "rescore"
+        sources[source if score else "none"] += 1
+        scores[o.run_id] = score["p_flag"] if score else None
+        one_sided += bool(score and score.get("both_seen") is False)
+    outcomes: dict[str, int] = {}
+    for (r, _), record in rescores.items():
+        if r == role:
+            outcomes[record["outcome"]] = outcomes.get(record["outcome"], 0) + 1
     scored_bug = [scores[o.run_id] for o in buggy if scores[o.run_id] is not None]
     scored_clean = [scores[o.run_id] for o in clean if scores[o.run_id] is not None]
 
@@ -98,7 +114,8 @@ def cell(table: sealed.SealedTable, led: ledger.Ledger, batch: str, role: str, b
         "named_right": {"successes": summary.named_right.successes, "n": summary.named_right.n},
         "auc": {"value": auc(scored_bug, scored_clean),
                 "interval_90": bootstrap(scored_bug, scored_clean, lambda b, c: auc(list(b), list(c))),
-                "scored_buggy": len(scored_bug), "scored_clean": len(scored_clean)},
+                "scored_buggy": len(scored_bug), "scored_clean": len(scored_clean), "sources": sources,
+                "rescore_outcomes": outcomes, "one_sided_scores": one_sided},
         "line_verified_share": (sum(verified) / len(verified)) if verified else None,
         "checklist": {"mean_yes_per_run": float(np.mean(yes_counts)), "truth_among_yes": sum(in_yes),
                       "canaries": len(in_yes)} if yes_counts else None,
@@ -125,11 +142,13 @@ def paired_delta(variant: dict, base: dict) -> dict | None:
             "interval_90": bootstrap(bug, clean, delta)}
 
 
-def build(table: sealed.SealedTable, led: ledger.Ledger, batch: str, bug_ids: list[str], draws: int) -> dict:
+def build(table: sealed.SealedTable, led: ledger.Ledger, batch: str, bug_ids: list[str], draws: int,
+          rescore_dir: Path = mixer.RESCORE_DIR) -> dict:
+    rescores = {(r["role"], r["run_id"]): r for r in mixer.read_rescores(batch, rescore_dir)}
     cells = {}
     for reviewer in REVIEWERS:
         for task in TASKS:
-            result = cell(table, led, batch, role_name(reviewer, task), bug_ids, draws)
+            result = cell(table, led, batch, role_name(reviewer, task), bug_ids, draws, rescores)
             if result:
                 cells[result["role"]] = {"reviewer": reviewer, "task": task, **result}
     for name, c in cells.items():
@@ -181,6 +200,9 @@ def print_table(r: dict) -> None:
         if c["failed_audits"]:
             extra.append(f"failed audits {c['failed_audits']}")
         extra.append(f"named right {c['named_right']['successes']}/{c['named_right']['n']}")
+        a = c["auc"]
+        extra.append(f"scored {a['scored_buggy']}+{a['scored_clean']} (from audit {a['sources']['audit']}, rescore "
+                     f"{a['sources']['rescore']}; rescore outcomes {a['rescore_outcomes'] or '-'}; one-sided {a['one_sided_scores']})")
         extra.append(f"median {c['seconds_median']:.1f} s per audit")
         print(f"  {name}: " + "; ".join(extra))
     print(f"\nPassing the screen: {', '.join(r['passing']) or 'none'}. A pass is a candidate for the confirmation batch, not a result.")

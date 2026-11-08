@@ -320,12 +320,13 @@ class LLM:
                            KIND_PROMPT_TOO_LARGE)
 
     def call(self, role: str, prompt: str, schema: dict, system: str | None = None,
-             refresh: bool = False, top_logprobs: int = 0) -> LLMResult:
+             refresh: bool = False, top_logprobs: int = 0, cache_write: bool = True) -> LLMResult:
         """Return checked JSON for a role, from the cache if possible. Raises LLMError when all attempts fail.
 
         `refresh=True` skips reading the cache but still stores the new reply. `top_logprobs` above 0 also returns
         token probabilities. The cache holds reply text only, so such a call always asks the model; the reply is
-        the same at temperature 0, and the cache key does not change.
+        the same at temperature 0, and the cache key does not change. `cache_write=False` leaves the cache untouched,
+        for re-asking a question whose stored answer must not be replaced (rescoring).
         """
         provider_name, model, temperature = self.resolve(role)
         key = Cache.key(model, prompt, system, schema, temperature)
@@ -365,7 +366,8 @@ class LLM:
                 last_problem, last_kind = str(exc), exc.kind
                 self._loaded = None  # the model may not have loaded, so the next attempt counts as cold
             else:
-                self.cache.put(key, model, reply)
+                if cache_write:
+                    self.cache.put(key, model, reply)
                 return LLMResult(role, model, data, False, attempt, time.perf_counter() - started, logprobs=logprobs)
         raise LLMError(f"role {role}, model {model}: gave up after {attempts} attempts: {last_problem}", last_kind)
 
