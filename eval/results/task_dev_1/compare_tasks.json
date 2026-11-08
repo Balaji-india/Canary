@@ -1,6 +1,6 @@
 {
  "batch": "task-dev-1",
- "generated_at": "2026-11-08T06:00:11.920342+00:00",
+ "generated_at": "2026-11-08T12:30:59.441574+00:00",
  "rule": "a cell passes the screen if the lower end of the 90% interval of its posterior Youden's J is above 0",
  "cells": {
   "skeptic_a": {
@@ -47,10 +47,22 @@
     "n": 20
    },
    "auc": {
-    "value": null,
-    "interval_90": null,
-    "scored_buggy": 0,
-    "scored_clean": 0
+    "value": 0.565,
+    "interval_90": [
+     0.41,
+     0.71
+    ],
+    "scored_buggy": 20,
+    "scored_clean": 20,
+    "sources": {
+     "audit": 0,
+     "rescore": 40,
+     "none": 0
+    },
+    "rescore_outcomes": {
+     "matched": 40
+    },
+    "one_sided_scores": 0
    },
    "line_verified_share": null,
    "checklist": null,
@@ -102,10 +114,22 @@
     "n": 20
    },
    "auc": {
-    "value": null,
-    "interval_90": null,
-    "scored_buggy": 0,
-    "scored_clean": 0
+    "value": 0.47,
+    "interval_90": [
+     0.3175,
+     0.63
+    ],
+    "scored_buggy": 20,
+    "scored_clean": 20,
+    "sources": {
+     "audit": 0,
+     "rescore": 40,
+     "none": 0
+    },
+    "rescore_outcomes": {
+     "matched": 40
+    },
+    "one_sided_scores": 0
    },
    "line_verified_share": 0.9,
    "checklist": null,
@@ -164,10 +188,23 @@
     "n": 20
    },
    "auc": {
-    "value": null,
-    "interval_90": null,
-    "scored_buggy": 0,
-    "scored_clean": 0
+    "value": 0.4487534626038781,
+    "interval_90": [
+     0.29916897506925205,
+     0.6149584487534626
+    ],
+    "scored_buggy": 19,
+    "scored_clean": 19,
+    "sources": {
+     "audit": 0,
+     "rescore": 38,
+     "none": 2
+    },
+    "rescore_outcomes": {
+     "matched": 38,
+     "reply_differs": 2
+    },
+    "one_sided_scores": 0
    },
    "line_verified_share": null,
    "checklist": {
@@ -230,10 +267,23 @@
     "n": 20
    },
    "auc": {
-    "value": null,
-    "interval_90": null,
-    "scored_buggy": 0,
-    "scored_clean": 0
+    "value": 0.5833333333333334,
+    "interval_90": [
+     0.3611111111111111,
+     0.7781249999999997
+    ],
+    "scored_buggy": 12,
+    "scored_clean": 12,
+    "sources": {
+     "audit": 0,
+     "rescore": 24,
+     "none": 16
+    },
+    "rescore_outcomes": {
+     "reply_differs": 16,
+     "matched": 24
+    },
+    "one_sided_scores": 0
    },
    "line_verified_share": null,
    "checklist": null,
@@ -285,10 +335,23 @@
     "n": 20
    },
    "auc": {
-    "value": null,
-    "interval_90": null,
-    "scored_buggy": 0,
-    "scored_clean": 0
+    "value": 0.4772727272727273,
+    "interval_90": [
+     0.26515151515151514,
+     0.696969696969697
+    ],
+    "scored_buggy": 11,
+    "scored_clean": 12,
+    "sources": {
+     "audit": 0,
+     "rescore": 23,
+     "none": 17
+    },
+    "rescore_outcomes": {
+     "reply_differs": 17,
+     "matched": 23
+    },
+    "one_sided_scores": 0
    },
    "line_verified_share": 0.825,
    "checklist": null,
@@ -347,10 +410,23 @@
     "n": 20
    },
    "auc": {
-    "value": null,
-    "interval_90": null,
-    "scored_buggy": 0,
-    "scored_clean": 0
+    "value": 0.558974358974359,
+    "interval_90": [
+     0.36923076923076925,
+     0.7333333333333333
+    ],
+    "scored_buggy": 13,
+    "scored_clean": 15,
+    "sources": {
+     "audit": 0,
+     "rescore": 28,
+     "none": 12
+    },
+    "rescore_outcomes": {
+     "matched": 28,
+     "reply_differs": 12
+    },
+    "one_sided_scores": 0
    },
    "line_verified_share": null,
    "checklist": {
@@ -413,10 +489,23 @@
     "n": 20
    },
    "auc": {
-    "value": null,
-    "interval_90": null,
-    "scored_buggy": 0,
-    "scored_clean": 0
+    "value": 0.7916666666666666,
+    "interval_90": [
+     0.625,
+     0.9226190476190477
+    ],
+    "scored_buggy": 12,
+    "scored_clean": 14,
+    "sources": {
+     "audit": 0,
+     "rescore": 26,
+     "none": 14
+    },
+    "rescore_outcomes": {
+     "matched": 26,
+     "reply_differs": 14
+    },
+    "one_sided_scores": 0
    },
    "line_verified_share": null,
    "checklist": null,
@@ -468,10 +557,23 @@
     "n": 20
    },
    "auc": {
-    "value": null,
-    "interval_90": null,
-    "scored_buggy": 0,
-    "scored_clean": 0
+    "value": 0.7276785714285714,
+    "interval_90": [
+     0.5667410714285714,
+     0.875
+    ],
+    "scored_buggy": 14,
+    "scored_clean": 16,
+    "sources": {
+     "audit": 0,
+     "rescore": 30,
+     "none": 10
+    },
+    "rescore_outcomes": {
+     "matched": 30,
+     "reply_differs": 10
+    },
+    "one_sided_scores": 0
    },
    "line_verified_share": 0.975,
    "checklist": null,
@@ -530,10 +632,23 @@
     "n": 20
    },
    "auc": {
-    "value": null,
-    "interval_90": null,
-    "scored_buggy": 0,
-    "scored_clean": 0
+    "value": 0.7055555555555556,
+    "interval_90": [
+     0.5693055555555555,
+     0.8416666666666667
+    ],
+    "scored_buggy": 18,
+    "scored_clean": 20,
+    "sources": {
+     "audit": 0,
+     "rescore": 38,
+     "none": 2
+    },
+    "rescore_outcomes": {
+     "matched": 38,
+     "reply_differs": 2
+    },
+    "one_sided_scores": 0
    },
    "line_verified_share": null,
    "checklist": {

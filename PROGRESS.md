@@ -69,20 +69,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen below is finished;
-its AUC rescore is part-way:
-- **Rescore of task-dev-1, stopped at: gemma and phi done, llama not started** (stopped by the student, 2026-11-08,
-  06:42 UTC). `data/rescore/task-dev-1.jsonl` has 240 of 360 records. Next time, in your own PowerShell window
-  (llama needs the RAM; close Edge first), run:
-
-  ```powershell
-  cd "C:\Users\Balaji Keerthi\Downloads\canary"
-  .venv\Scripts\python.exe -m canary.cli rescore --batch task-dev-1 --reviewer skeptic_c
-  ```
-
-  It runs all three llama passes (baseline, grounded, checklist) on one model, about 22 min (range 20-35). Finished
-  records are skipped and failed calls retried, so the same line also resumes. Then run
-  `python -m eval.compare_tasks --batch task-dev-1` for the AUC table (rule and verdicts unchanged).
+No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen and its AUC rescore
+are finished (all 360 rescore records; the llama passes ran from the student's own window, ending 2026-11-08 12:27 UTC).
 
 ## Review-task screen (2026-11-08): can another way of asking give J clearly above 0?
 Plan and decision rule, committed before the batch ran: `docs/plans/review_task_screen.md`. Fresh batch `task-dev-1`
@@ -139,6 +127,36 @@ result and figure hashes are in `eval/results/task_dev_1/baseline_sha256_before.
     `data/rescore/<batch>.jsonl`, each tied to its audit's ledger hash. The ledger, the verdicts and the LLM cache are
     not written (`ledger verify` still 1552 entries). From `812fd32`, a differing reply also records whether its
     verdict changed. Tests: 563 passed, 10 deselected in 27.1 s; slow 10 passed.
+  - **AUC results (rescore complete, 2026-11-08).** `eval.compare_tasks --batch task-dev-1` re-run with all 360
+    records; only the `auc` fields of `compare_tasks.json` changed (checked field by field against the previous file),
+    so J, passes and verdicts are as above. Baseline hashes OK; `ledger verify` OK (1552 entries). AUC uses only runs
+    whose reply repeated exactly; "bounds" put every unscored run at the worst and then the best rank (from a
+    read-only scratch script, not stored in results). AUC decides nothing.
+
+    | Role | Model | Matched / 40 | Scored bug+clean | AUC (90%) | Bounds if unscored runs fell either way |
+    |---|---|---|---|---|---|
+    | skeptic_a | gemma3:4b | 40 | 20+20 | 0.565 [0.41, 0.71] | - |
+    | skeptic_a_grounded | gemma3:4b | 40 | 20+20 | 0.470 [0.32, 0.63] | - |
+    | skeptic_a_checklist | gemma3:4b | 38 | 19+19 | 0.449 [0.30, 0.61] | [0.41, 0.50] |
+    | skeptic_b | phi4-mini | 24 | 12+12 | 0.583 [0.36, 0.78] | [0.21, 0.85] |
+    | skeptic_b_grounded | phi4-mini | 23 | 11+12 | 0.477 [0.27, 0.70] | [0.16, 0.83] |
+    | skeptic_b_checklist | phi4-mini | 28 | 13+15 | 0.559 [0.37, 0.73] | [0.27, 0.79] |
+    | skeptic_c | llama3.1:8b | 26 | 12+14 | 0.792 [0.62, 0.92] | [0.33, 0.91] |
+    | skeptic_c_grounded | llama3.1:8b | 30 | 14+16 | 0.728 [0.57, 0.88] | [0.41, 0.85] |
+    | skeptic_c_checklist | llama3.1:8b | 38 | 18+20 | 0.706 [0.57, 0.84] | [0.64, 0.73] |
+
+    - **Only llama ranks buggy above clean, and only weakly.** Its three 90% AUC intervals sit above 0.5, while gemma's
+      and phi's all include it. With a 9-cell correction (98.9% intervals, scratch diagnostic) all three llama cells
+      touch 0.5 or nearly do: [0.52, 0.96], [0.47, 0.93], [0.46, 0.89]. Its verdicts still do not separate (J about 0):
+      the signal lives in the probability, not in where the code's threshold cuts it.
+    - **llama3.1:8b is not repeatable either:** 94/120 matched (26, 30, 38). Every one of its 26 differing replies kept
+      the stored verdict (`verdict_changed` false); what changed was wording or evidence. phi's 45 and gemma's 2
+      mismatches predate `812fd32`, so their verdict change is unknown.
+    - **gemma's baseline and grounded scores are saturated:** all 80 have p_flag above 0.999, so their AUC ranks
+      differences in the far tail of a probability and means little. llama's baseline scores spread from about 0.90 to
+      0.99 and are usable.
+    - **llama checklist is the most robust number:** 38 of 40 scored, bounds [0.64, 0.73], though it flagged 0 of 40.
+      Its raw J was +0.135 [-0.005, +0.290]. A pointer, not a pass: it is one of 9 cells seen after the fact.
   - **Finding: phi4-mini is not fully repeatable at temperature 0.** It gave its stored reply again only 75 of 120 times
     (baseline 24/40, grounded 23/40, checklist 28/40). gemma3:4b repeated 118 of 120 (40, 40, 38). phi's mismatches hit
     buggy and clean runs about equally (24/60 and 21/60), but that does not make them random. AUC for phi will rest on
@@ -176,8 +194,8 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 ## Running or interrupted campaigns
 - None running. `task-dev-1` finished 2026-11-08 at 05:59 UTC after two stops (a batch log bug and low RAM; see the
   review-task screen above). The last part ran from the student's own PowerShell window.
-- **Stopped on purpose: the task-dev-1 rescore.** gemma and phi are done (240 records); llama is not started. The
-  command to finish it is under "In progress".
+- The task-dev-1 rescore is complete (360 of 360 records; llama passes took 566 s for the checklist alone, from the
+  student's own window).
 
 ## Decisions
 - **Ollama only for now, no API keys.** A cloud model is added later with `/api`. Mission 1.3 must build `llm.py`
@@ -357,7 +375,8 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 
 ## Known issues
 - **Reviewers are not fully repeatable at temperature 0, and the cache hides it.** phi4-mini repeated its stored reply
-  75/120 times, gemma3:4b 118/120. Any trust number built from one cached reply per run treats the reviewer as
+  75/120 times, llama3.1:8b 94/120 (all 26 differences kept the verdict), gemma3:4b 118/120. Mismatched rescore records
+  store no score, so AUC for phi and llama rests on a subset chosen by the model's own instability. Any trust number built from one cached reply per run treats the reviewer as
   deterministic. Before Mission 4.3 (drift), measure repeatability by asking again with the cache bypassed, and report
   it beside recall and specificity.
 - **llama3.1:8b strains the laptop's RAM:** at 75% on the GPU, Ollama's llama-server held 8.7 GB of 15.3 GB, and
@@ -415,9 +434,7 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Finish the AUC rescore: run the llama command under "In progress" in your own window, then
-   `python -m eval.compare_tasks --batch task-dev-1`. Report AUC with 90% intervals per reviewer and task, with the
-   match rates beside them. The decision rule and earlier verdicts stay as they are.
-2. Following the fixed rule (no cell passed): bring Mission 5.1 (deterministic tripwires) forward as the main defence;
-   `/mission 5.1`. If AUC is clearly above 0.5 for some reviewer, plan a confirmation batch on a new pool first.
+1. Following the fixed rule (no cell passed): `/mission 5.1` (deterministic tripwires) as the main defence.
+2. Before any llama AUC claim: store a score for every fresh reply (labelled "fresh", beside the matched-only AUC), and
+   pre-register a llama-checklist AUC threshold for the confirmation batch on a new pool (`/outline` the plan first).
 3. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.
