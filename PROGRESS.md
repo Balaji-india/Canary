@@ -69,7 +69,20 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen below is finished.
+No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen below is finished;
+its AUC rescore is part-way:
+- **Rescore of task-dev-1, stopped at: gemma and phi done, llama not started** (stopped by the student, 2026-11-08,
+  06:42 UTC). `data/rescore/task-dev-1.jsonl` has 240 of 360 records. Next time, in your own PowerShell window
+  (llama needs the RAM; close Edge first), run:
+
+  ```powershell
+  cd "C:\Users\Balaji Keerthi\Downloads\canary"
+  .venv\Scripts\python.exe -m canary.cli rescore --batch task-dev-1 --reviewer skeptic_c
+  ```
+
+  It runs all three llama passes (baseline, grounded, checklist) on one model, about 22 min (range 20-35). Finished
+  records are skipped and failed calls retried, so the same line also resumes. Then run
+  `python -m eval.compare_tasks --batch task-dev-1` for the AUC table (rule and verdicts unchanged).
 
 ## Review-task screen (2026-11-08): can another way of asking give J clearly above 0?
 Plan and decision rule, committed before the batch ran: `docs/plans/review_task_screen.md`. Fresh batch `task-dev-1`
@@ -120,6 +133,19 @@ result and figure hashes are in `eval/results/task_dev_1/baseline_sha256_before.
     each token's `bytes`, and the scorer read the empty list as zero bytes. A second gap: the chosen token was not
     counted when it was outside the model's own top 20. Both fixed with tests. Through the wrapper, real review prompts
     now give scores for all 3 tasks. The stored audits cannot be rescored without new model calls.
+  - **Rescore (built 2026-11-08, `719b40a`):** `canary.cli rescore --batch B --reviewer R` rebuilds each audit's prompt
+    (all 360 rebuilt prompts hash-match the stored `prompt_sha256`), asks the same model again at temperature 0 with
+    token probabilities, and keeps a score only if the new reply equals the stored one. Records go to
+    `data/rescore/<batch>.jsonl`, each tied to its audit's ledger hash. The ledger, the verdicts and the LLM cache are
+    not written (`ledger verify` still 1552 entries). From `812fd32`, a differing reply also records whether its
+    verdict changed. Tests: 563 passed, 10 deselected in 27.1 s; slow 10 passed.
+  - **Finding: phi4-mini is not fully repeatable at temperature 0.** It gave its stored reply again only 75 of 120 times
+    (baseline 24/40, grounded 23/40, checklist 28/40). gemma3:4b repeated 118 of 120 (40, 40, 38). phi's mismatches hit
+    buggy and clean runs about equally (24/60 and 21/60), but that does not make them random. AUC for phi will rest on
+    a subset chosen by the model's own instability, likely its least certain cases, so it may look more decided than
+    it is. The 45 phi mismatches were scored before `812fd32`, so whether their verdicts changed is unknown without a
+    third call. **The LLM cache hides this:** every normal call with the same prompt returns the stored reply, so a
+    reviewer looks perfectly repeatable unless it is asked again with the cache bypassed.
 
 ## Reviewer study (2026-11-05): Skeptic B RQ1, gemma position diagnostic, comparison
 Re-audits of the existing `rq1-full` runs; no experiment was re-run (215 run folders, 213 sealed rows and 213 `ran` entries before
@@ -150,6 +176,8 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 ## Running or interrupted campaigns
 - None running. `task-dev-1` finished 2026-11-08 at 05:59 UTC after two stops (a batch log bug and low RAM; see the
   review-task screen above). The last part ran from the student's own PowerShell window.
+- **Stopped on purpose: the task-dev-1 rescore.** gemma and phi are done (240 records); llama is not started. The
+  command to finish it is under "In progress".
 
 ## Decisions
 - **Ollama only for now, no API keys.** A cloud model is added later with `/api`. Mission 1.3 must build `llm.py`
@@ -328,6 +356,10 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
+- **Reviewers are not fully repeatable at temperature 0, and the cache hides it.** phi4-mini repeated its stored reply
+  75/120 times, gemma3:4b 118/120. Any trust number built from one cached reply per run treats the reviewer as
+  deterministic. Before Mission 4.3 (drift), measure repeatability by asking again with the cache bypassed, and report
+  it beside recall and specificity.
 - **llama3.1:8b strains the laptop's RAM:** at 75% on the GPU, Ollama's llama-server held 8.7 GB of 15.3 GB, and
   Claude Code stopped a background run on low memory. Run long llama passes from your own PowerShell window, with
   Edge closed.
@@ -383,10 +415,9 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. Decide what to do about AUC, the one open question from the screen. Option: rescore the 360 task-dev-1 audits (same
-   prompts at temperature 0; keep a score only where the new reply matches the stored one). About 360 calls, 45-60 min,
-   llama from your own window. AUC > 0.5 would mean the reviewers do rank buggy runs higher and only the threshold is
-   wrong. AUC near 0.5 closes the LLM route for now.
+1. Finish the AUC rescore: run the llama command under "In progress" in your own window, then
+   `python -m eval.compare_tasks --batch task-dev-1`. Report AUC with 90% intervals per reviewer and task, with the
+   match rates beside them. The decision rule and earlier verdicts stay as they are.
 2. Following the fixed rule (no cell passed): bring Mission 5.1 (deterministic tripwires) forward as the main defence;
-   `/mission 5.1`.
+   `/mission 5.1`. If AUC is clearly above 0.5 for some reviewer, plan a confirmation batch on a new pool first.
 3. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.
