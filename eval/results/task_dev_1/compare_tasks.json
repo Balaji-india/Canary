@@ -1,0 +1,557 @@
+{
+ "batch": "task-dev-1",
+ "generated_at": "2026-11-08T06:00:11.920342+00:00",
+ "rule": "a cell passes the screen if the lower end of the 90% interval of its posterior Youden's J is above 0",
+ "cells": {
+  "skeptic_a": {
+   "reviewer": "skeptic_a",
+   "task": "baseline",
+   "role": "skeptic_a",
+   "models": [
+    "gemma3:4b"
+   ],
+   "reviewed": 40,
+   "buggy": 20,
+   "clean": 20,
+   "flagged_buggy": 20,
+   "flagged_clean": 20,
+   "excluded": {
+    "other_role": 540,
+    "repeat_audit": 0,
+    "unsealed": 0,
+    "canary_probe": 0,
+    "real": 0,
+    "other_batch": 212
+   },
+   "youden_j": {
+    "observed_j": 0.0,
+    "youden_j": 0.0011296012744147813,
+    "interval": [
+     -0.1018264595496526,
+     0.10488076816643632
+    ],
+    "p_recall_above_false_alarm": 0.5088
+   },
+   "passes_screen": false,
+   "raw_verdict_youden_j": {
+    "observed_j": 0.0,
+    "youden_j": 0.0011296012744147813,
+    "interval": [
+     -0.1018264595496526,
+     0.10488076816643632
+    ],
+    "p_recall_above_false_alarm": 0.5088
+   },
+   "named_right": {
+    "successes": 2,
+    "n": 20
+   },
+   "auc": {
+    "value": null,
+    "interval_90": null,
+    "scored_buggy": 0,
+    "scored_clean": 0
+   },
+   "line_verified_share": null,
+   "checklist": null,
+   "failed_audits": {},
+   "seconds_median": 3.4530000000000003,
+   "delta_j_vs_baseline": null
+  },
+  "skeptic_a_grounded": {
+   "reviewer": "skeptic_a",
+   "task": "grounded",
+   "role": "skeptic_a_grounded",
+   "models": [
+    "gemma3:4b"
+   ],
+   "reviewed": 40,
+   "buggy": 20,
+   "clean": 20,
+   "flagged_buggy": 17,
+   "flagged_clean": 19,
+   "excluded": {
+    "other_role": 752,
+    "repeat_audit": 0,
+    "unsealed": 0,
+    "canary_probe": 0,
+    "real": 0,
+    "other_batch": 0
+   },
+   "youden_j": {
+    "observed_j": -0.09999999999999998,
+    "youden_j": -0.09230094841062154,
+    "interval": [
+     -0.2574142087895885,
+     0.06621772292246343
+    ],
+    "p_recall_above_false_alarm": 0.163
+   },
+   "passes_screen": false,
+   "raw_verdict_youden_j": {
+    "observed_j": 0.0,
+    "youden_j": 0.0011296012744147813,
+    "interval": [
+     -0.1018264595496526,
+     0.10488076816643632
+    ],
+    "p_recall_above_false_alarm": 0.5088
+   },
+   "named_right": {
+    "successes": 3,
+    "n": 20
+   },
+   "auc": {
+    "value": null,
+    "interval_90": null,
+    "scored_buggy": 0,
+    "scored_clean": 0
+   },
+   "line_verified_share": 0.9,
+   "checklist": null,
+   "failed_audits": {},
+   "seconds_median": 5.673500000000001,
+   "delta_j_vs_baseline": {
+    "runs": 40,
+    "observed": -0.09999999999999998,
+    "interval_90": [
+     -0.25,
+     0.050000000000000044
+    ]
+   }
+  },
+  "skeptic_a_checklist": {
+   "reviewer": "skeptic_a",
+   "task": "checklist",
+   "role": "skeptic_a_checklist",
+   "models": [
+    "gemma3:4b"
+   ],
+   "reviewed": 40,
+   "buggy": 20,
+   "clean": 20,
+   "flagged_buggy": 14,
+   "flagged_clean": 16,
+   "excluded": {
+    "other_role": 752,
+    "repeat_audit": 0,
+    "unsealed": 0,
+    "canary_probe": 0,
+    "real": 0,
+    "other_batch": 0
+   },
+   "youden_j": {
+    "observed_j": -0.10000000000000009,
+    "youden_j": -0.08750703727844734,
+    "interval": [
+     -0.2951150771886635,
+     0.12424402063319477
+    ],
+    "p_recall_above_false_alarm": 0.244
+   },
+   "passes_screen": false,
+   "raw_verdict_youden_j": {
+    "observed_j": -0.050000000000000044,
+    "youden_j": -0.043385723313494017,
+    "interval": [
+     -0.2434215632137741,
+     0.16355177901356618
+    ],
+    "p_recall_above_false_alarm": 0.3614
+   },
+   "named_right": {
+    "successes": 3,
+    "n": 20
+   },
+   "auc": {
+    "value": null,
+    "interval_90": null,
+    "scored_buggy": 0,
+    "scored_clean": 0
+   },
+   "line_verified_share": null,
+   "checklist": {
+    "mean_yes_per_run": 1.625,
+    "truth_among_yes": 4,
+    "canaries": 20
+   },
+   "failed_audits": {},
+   "seconds_median": 8.903500000000001,
+   "delta_j_vs_baseline": {
+    "runs": 40,
+    "observed": -0.10000000000000009,
+    "interval_90": [
+     -0.35,
+     0.10000000000000009
+    ]
+   }
+  },
+  "skeptic_b": {
+   "reviewer": "skeptic_b",
+   "task": "baseline",
+   "role": "skeptic_b",
+   "models": [
+    "phi4-mini:latest"
+   ],
+   "reviewed": 40,
+   "buggy": 20,
+   "clean": 20,
+   "flagged_buggy": 19,
+   "flagged_clean": 17,
+   "excluded": {
+    "other_role": 572,
+    "repeat_audit": 0,
+    "unsealed": 0,
+    "canary_probe": 0,
+    "real": 0,
+    "other_batch": 180
+   },
+   "youden_j": {
+    "observed_j": 0.09999999999999987,
+    "youden_j": 0.08844734482888059,
+    "interval": [
+     -0.069070651332666,
+     0.2566276691466301
+    ],
+    "p_recall_above_false_alarm": 0.8208
+   },
+   "passes_screen": false,
+   "raw_verdict_youden_j": {
+    "observed_j": 0.09999999999999987,
+    "youden_j": 0.08844734482888059,
+    "interval": [
+     -0.069070651332666,
+     0.2566276691466301
+    ],
+    "p_recall_above_false_alarm": 0.8208
+   },
+   "named_right": {
+    "successes": 2,
+    "n": 20
+   },
+   "auc": {
+    "value": null,
+    "interval_90": null,
+    "scored_buggy": 0,
+    "scored_clean": 0
+   },
+   "line_verified_share": null,
+   "checklist": null,
+   "failed_audits": {},
+   "seconds_median": 2.3605,
+   "delta_j_vs_baseline": null
+  },
+  "skeptic_b_grounded": {
+   "reviewer": "skeptic_b",
+   "task": "grounded",
+   "role": "skeptic_b_grounded",
+   "models": [
+    "phi4-mini:latest"
+   ],
+   "reviewed": 40,
+   "buggy": 20,
+   "clean": 20,
+   "flagged_buggy": 15,
+   "flagged_clean": 18,
+   "excluded": {
+    "other_role": 752,
+    "repeat_audit": 0,
+    "unsealed": 0,
+    "canary_probe": 0,
+    "real": 0,
+    "other_batch": 0
+   },
+   "youden_j": {
+    "observed_j": -0.15000000000000002,
+    "youden_j": -0.13469853320296774,
+    "interval": [
+     -0.32565683662796946,
+     0.05460565797887339
+    ],
+    "p_recall_above_false_alarm": 0.1188
+   },
+   "passes_screen": false,
+   "raw_verdict_youden_j": {
+    "observed_j": -0.09999999999999998,
+    "youden_j": -0.09230094841062154,
+    "interval": [
+     -0.2574142087895885,
+     0.06621772292246343
+    ],
+    "p_recall_above_false_alarm": 0.163
+   },
+   "named_right": {
+    "successes": 3,
+    "n": 20
+   },
+   "auc": {
+    "value": null,
+    "interval_90": null,
+    "scored_buggy": 0,
+    "scored_clean": 0
+   },
+   "line_verified_share": 0.825,
+   "checklist": null,
+   "failed_audits": {},
+   "seconds_median": 2.601,
+   "delta_j_vs_baseline": {
+    "runs": 40,
+    "observed": -0.25,
+    "interval_90": [
+     -0.45000000000000007,
+     -0.050000000000000044
+    ]
+   }
+  },
+  "skeptic_b_checklist": {
+   "reviewer": "skeptic_b",
+   "task": "checklist",
+   "role": "skeptic_b_checklist",
+   "models": [
+    "phi4-mini:latest"
+   ],
+   "reviewed": 40,
+   "buggy": 20,
+   "clean": 20,
+   "flagged_buggy": 5,
+   "flagged_clean": 3,
+   "excluded": {
+    "other_role": 752,
+    "repeat_audit": 0,
+    "unsealed": 0,
+    "canary_probe": 0,
+    "real": 0,
+    "other_batch": 0
+   },
+   "youden_j": {
+    "observed_j": 0.10000000000000009,
+    "youden_j": 0.08858219489259234,
+    "interval": [
+     -0.10676201449350474,
+     0.2886642764814535
+    ],
+    "p_recall_above_false_alarm": 0.7752
+   },
+   "passes_screen": false,
+   "raw_verdict_youden_j": {
+    "observed_j": 0.10000000000000009,
+    "youden_j": 0.08858219489259234,
+    "interval": [
+     -0.10676201449350474,
+     0.2886642764814535
+    ],
+    "p_recall_above_false_alarm": 0.7752
+   },
+   "named_right": {
+    "successes": 0,
+    "n": 20
+   },
+   "auc": {
+    "value": null,
+    "interval_90": null,
+    "scored_buggy": 0,
+    "scored_clean": 0
+   },
+   "line_verified_share": null,
+   "checklist": {
+    "mean_yes_per_run": 0.25,
+    "truth_among_yes": 2,
+    "canaries": 20
+   },
+   "failed_audits": {},
+   "seconds_median": 4.9615,
+   "delta_j_vs_baseline": {
+    "runs": 40,
+    "observed": 2.7755575615628914e-17,
+    "interval_90": [
+     -0.25000000000000006,
+     0.25
+    ]
+   }
+  },
+  "skeptic_c": {
+   "reviewer": "skeptic_c",
+   "task": "baseline",
+   "role": "skeptic_c",
+   "models": [
+    "llama3.1:8b"
+   ],
+   "reviewed": 40,
+   "buggy": 20,
+   "clean": 20,
+   "flagged_buggy": 20,
+   "flagged_clean": 20,
+   "excluded": {
+    "other_role": 752,
+    "repeat_audit": 0,
+    "unsealed": 0,
+    "canary_probe": 0,
+    "real": 0,
+    "other_batch": 0
+   },
+   "youden_j": {
+    "observed_j": 0.0,
+    "youden_j": 0.0011296012744147813,
+    "interval": [
+     -0.1018264595496526,
+     0.10488076816643632
+    ],
+    "p_recall_above_false_alarm": 0.5088
+   },
+   "passes_screen": false,
+   "raw_verdict_youden_j": {
+    "observed_j": 0.0,
+    "youden_j": 0.0011296012744147813,
+    "interval": [
+     -0.1018264595496526,
+     0.10488076816643632
+    ],
+    "p_recall_above_false_alarm": 0.5088
+   },
+   "named_right": {
+    "successes": 4,
+    "n": 20
+   },
+   "auc": {
+    "value": null,
+    "interval_90": null,
+    "scored_buggy": 0,
+    "scored_clean": 0
+   },
+   "line_verified_share": null,
+   "checklist": null,
+   "failed_audits": {},
+   "seconds_median": 7.4815000000000005,
+   "delta_j_vs_baseline": null
+  },
+  "skeptic_c_grounded": {
+   "reviewer": "skeptic_c",
+   "task": "grounded",
+   "role": "skeptic_c_grounded",
+   "models": [
+    "llama3.1:8b"
+   ],
+   "reviewed": 40,
+   "buggy": 20,
+   "clean": 20,
+   "flagged_buggy": 19,
+   "flagged_clean": 20,
+   "excluded": {
+    "other_role": 752,
+    "repeat_audit": 0,
+    "unsealed": 0,
+    "canary_probe": 0,
+    "real": 0,
+    "other_batch": 0
+   },
+   "youden_j": {
+    "observed_j": -0.050000000000000044,
+    "youden_j": -0.046383007848675564,
+    "interval": [
+     -0.17253469533521368,
+     0.06632791076916318
+    ],
+    "p_recall_above_false_alarm": 0.2352
+   },
+   "passes_screen": false,
+   "raw_verdict_youden_j": {
+    "observed_j": 0.0,
+    "youden_j": 0.0011296012744147813,
+    "interval": [
+     -0.1018264595496526,
+     0.10488076816643632
+    ],
+    "p_recall_above_false_alarm": 0.5088
+   },
+   "named_right": {
+    "successes": 5,
+    "n": 20
+   },
+   "auc": {
+    "value": null,
+    "interval_90": null,
+    "scored_buggy": 0,
+    "scored_clean": 0
+   },
+   "line_verified_share": 0.975,
+   "checklist": null,
+   "failed_audits": {},
+   "seconds_median": 8.411999999999999,
+   "delta_j_vs_baseline": {
+    "runs": 40,
+    "observed": -0.050000000000000044,
+    "interval_90": [
+     -0.15000000000000002,
+     0.0
+    ]
+   }
+  },
+  "skeptic_c_checklist": {
+   "reviewer": "skeptic_c",
+   "task": "checklist",
+   "role": "skeptic_c_checklist",
+   "models": [
+    "llama3.1:8b"
+   ],
+   "reviewed": 40,
+   "buggy": 20,
+   "clean": 20,
+   "flagged_buggy": 0,
+   "flagged_clean": 0,
+   "excluded": {
+    "other_role": 752,
+    "repeat_audit": 0,
+    "unsealed": 0,
+    "canary_probe": 0,
+    "real": 0,
+    "other_batch": 0
+   },
+   "youden_j": {
+    "observed_j": 0.0,
+    "youden_j": -0.000899803298371089,
+    "interval": [
+     -0.10273477501011477,
+     0.1017995242760215
+    ],
+    "p_recall_above_false_alarm": 0.5048
+   },
+   "passes_screen": false,
+   "raw_verdict_youden_j": {
+    "observed_j": 0.1499999999999999,
+    "youden_j": 0.13543119338112602,
+    "interval": [
+     -0.005494045858291906,
+     0.29007635363782397
+    ],
+    "p_recall_above_false_alarm": 0.9426
+   },
+   "named_right": {
+    "successes": 0,
+    "n": 20
+   },
+   "auc": {
+    "value": null,
+    "interval_90": null,
+    "scored_buggy": 0,
+    "scored_clean": 0
+   },
+   "line_verified_share": null,
+   "checklist": {
+    "mean_yes_per_run": 0.075,
+    "truth_among_yes": 0,
+    "canaries": 20
+   },
+   "failed_audits": {},
+   "seconds_median": 14.3675,
+   "delta_j_vs_baseline": {
+    "runs": 40,
+    "observed": 0.0,
+    "interval_90": [
+     0.0,
+     0.0
+    ]
+   }
+  }
+ },
+ "passing": []
+}

@@ -121,8 +121,10 @@ def decide(task: str, reply: dict, blinded) -> dict:
 # ---- token-probability scores -------------------------------------------------------------------------------------
 
 def _token_bytes(token: dict) -> bytes:
+    """A token's bytes, or its text when they are not reported. The ollama client (0.6.3) drops `bytes`, and an
+    empty list means "not reported": treating it as zero bytes made every task-dev-1 score None."""
     raw = token.get("bytes")
-    return bytes(raw) if raw is not None else token["token"].encode("utf-8")
+    return bytes(raw) if raw else token["token"].encode("utf-8")
 
 
 def choice_probability(logprobs: list[dict], value_start: int, first: str, second: str) -> dict | None:
@@ -130,9 +132,9 @@ def choice_probability(logprobs: list[dict], value_start: int, first: str, secon
 
     The token covering `value_start` is where the model chose. Each alternative there is extended with the reply text
     before that token, and counted for a word if what it writes from `value_start` on starts that word (or the word and
-    its closing quote). Alternatives that stop before `value_start`, or fit neither word, are left out. If neither word
-    is among the alternatives, the score is unknown (None). If only one is, the other's mass is below the reported
-    alternatives and is counted as 0.
+    its closing quote). Alternatives that stop before `value_start`, or fit neither word, are left out. The chosen token
+    always counts, so at least one word has mass. If only one has, the other's mass is below the reported alternatives
+    and is counted as 0 (`both_seen` False).
     """
     offset = 0
     for token in logprobs:
@@ -142,7 +144,10 @@ def choice_probability(logprobs: list[dict], value_start: int, first: str, secon
             continue
         before = data[:value_start - offset]  # the part of the chosen token that comes before the value
         mass = {first: 0.0, second: 0.0}
-        for alt in token.get("top_logprobs") or [token]:
+        # The chosen token counts too: under the schema it may have been outside the model's own top alternatives.
+        candidates = {_token_bytes(alt): alt for alt in (token.get("top_logprobs") or [])}
+        candidates.setdefault(data, token)
+        for alt in candidates.values():
             alt_bytes = _token_bytes(alt)
             if not alt_bytes.startswith(before):
                 continue  # another path through the text, not a choice of value

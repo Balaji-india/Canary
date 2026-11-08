@@ -69,7 +69,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen below is running.
+No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen below is finished.
 
 ## Review-task screen (2026-11-08): can another way of asking give J clearly above 0?
 Plan and decision rule, committed before the batch ran: `docs/plans/review_task_screen.md`. Fresh batch `task-dev-1`
@@ -89,6 +89,37 @@ result and figure hashes are in `eval/results/task_dev_1/baseline_sha256_before.
   (accepted). Prompts are about 2,000 of its tokens, so the checklist fits and the llama3.2:3b fallback was not needed.
   The format was checked on old real run `1875ec26` (not in any batch) with direct calls, and nothing was stored.
 - **Tests:** `pytest -q` 554 passed, 10 deselected in 24.9 s; `pytest -m slow` 10 passed.
+- **Result: no cell passes the fixed rule** (`eval/results/task_dev_1/compare_tasks.json`). 9 cells x 40 audits, 0 failed;
+  every 90% J interval includes 0. Baseline hashes unchanged; `ledger verify` OK (1552 entries).
+
+  | Role | Model | Flagged buggy | Flagged clean | J (90%) | Passes | delta J vs own baseline (90%) |
+  |---|---|---|---|---|---|---|
+  | skeptic_a | gemma3:4b | 20/20 | 20/20 | +0.001 [-0.102, +0.105] | no | - |
+  | skeptic_a_grounded | gemma3:4b | 17/20 | 19/20 | -0.092 [-0.257, +0.066] | no | -0.100 [-0.250, +0.050] |
+  | skeptic_a_checklist | gemma3:4b | 14/20 | 16/20 | -0.088 [-0.295, +0.124] | no | -0.100 [-0.350, +0.100] |
+  | skeptic_b | phi4-mini | 19/20 | 17/20 | +0.088 [-0.069, +0.257] | no | - |
+  | skeptic_b_grounded | phi4-mini | 15/20 | 18/20 | -0.135 [-0.326, +0.055] | no | -0.250 [-0.450, -0.050] |
+  | skeptic_b_checklist | phi4-mini | 5/20 | 3/20 | +0.089 [-0.107, +0.289] | no | +0.000 [-0.250, +0.250] |
+  | skeptic_c | llama3.1:8b | 20/20 | 20/20 | +0.001 [-0.102, +0.105] | no | - |
+  | skeptic_c_grounded | llama3.1:8b | 19/20 | 20/20 | -0.046 [-0.173, +0.066] | no | -0.050 [-0.150, +0.000] |
+  | skeptic_c_checklist | llama3.1:8b | 0/20 | 0/20 | -0.001 [-0.103, +0.102] | no | +0.000 [+0.000, +0.000] |
+
+  - **The wording changes how often a reviewer flags, not whether it can tell buggy from clean.** The checklist took
+    flag rates from about 100% down to 75% (gemma), 20% (phi) and 0% (llama), with J still near 0. On this fresh
+    batch the baselines repeat rq1-full: gemma and llama flag 40/40.
+  - **The line check did not help.** Reviewers quoted real lines (verified 0.90 gemma, 0.82 phi, 0.97 llama), so the
+    check only removed flags, slightly more often on buggy runs. phi's grounded J fell against its baseline: delta
+    -0.25 [-0.45, -0.05]. This is a secondary measure and decides nothing. The plan predicted it: a quote check
+    catches made-up evidence, not a real, correct line misread as a bug.
+  - **Right class:** the truth was among the checklist "yes" classes for 4/20 (gemma), 2/20 (phi) and 0/20 (llama)
+    canaries. llama's raw checklist answers (before the line check) had J +0.135 [-0.005, +0.290]. That is not the rule,
+    and on 3 "yes" answers in 40 runs it is no evidence.
+  - **Limits:** 20 buggy and 20 clean runs detect only J of about 0.35 or more, so a small real gain could be missed.
+    One pool of 18 bases, temperature 0, class names without definitions.
+  - **AUC is missing (bug, fixed afterwards):** all 360 audits stored `score: null`. The ollama client (0.6.3) drops
+    each token's `bytes`, and the scorer read the empty list as zero bytes. A second gap: the chosen token was not
+    counted when it was outside the model's own top 20. Both fixed with tests. Through the wrapper, real review prompts
+    now give scores for all 3 tasks. The stored audits cannot be rescored without new model calls.
 
 ## Reviewer study (2026-11-05): Skeptic B RQ1, gemma position diagnostic, comparison
 Re-audits of the existing `rq1-full` runs; no experiment was re-run (215 run folders, 213 sealed rows and 213 `ran` entries before
@@ -117,17 +148,8 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
-- **`task-dev-1` (review-task screen), started 2026-11-08.** Log: `data/runs/campaign.log`. Order: `calibrate --runs 40
-  --batch task-dev-1 --seed 1108` (runs, then baseline gemma audits), then `reaudit --batch task-dev-1 --role` for
-  skeptic_a_grounded, skeptic_a_checklist, skeptic_b, skeptic_b_grounded, skeptic_b_checklist, skeptic_c,
-  skeptic_c_grounded, skeptic_c_checklist. To resume: run `powershell -File scripts/task_dev_1.ps1` again; every step skips finished work.
-  Then `python -m eval.compare_tasks --batch task-dev-1`.
-  - **Interrupted 05:43 UTC:** Claude Code stopped the background script because the laptop ran low on RAM (1.1 of
-    15.3 GB free; Ollama's llama-server held 8.7 GB, since llama3.1:8b runs 25% on the CPU). 7 of 9 cells were done
-    (40/40 each, 0 failed). skeptic_c_grounded had 25 of 40 stored; skeptic_c_checklist had not started. `ledger verify`
-    OK (1497 entries). Resuming needs about 55 llama audits, roughly 9 s each.
-  - Earlier stop, 05:18 UTC: the batch log crashed on the first checklist reply (no `verdict` field). Fixed in
-    `33c73ae` with a test; the stored review was kept.
+- None running. `task-dev-1` finished 2026-11-08 at 05:59 UTC after two stops (a batch log bug and low RAM; see the
+  review-task screen above). The last part ran from the student's own PowerShell window.
 
 ## Decisions
 - **Ollama only for now, no API keys.** A cloud model is added later with `/api`. Mission 1.3 must build `llm.py`
@@ -297,6 +319,8 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **B06 obvious is unmeasured,** because the bug is the metric, so its twin's numbers are on another scale.
 
 ## Fixes
+- Token-probability scores were all None on task-dev-1: the ollama client drops `bytes`, and an empty list was read as zero bytes. The chosen token also did not count when it was outside the model's top 20. Both fixed with tests.
+- The batch log crashed on the first checklist reply (no `verdict` field): the log and the `audit` printout now show the code's decision.
 - Status-line tip said "a campaign was interrupted" after a finished `calibrate` batch: `coach_state.py` now recognises the batch's closing line, reads only the log's last line, and still treats a `STOPPED` batch as interrupted.
 - Stop hook said "something failed?" whenever a message used the word "failed": it now needs a traceback header, a pytest count above zero, or a line starting `Error:`.
 - `qwen3:4b` crashes and "token repeat limit" aborts from the open `params` schema: fixed with one schema form per model.
@@ -304,6 +328,9 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
+- **llama3.1:8b strains the laptop's RAM:** at 75% on the GPU, Ollama's llama-server held 8.7 GB of 15.3 GB, and
+  Claude Code stopped a background run on low memory. Run long llama passes from your own PowerShell window, with
+  Edge closed.
 - **To fix during Mission 3.1 or earlier: every Scientist model favours one dataset and `balanced_accuracy`, and always
   predicts an increase.** Across the 15 proposals, 14 used `blood-transfusion-service-center`, all 15 used
   `balanced_accuracy`, and all 15 predicted an increase. The probable cause, not yet tested, is that the prompt shows
@@ -356,8 +383,10 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. When `task-dev-1` finishes: `python -m eval.compare_tasks --batch task-dev-1`, re-hash the baseline files, run `ledger
-   verify`, and read the results against the fixed rule (`/evaluate`).
-2. If a cell passes: plan `task-confirm-1` (80-100 runs) on a new pool of fresh Scientist proposals. If none pass,
-   Mission 5.1 tripwires become the main defence.
+1. Decide what to do about AUC, the one open question from the screen. Option: rescore the 360 task-dev-1 audits (same
+   prompts at temperature 0; keep a score only where the new reply matches the stored one). About 360 calls, 45-60 min,
+   llama from your own window. AUC > 0.5 would mean the reviewers do rank buggy runs higher and only the threshold is
+   wrong. AUC near 0.5 closes the LLM route for now.
+2. Following the fixed rule (no cell passed): bring Mission 5.1 (deterministic tripwires) forward as the main defence;
+   `/mission 5.1`.
 3. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.

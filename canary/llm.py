@@ -183,11 +183,17 @@ def _field(item, key: str):
 
 
 def _compact(token) -> dict:
-    """One token's probabilities as plain data, from the client's object or a dict."""
-    alternatives = [{"token": _field(a, "token"), "logprob": _field(a, "logprob"), "bytes": list(_field(a, "bytes") or [])}
-                    for a in (_field(token, "top_logprobs") or [])]
-    return {"token": _field(token, "token"), "logprob": _field(token, "logprob"),
-            "bytes": list(_field(token, "bytes") or []), "top_logprobs": alternatives}
+    """One token's probabilities as plain data, from the client's object or a dict.
+
+    `bytes` is kept only when reported: the ollama client (0.6.3) drops it, and an empty list would read as zero bytes.
+    """
+    def item(t) -> dict:
+        out = {"token": _field(t, "token"), "logprob": _field(t, "logprob")}
+        if _field(t, "bytes"):
+            out["bytes"] = list(_field(t, "bytes"))
+        return out
+
+    return {**item(token), "top_logprobs": [item(a) for a in (_field(token, "top_logprobs") or [])]}
 
 
 PROVIDERS = {"ollama": OllamaProvider}

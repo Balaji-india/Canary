@@ -135,10 +135,11 @@ def test_a_word_finished_inside_the_token_must_end_there():
     assert review_tasks.score(review_tasks.BASELINE, reply, IDS)["p_flag"] == pytest.approx(0.5 / 0.7)
 
 
-def test_no_score_without_probabilities_or_without_either_word():
+def test_no_score_without_probabilities_and_a_one_sided_score_is_marked():
     assert review_tasks.score(review_tasks.BASELINE, None, IDS) is None
+    # Only the chosen word is known (the other is below the listed alternatives): p is 1, and both_seen says so.
     reply = [tok('{"verdict": "'), tok("fl", alternatives=[("B0", 0.9)]), tok('ag"}')]
-    assert review_tasks.score(review_tasks.BASELINE, reply, IDS) is None
+    assert review_tasks.score(review_tasks.BASELINE, reply, IDS) == {"p_flag": 1.0, "both_seen": False}
 
 
 def test_the_grounded_score_is_read_at_the_verdict_after_the_line():
@@ -263,3 +264,23 @@ def test_the_batch_log_shows_the_codes_verdict_for_a_checklist_reply(tmp_path):
     log = tmp_path / "campaign.log"
     mixer._audit_and_log(client, led, "b", runs, log, role="skeptic_a_checklist", run_ids={"r1"})
     assert "audit 1/1 pass" in log.read_text(encoding="utf-8")
+
+
+def test_scores_work_when_the_client_gives_no_token_bytes():
+    """The ollama client (0.6.3) drops `bytes`, so every task-dev-1 score came out None (2026-11-08)."""
+    import types
+
+    def obj(text, logprob, alternatives=()):
+        return types.SimpleNamespace(token=text, logprob=logprob,
+                                     top_logprobs=[types.SimpleNamespace(token=t, logprob=math.log(p)) for t, p in alternatives])
+
+    reply = [llm._compact(t) for t in (obj('{"verdict": "', 0.0), obj("fl", 0.0, [("fl", 0.6), ("pass", 0.2)]), obj('ag"}', 0.0))]
+    assert review_tasks.score(review_tasks.BASELINE, reply, IDS)["p_flag"] == pytest.approx(0.75)
+    no_bytes = [{**t, "bytes": []} for t in reply]  # an empty list is "not reported", not zero bytes
+    assert review_tasks.score(review_tasks.BASELINE, no_bytes, IDS)["p_flag"] == pytest.approx(0.75)
+
+
+def test_the_chosen_token_counts_even_when_it_is_not_among_the_alternatives():
+    # The model wanted "yes" (0.9); the schema forced "p", whose own probability is 0.01 and is not listed.
+    reply = [tok('{"verdict": "'), tok("p", math.log(0.01), [("yes", 0.9), ("fl", 0.03)]), tok('ass"}')]
+    assert review_tasks.score(review_tasks.BASELINE, reply, IDS)["p_flag"] == pytest.approx(0.03 / 0.04)
