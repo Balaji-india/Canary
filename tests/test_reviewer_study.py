@@ -10,7 +10,7 @@ import types
 
 import pytest
 
-from canary import config, ledger, llm, mixer, prompts, sealed, skeptic, trust
+from canary import config, ledger, llm, mixer, prompts, review_tasks, sealed, skeptic, trust
 from canary.ledger import Ledger
 from canary.saboteur.transforms import TRANSFORMS
 from eval import compare_reviewers, position_bias, rq1
@@ -95,8 +95,8 @@ def test_prompt_and_schema_are_shuffled_the_same_way_and_the_order_is_stored(tmp
     add_ran_run(led, runs)
     order = list(reversed(BUGS))
     schemas = []
-    real_schema = skeptic.audit_schema
-    monkeypatch.setattr(skeptic, "audit_schema", lambda ids: schemas.append(list(ids)) or real_schema(ids))
+    real_schema = review_tasks.baseline_schema
+    monkeypatch.setattr(review_tasks, "baseline_schema", lambda ids: schemas.append(list(ids)) or real_schema(ids))
     client, provider = client_for(tmp_path, [PASS_REPLY])
     skeptic.audit_pending(client, led, runs, role="skeptic_a_shuffled", class_order=lambda run_id: order)
     listed = [line.split(":")[0][2:] for line in provider.calls[0]["prompt"].splitlines() if line.startswith("- B")]
@@ -219,8 +219,24 @@ def test_other_roles_never_write_to_the_baseline_figure_paths(tmp_path, monkeypa
     monkeypatch.setattr(rq1, "build_results", lambda *a: {"reviewed": 1})
     monkeypatch.setattr(rq1, "print_tables", lambda r: None)
     monkeypatch.setattr(rq1, "make_figures", lambda r, d: written.append(d) or [])
-    assert rq1.main(["--batch", "x", "--role", "skeptic_b"]) == 0
+    assert rq1.main(["--batch", "rq1-full", "--role", "skeptic_b"]) == 0
     assert written == [rq1.FIGURES_DIR / "skeptic_b"] and (tmp_path / "rq1_skeptic_b.json").exists()
+
+
+def test_a_batch_other_than_rq1_full_never_writes_the_baseline_names(tmp_path, monkeypatch):
+    """The review-task screen runs skeptic_a on task-dev-1: it must not replace rq1_skeptic_a.json or its figures."""
+    written = []
+    monkeypatch.setattr(rq1, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(rq1.sealed, "SEALED_DB_PATH", tmp_path)
+    monkeypatch.setattr(rq1.sealed, "SealedTable", lambda: None)
+    monkeypatch.setattr(rq1.ledger, "Ledger", lambda: None)
+    monkeypatch.setattr(rq1, "build_results", lambda *a: {"reviewed": 1})
+    monkeypatch.setattr(rq1, "print_tables", lambda r: None)
+    monkeypatch.setattr(rq1, "make_figures", lambda r, d: written.append(d) or [])
+    assert rq1.main(["--batch", "task-dev-1", "--role", "skeptic_a"]) == 0
+    assert not (tmp_path / "rq1_skeptic_a.json").exists()
+    assert (tmp_path / "task_dev_1" / "rq1_skeptic_a.json").exists()
+    assert written == [rq1.FIGURES_DIR / "task_dev_1" / "skeptic_a"] and written[0] != rq1.FIGURES_DIR
 
 
 # --- the evaluations' arithmetic -------------------------------------------------------------------------------------

@@ -295,7 +295,9 @@ def collect_observations(table: sealed.SealedTable, led: ledger.Ledger, role: st
         elif truth.run_type == sealed.REAL:
             excluded["real"] += 1
         impact = impact_module.impact_class(truth.details.get("impact")) if truth.known_buggy else None
-        audit = payload["audit"]
+        # The code's decision when the audit has one (every review task since the task screen); older audits only
+        # have the reply, whose verdict is the baseline task's decision.
+        audit = payload.get("decision") or payload["audit"]
         observations.append(Observation(run_id, truth.run_type, truth.bug_id, truth.tier, impact,
                                         audit["verdict"] == FLAG, audit["bug_class"]))
     return observations, excluded

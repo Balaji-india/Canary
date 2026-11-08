@@ -69,7 +69,26 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-No mission is part-way through. Mission 2.4 is the last mission complete; the reviewer study below is done too.
+No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen below is running.
+
+## Review-task screen (2026-11-08): can another way of asking give J clearly above 0?
+Plan and decision rule, committed before the batch ran: `docs/plans/review_task_screen.md`. Fresh batch `task-dev-1`
+(40 runs: 20 canaries, 10 controls, 10 shams, seed 1108, same 18-base pool). rq1-full is not touched; baseline
+result and figure hashes are in `eval/results/task_dev_1/baseline_sha256_before.txt`.
+- **Built:** `canary/review_tasks.py` with 3 tasks. `baseline` is the original prompt, unchanged. `grounded` (V1) uses
+  neutral wording and puts the offending line first, checked by code. `checklist` (V2) asks one yes/no plus line per
+  class. Code turns each reply into the verdict (`decision` in the audit). Token-probability scores give P(flag) and
+  AUC (`score`). The wrapper gained a per-role `num_ctx` and `top_logprobs`. Roles `skeptic_c` (llama3.1:8b) and 6
+  task aliases added. `eval/rq1.py` now writes batches other than rq1-full to their own folder.
+  `eval/compare_tasks.py` builds the 9-cell table.
+- **Rule (fixed):** a cell passes if the lower end of its 90% J interval is above 0. AUC, raw-verdict J and paired
+  delta J are reported but decide nothing. A pass must be confirmed on an 80-100 run batch built from a NEW pool of
+  fresh Scientist proposals. Prompts are not changed after seeing these results.
+- **Checks before the batch:** Ollama returns token probabilities, but from before the schema constrains each token, so
+  the score renormalises over the two allowed words. llama3.1:8b at num_ctx 4096 loads at 5.25 GiB, 75% on the GPU
+  (accepted). Prompts are about 2,000 of its tokens, so the checklist fits and the llama3.2:3b fallback was not needed.
+  The format was checked on old real run `1875ec26` (not in any batch) with direct calls, and nothing was stored.
+- **Tests:** `pytest -q` 554 passed, 10 deselected in 24.9 s; `pytest -m slow` 10 passed.
 
 ## Reviewer study (2026-11-05): Skeptic B RQ1, gemma position diagnostic, comparison
 Re-audits of the existing `rq1-full` runs; no experiment was re-run (215 run folders, 213 sealed rows and 213 `ran` entries before
@@ -98,7 +117,11 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
-None.
+- **`task-dev-1` (review-task screen), started 2026-11-08.** Log: `data/runs/campaign.log`. Order: `calibrate --runs 40
+  --batch task-dev-1 --seed 1108` (runs, then baseline gemma audits), then `reaudit --batch task-dev-1 --role` for
+  skeptic_a_grounded, skeptic_a_checklist, skeptic_b, skeptic_b_grounded, skeptic_b_checklist, skeptic_c,
+  skeptic_c_grounded, skeptic_c_checklist. To resume: run `powershell -File scripts/task_dev_1.ps1` again; every step skips finished work.
+  Then `python -m eval.compare_tasks --batch task-dev-1`.
 
 ## Decisions
 - **Ollama only for now, no API keys.** A cloud model is added later with `/api`. Mission 1.3 must build `llm.py`
@@ -327,6 +350,8 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next 3 actions
-1. `/brainstorm` changes to the review task (e.g. per-class yes/no questions instead of one pick, "pass" as an explicit first option, evidence before verdict), then re-audit `rq1-full` with each as a new alias role and compare against the baseline. No new experiments needed.
-2. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.
-3. Run `/mission 3.2` (Brier score, reliability diagram, calibration feedback).
+1. When `task-dev-1` finishes: `python -m eval.compare_tasks --batch task-dev-1`, re-hash the baseline files, run `ledger
+   verify`, and read the results against the fixed rule (`/evaluate`).
+2. If a cell passes: plan `task-confirm-1` (80-100 runs) on a new pool of fresh Scientist proposals. If none pass,
+   Mission 5.1 tripwires become the main defence.
+3. Run `/mission 3.1` (graveyard with similarity check), and address the Scientist's lack of variety there.

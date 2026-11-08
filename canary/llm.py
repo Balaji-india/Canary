@@ -125,7 +125,8 @@ class Provider(Protocol):
     def installed_models(self) -> set[str]: ...
 
     def generate(self, model: str, prompt: str, system: str | None, schema: dict, temperature: float,
-                 timeout_s: float, seed_offset: int = 0) -> str: ...
+                 timeout_s: float, seed_offset: int = 0, num_ctx: int | None = None,
+                 top_logprobs: int = 0) -> str | tuple[str, list[dict]]: ...
 
     def unload(self, model: str) -> None: ...
 
@@ -148,24 +149,45 @@ class OllamaProvider:
             raise LLMError(f"Ollama server not reachable: {exc}") from exc
 
     def generate(self, model: str, prompt: str, system: str | None, schema: dict, temperature: float,
-                 timeout_s: float, seed_offset: int = 0) -> str:
+                 timeout_s: float, seed_offset: int = 0, num_ctx: int | None = None,
+                 top_logprobs: int = 0) -> str | tuple[str, list[dict]]:
+        """Return the reply text, or (text, token probabilities) when `top_logprobs` is above 0.
+
+        Ollama reports each token's probability under the model before the schema constrains it, with the
+        `top_logprobs` most likely alternatives. Only `token`, `logprob` and `bytes` are kept.
+        """
         # `format` makes Ollama constrain the output to the schema. num_ctx is set because Ollama silently cuts off
         # prompts longer than the context, and a reviewer must never judge a script it only partly saw.
         options = {"temperature": temperature, "seed": self.settings["seed"] + seed_offset,
-                   "num_ctx": self.settings["num_ctx"],
+                   "num_ctx": num_ctx or self.settings["num_ctx"],
                    "num_predict": self.settings["num_predict"]}
+        extra = {"logprobs": True, "top_logprobs": top_logprobs} if top_logprobs else {}
         try:
             reply = self._client(timeout_s).generate(model=model, prompt=prompt, system=system, format=schema,
-                                                     think=False, stream=False, options=options)
+                                                     think=False, stream=False, options=options, **extra)
         except Exception as exc:
             raise LLMError(f"{model}: {type(exc).__name__}: {exc}") from exc
-        return reply.response
+        if not top_logprobs:
+            return reply.response
+        return reply.response, [_compact(t) for t in (getattr(reply, "logprobs", None) or [])]
 
     def unload(self, model: str) -> None:
         try:
             self._client(30).generate(model=model, keep_alive=0)
         except Exception as exc:
             raise LLMError(f"{model}: could not unload: {exc}") from exc
+
+
+def _field(item, key: str):
+    return item.get(key) if isinstance(item, dict) else getattr(item, key, None)
+
+
+def _compact(token) -> dict:
+    """One token's probabilities as plain data, from the client's object or a dict."""
+    alternatives = [{"token": _field(a, "token"), "logprob": _field(a, "logprob"), "bytes": list(_field(a, "bytes") or [])}
+                    for a in (_field(token, "top_logprobs") or [])]
+    return {"token": _field(token, "token"), "logprob": _field(token, "logprob"),
+            "bytes": list(_field(token, "bytes") or []), "top_logprobs": alternatives}
 
 
 PROVIDERS = {"ollama": OllamaProvider}
@@ -209,6 +231,7 @@ class LLMResult:
     seconds: float = 0.0
     error: str | None = None
     error_kind: str | None = None
+    logprobs: list[dict] | None = None  # only when asked for; never stored in the cache
 
 
 class LLM:
@@ -269,34 +292,51 @@ class LLM:
             except LLMError:
                 pass
 
-    def _check_prompt_size(self, prompt: str, system: str | None) -> None:
+    def num_ctx(self, role: str) -> int:
+        """The context size for a role: its own `num_ctx` (set on the role an alias points to), else the global one.
+
+        A per-role size lets a larger model fit the 6 GB card with a smaller KV cache.
+        """
+        roles = self.cfg["roles"]
+        target = roles[role].get("use_role", role)
+        return roles[target].get("num_ctx", self.settings["num_ctx"])
+
+    def _check_prompt_size(self, prompt: str, system: str | None, num_ctx: int | None = None) -> None:
         """Refuse a prompt that might not fit, because Ollama would silently cut it instead of failing.
 
         A reviewer judging half a script is worse than no review. Three characters per token is a cautious estimate:
         real review prompts measured about 3.4.
         """
-        limit = (self.settings["num_ctx"] - self.settings["num_predict"]) * 3
+        limit = ((num_ctx or self.settings["num_ctx"]) - self.settings["num_predict"]) * 3
         size = len(prompt) + len(system or "")
         if size > limit:
             raise LLMError(f"prompt of {size} characters may not fit (limit {limit}); raise num_ctx in models.yaml",
                            KIND_PROMPT_TOO_LARGE)
 
     def call(self, role: str, prompt: str, schema: dict, system: str | None = None,
-             refresh: bool = False) -> LLMResult:
+             refresh: bool = False, top_logprobs: int = 0) -> LLMResult:
         """Return checked JSON for a role, from the cache if possible. Raises LLMError when all attempts fail.
 
-        `refresh=True` skips reading the cache but still stores the new reply.
+        `refresh=True` skips reading the cache but still stores the new reply. `top_logprobs` above 0 also returns
+        token probabilities. The cache holds reply text only, so such a call always asks the model; the reply is
+        the same at temperature 0, and the cache key does not change.
         """
         provider_name, model, temperature = self.resolve(role)
         key = Cache.key(model, prompt, system, schema, temperature)
         started = time.perf_counter()
-        if not refresh:
+        if not refresh and not top_logprobs:
             stored = self.cache.get(key)
             if stored is not None:
                 # A cache hit needs no model, so it must not trigger a model switch.
                 return LLMResult(role, model, parse_reply(stored, schema), True, 0, time.perf_counter() - started)
-        self._check_prompt_size(prompt, system)
+        num_ctx = self.num_ctx(role)
+        self._check_prompt_size(prompt, system, num_ctx)
         provider = self._provider(provider_name)
+        extra = {}  # sent only when used, so providers without these options keep working
+        if num_ctx != self.settings["num_ctx"]:
+            extra["num_ctx"] = num_ctx
+        if top_logprobs:
+            extra["top_logprobs"] = top_logprobs
         attempts = self.settings["retries"] + 1
         text = prompt
         last_problem = ""
@@ -306,7 +346,10 @@ class LLM:
             try:
                 # A new seed per attempt: with the same seed a sampling failure (such as Ollama's "token repeat
                 # limit") simply happens again. The attempt order stays fixed, so runs remain reproducible.
-                reply = provider.generate(model, text, system, schema, temperature, timeout_s, attempt - 1)
+                reply = provider.generate(model, text, system, schema, temperature, timeout_s, attempt - 1, **extra)
+                logprobs = None
+                if top_logprobs:
+                    reply, logprobs = reply
                 data = parse_reply(reply, schema)
             except InvalidReply as exc:
                 # At temperature 0 the same prompt gives the same bad reply, so the retry must change the prompt.
@@ -317,7 +360,7 @@ class LLM:
                 self._loaded = None  # the model may not have loaded, so the next attempt counts as cold
             else:
                 self.cache.put(key, model, reply)
-                return LLMResult(role, model, data, False, attempt, time.perf_counter() - started)
+                return LLMResult(role, model, data, False, attempt, time.perf_counter() - started, logprobs=logprobs)
         raise LLMError(f"role {role}, model {model}: gave up after {attempts} attempts: {last_problem}", last_kind)
 
 
@@ -331,9 +374,13 @@ class ModelQueue:
         self.llm = llm
         self._requests: list[dict] = []
 
-    def add(self, role: str, prompt: str, schema: dict, system: str | None = None, refresh: bool = False) -> int:
+    def add(self, role: str, prompt: str, schema: dict, system: str | None = None, refresh: bool = False,
+            top_logprobs: int = 0) -> int:
         """Queue a request and return its position in the list that run() returns."""
-        self._requests.append({"role": role, "prompt": prompt, "schema": schema, "system": system, "refresh": refresh})
+        request = {"role": role, "prompt": prompt, "schema": schema, "system": system, "refresh": refresh}
+        if top_logprobs:
+            request["top_logprobs"] = top_logprobs
+        self._requests.append(request)
         return len(self._requests) - 1
 
     def run(self) -> list[LLMResult]:

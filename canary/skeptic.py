@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from canary import blinding, config, ledger, llm, prereg, prompts, sandbox
+from canary import blinding, config, ledger, llm, prereg, review_tasks, sandbox
 from canary.codegen import SCRIPT_NAME
 
 PASS = "pass"
@@ -21,20 +21,15 @@ DEFAULT_CHUNK = 5  # reviews stored per chunk, and the longest stretch of an out
 DEFAULT_STOP_AFTER = 3
 
 
-def audit_schema(bug_ids: list[str]) -> dict:
-    """Two forms, so that a pass cannot name a bug and a flag must name one."""
-    def form(verdict: str, bug_class: dict) -> dict:
-        return {
-            "type": "object", "required": ["verdict", "bug_class", "evidence", "confidence"],
-            "additionalProperties": False,
-            "properties": {
-                "verdict": {"enum": [verdict]},
-                "bug_class": bug_class,
-                "evidence": {"type": "string"},
-                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-            },
-        }
-    return {"anyOf": [form(PASS, {"type": "null"}), form(FLAG, {"enum": bug_ids})]}
+audit_schema = review_tasks.baseline_schema  # the baseline task's schema
+
+
+def task_of(models_cfg: dict, role: str) -> str:
+    """The review task a role uses (`task:` in models.yaml), the baseline unless set. Unknown names fail early."""
+    task = models_cfg["roles"][role].get("task", review_tasks.BASELINE)
+    if task not in review_tasks.TASKS:
+        raise ValueError(f"role {role}: unknown review task {task!r}")
+    return task
 
 
 @dataclass(frozen=True)
@@ -118,7 +113,11 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
     """
     report = AuditReport()
     bugs = config.load_yaml("bug_classes.yaml")
-    default_schema = audit_schema(sorted(bugs))
+    bug_ids = sorted(bugs)
+    task = task_of(client.cfg, role)
+    # Token probabilities give each audit a score for AUC. Off unless models.yaml asks, so tests and old paths keep
+    # their cached replies (a call with probabilities always asks the model).
+    top_logprobs = client.cfg["llm"].get("review_top_logprobs", 0)
     jobs = []
     for entry, lock in _waiting(led, role):
         if run_ids is not None and entry.payload["run_id"] not in run_ids:
@@ -145,10 +144,10 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
                 order = class_order(job.run_id)
                 if sorted(order) != sorted(bugs):
                     raise ValueError(f"class order for {job.run_id} is not a reordering of the bug classes")
-            prompt = prompts.skeptic_prompt(job.blinded, bugs, order)
+            system, prompt, schema = review_tasks.build(task, job.blinded, bugs, order)
             prompts_sent.append(prompt)
             orders.append({"class_order": order} if order else {})
-            queue.add(role, prompt, audit_schema(order) if order else default_schema, system=prompts.SKEPTIC_SYSTEM)
+            queue.add(role, prompt, schema, system=system, top_logprobs=top_logprobs)
         for job, prompt, order, result in zip(chunk, prompts_sent, orders, queue.run()):
             done += 1
             if result.error:
@@ -161,12 +160,16 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
                 item = failure
             else:
                 server_failures = 0
+                # Code, not the model, turns the reply into the verdict that trust statistics use.
                 payload = {
                     "run_id": job.run_id, "role": role, "model": result.model, "audit": result.data,
+                    "task": task, "decision": review_tasks.decide(task, result.data, job.blinded),
                     "cached": result.cached, "attempts": result.attempts, "seconds": round(result.seconds, 3),
                     "blinded_script_sha256": prereg.sha256_text(job.blinded.script),
                     "prompt_sha256": prereg.sha256_text(prompt), **order,
                 }
+                if top_logprobs:
+                    payload["score"] = review_tasks.score(task, result.logprobs, bug_ids)
                 led.append(job.hypothesis_id, ledger.AUDITED, payload)
                 report.audited.append({"hypothesis_id": job.hypothesis_id, **payload})
                 item = payload

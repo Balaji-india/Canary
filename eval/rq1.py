@@ -58,7 +58,7 @@ def build_results(table: sealed.SealedTable, led: ledger.Ledger, batch: str, rol
     models = {a["model"] for a in audits.values()}
     records = [{
         "run_id": o.run_id, "run_type": o.run_type, "bug_id": o.bug_id, "tier": o.tier, "impact": o.impact,
-        "flagged": o.flagged, "named_class": o.named_class, "confidence": audits[o.run_id]["audit"]["confidence"],
+        "flagged": o.flagged, "named_class": o.named_class, "confidence": audits[o.run_id]["audit"].get("confidence"),
         "base": truths[o.run_id].source, "attempts": audits[o.run_id].get("attempts"), "cached": audits[o.run_id].get("cached"),
         "seconds": audits[o.run_id].get("seconds"),
     } for o in observations]
@@ -205,6 +205,20 @@ def figures_dir(role: str, suffix: str = "") -> Path:
     return directory / suffix.lstrip("_") if suffix else directory
 
 
+BASELINE_BATCH = "rq1-full"
+
+
+def output_paths(batch: str, role: str, suffix: str = "") -> tuple[Path, Path]:
+    """Where a batch's RQ1 file and figures go. Only rq1-full writes to the top-level names, which hold the baseline.
+
+    Every other batch gets its own folder, so a new batch can never overwrite the unhinted baseline by accident.
+    """
+    if batch == BASELINE_BATCH:
+        return RESULTS_DIR / f"rq1_{role}{suffix}.json", figures_dir(role, suffix)
+    folder = batch.replace("-", "_")
+    return RESULTS_DIR / folder / f"rq1_{role}{suffix}.json", FIGURES_DIR / folder / f"{role}{suffix}"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--batch", required=True)
@@ -221,10 +235,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Batch {args.batch} has no reviewed runs yet.")
         return 1
     print_tables(results)
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    path = RESULTS_DIR / f"rq1_{args.role}{args.suffix}.json"
+    path, figure_dir = output_paths(args.batch, args.role, args.suffix)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(results, indent=1), encoding="utf-8")
-    figures = make_figures(results, figures_dir(args.role, args.suffix))
+    figures = make_figures(results, figure_dir)
     print(f"\nWrote {path} and {', '.join(str(f) for f in figures)}")
     return 0
 

@@ -16,7 +16,8 @@ CFG = {
         "skeptic_b": {"model": "skb:1", "temperature": 0.0, "family": "phi"},
         "mutant_writer": {"use_role": "scientist"},
     },
-    "llm": {"retries": 2, "timeout_cold_s": 300, "timeout_warm_s": 120, "num_ctx": 8192, "num_predict": 1024, "seed": 0},
+    "llm": {"retries": 2, "timeout_cold_s": 300, "timeout_warm_s": 120, "num_ctx": 8192, "num_predict": 1024, "seed": 0,
+            "review_top_logprobs": 0},
 }
 
 

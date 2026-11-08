@@ -37,14 +37,15 @@ def canary_imports(module_file):
 @pytest.mark.parametrize("name, allowed", [
     ("blinding.py", set()),
     ("skeptic.py", {"canary.blinding", "canary.codegen", "canary.config", "canary.ledger", "canary.llm",
-                    "canary.prereg", "canary.prompts", "canary.sandbox"}),
+                    "canary.prereg", "canary.review_tasks", "canary.sandbox"}),
+    ("review_tasks.py", {"canary.prompts"}),
 ])
 def test_reviewer_code_imports_only_what_is_allowed(name, allowed):
     """Ground truth is sacred. A new import here must be justified: adding the sealed table's module fails this test."""
     assert canary_imports(PACKAGE / name) <= allowed
 
 
-@pytest.mark.parametrize("name", ["blinding.py", "skeptic.py", "ledger.py"])
+@pytest.mark.parametrize("name", ["blinding.py", "skeptic.py", "ledger.py", "review_tasks.py"])
 def test_reviewer_code_never_mentions_run_types(name):
     source = (PACKAGE / name).read_text(encoding="utf-8")
     tree = ast.parse(source)

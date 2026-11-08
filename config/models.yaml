@@ -7,6 +7,17 @@ roles:
   skeptic_b:  {model: "phi4-mini",   fallback: "llama3.2:3b", temperature: 0.0, family: phi}   # Mission 5.2
   mutant_writer: {use_role: scientist}                                                            # Mission 6.2
   skeptic_a_shuffled: {use_role: skeptic_a}   # same model, class list shuffled per run: the position-bias diagnostic
+  # Third reviewer for the review-task screen (batch task-dev-1). A different family from the qwen Scientist. num_ctx
+  # 4096 halves its KV cache so it fits the 6 GB card better; prompts are about 2.5k tokens. No fallback on purpose:
+  # a silent swap to another model would mix two reviewers in one result.
+  skeptic_c:  {model: "llama3.1:8b", temperature: 0.0, family: llama, num_ctx: 4096}
+  # Review-task variants (canary/review_tasks.py): same models, another way of asking. `task` defaults to baseline.
+  skeptic_a_grounded:  {use_role: skeptic_a, task: grounded}
+  skeptic_a_checklist: {use_role: skeptic_a, task: checklist}
+  skeptic_b_grounded:  {use_role: skeptic_b, task: grounded}
+  skeptic_b_checklist: {use_role: skeptic_b, task: checklist}
+  skeptic_c_grounded:  {use_role: skeptic_c, task: grounded}
+  skeptic_c_checklist: {use_role: skeptic_c, task: checklist}
 embeddings: "sentence-transformers/all-MiniLM-L6-v2"
 vram_gb: 6                  # one model loaded at a time; batch audits per model
 llm:
@@ -16,3 +27,4 @@ llm:
   num_ctx: 8192             # must fit a whole blinded script plus results, or Ollama silently cuts the prompt
   num_predict: 1024         # stops a runaway reply
   seed: 0
+  review_top_logprobs: 20   # token probabilities per reviewer reply, for P(flag) scores and AUC (0 turns this off)
