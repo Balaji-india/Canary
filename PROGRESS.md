@@ -72,9 +72,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen and its AUC rescore
 are finished (all 360 rescore records; the llama passes ran from the student's own window, ending 2026-11-08 12:27 UTC).
 The fresh pass is complete (73 records; llama's ran from the student's window).
-- **Confirmation batch `confirm-llama-1`: plan amended (amendment 1, 2026-11-09) and re-locked, NOT started.** First
-  the cue-sensitivity probe (step 0, about 10-15 min of llama), run by the student. **Nothing after step 0 runs unless
-  the probe prints NO_DETECTED_SENSITIVITY**; on CUE_LIVE or INCONCLUSIVE, stop and design the padding fix first. Plan
+- **Confirmation batch `confirm-llama-1`: plan amended (amendment 1, 2026-11-09) and re-locked, NOT started.** Step 0,
+  the cue probe, is DONE (student's window, 2026-11-09 13:38 UTC): **NO_DETECTED_SENSITIVITY**, so steps 1-5 may run
+  on the student's "go" (see "Cue probe result"). Plan
   `docs/plans/llama_checklist_confirmation.md` (SHA-256 `85ed1d4f…` in its `.sha256` file; the first version's hash
   is in its section 12), cut-off unchanged in `eval/results/task_dev_1/llama_checklist_cutoff.json`.
   `python -m eval.confirm` checks both hashes. Steps, in the student's own PowerShell window with Edge closed (each
@@ -122,6 +122,21 @@ The fresh pass is complete (73 records; llama's ran from the student's window).
   hashes could not be reproduced from a checkout. They were restored to the git bytes (content checked identical) and
   re-hashed. `mixer.dry_length_check` was split into `dry_rows` + the check (same output), so the probe can read
   helper sizes. Tests: `tests/test_cue_probe.py` (8), H3 tests in `tests/test_confirm.py`, and a hand-computed gap test.
+
+## Cue probe result (2026-11-09): no detected reaction to helper size
+From `eval/results/confirm_llama_1/cue_probe.json` (40 records in `cue_probe.jsonl`; re-analysing the records gives the
+same answer). 20 controls on 18 bases, all 40 versions scored by llama3.1:8b, 0 prompts too large, 0 unscored.
+- **Mean P(flag): small helper (6 statements) 0.402, large (21) 0.429.** Difference -0.027, base 90% [-0.055, +0.002]:
+  the interval contains 0, so the rule says NO_DETECTED_SENSITIVITY. Small scored higher on 7 controls, large on 13.
+  No code verdict changed (all 40 were "pass").
+- **Honest reading:** borderline, not a clean zero. The upper bound is only just above 0, and the lean is toward
+  *larger* helpers (longer scripts) scoring higher. In the batch, canaries carry the smaller helpers, so a reaction of
+  this kind would lower llama's AUC, not inflate it: it biases against confirming, not for it. 20 controls cannot
+  rule out a small reaction.
+- **Diagnostic, decides nothing:** at the locked cut-off (0.3845), 14 of 20 small and 17 of 20 large clean versions
+  score at or above it. False alarms on padded clean runs may be far above task-dev-1's 0.45, so H1 may fail; H2 does
+  not use the cut-off.
+- **Time:** 570 s of model time (median 14.1 s per call, max 24.8 s), inside the 10-15 min forecast.
 
 ## Finding (2026-11-08): a trivial line-count baseline beat every LLM reviewer
 **The trivial line-count baseline (AUC 0.85) beat every LLM reviewer, exposing a length cue in the canaries.** On
@@ -556,13 +571,10 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next actions
-1. **The student runs the cue probe** (step 0 under "In progress", 10-15 min, own window, Edge closed), then
-   `/evaluate` its `eval/results/confirm_llama_1/cue_probe.json`.
-   - CUE_LIVE or INCONCLUSIVE: stop. Design the padding redesign (decoy code in clean runs) as amendment 2, re-run
-     the dry check and the probe, and only then the batch.
-   - NO_DETECTED_SENSITIVITY: the batch may run, but amended H3 has power near 0 at llama's likely AUC (see
-     "Amendment 1"). Decide first whether to run it as is or redesign the padding anyway (`/recommend`).
-2. Only then, on the student's "go": the confirmation steps 1-5, then `/evaluate` the result honestly.
+1. **Cue probe done: NO_DETECTED_SENSITIVITY** (see "Cue probe result"). The plan is ready for "go" as locked.
+   Still the student's call before "go": amended H3 has power near 0 while helper size scores about 0.85 (see
+   "Amendment 1"), so run as is, or redesign the padding first as amendment 2 (`/recommend`).
+2. On the student's "go": the confirmation steps 1-5 under "In progress", then `/evaluate` the result honestly.
 3. `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule; then Mission 3.1.
 4. Plan only (nothing built yet, each needs the student's OK):
    - **Cloud ceiling check on 40 runs:** one strong cloud reviewer (a different family from the Scientist) on a
