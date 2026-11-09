@@ -1,0 +1,23 @@
+{
+ "runs": 100,
+ "buggy": 60,
+ "clean": 40,
+ "design_effect": 1.2721622390054328,
+ "source": "design effect: eval/results/task_dev_1/compare_tasks.json (skeptic_c_checklist auc_fresh); strongest feature: dry_proof.json (100 runs, seed 1109, decoys, and effect spread on existing pool-1 runs)",
+ "H2_power_by_true_auc": {
+  "0.60": 0.46445224221770015,
+  "0.65": 0.7831165754978426,
+  "0.70": 0.9622849397390913,
+  "0.75": 0.9985161274849673
+ },
+ "H1_power_by_true_j": null,
+ "H1_note": "needs the task-dev-2 cut-off: run again after `python -m eval.cutoff --batch task-dev-2`",
+ "H3_strongest_feature": "effect_spread",
+ "H3_strongest_feature_auc": 0.520625,
+ "H3_power_by_true_auc": {
+  "0.60": 0.2156578436998008,
+  "0.65": 0.41288915818942173,
+  "0.70": 0.6482764351512535,
+  "0.75": 0.8481616922578303
+ }
+}

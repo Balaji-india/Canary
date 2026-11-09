@@ -13,3 +13,8 @@ eval/compare_tasks.py -text
 config/models.yaml -text
 config/bug_classes.yaml -text
 eval/cue_probe.py -text
+# Frozen by the v2 confirmation plan (decoy padding), 2026-11-09.
+canary/saboteur/decoys.py -text
+canary/controls.py -text
+eval/cutoff.py -text
+eval/results/task_dev_2/llama_checklist_cutoff.json -text

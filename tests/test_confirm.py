@@ -97,3 +97,11 @@ def test_power_uses_hanley_mcneil_and_rises_with_the_effect():
     low, high = (confirm_power.power(a, 0.5, confirm_power.auc_se(a, 60, 40), 1.0) for a in (0.6, 0.75))
     assert 0 < low < high < 1
     assert confirm_power.power(0.5, 0.5, 0.05, 1.0) == pytest.approx(0.05)  # no effect: the one-sided 5% error rate
+
+
+def test_the_superseded_batch_and_dev_batches_are_refused_and_cutoffs_come_from_dev_batches(capsys):
+    assert confirm.main(["--batch", "confirm-llama-1"]) == 2  # the v1 plan's batch: superseded, never confirmable
+    assert confirm.main(["--batch", "task-dev-2"]) == 2  # the batch that chose the cut-off cannot confirm it
+    assert cutoff.main(["--batch", "confirm-llama-2"]) == 2  # a cut-off is never chosen on the batch that tests it
+    assert cutoff.cutoff_path("task-dev-2").parent.name == "task_dev_2"
+    assert confirm.PLAN_PATH.name == "llama_checklist_confirmation_v2.md"

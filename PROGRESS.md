@@ -72,27 +72,74 @@ Claude updates this at the end of every mission. If a mission stops early, write
 No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen and its AUC rescore
 are finished (all 360 rescore records; the llama passes ran from the student's own window, ending 2026-11-08 12:27 UTC).
 The fresh pass is complete (73 records; llama's ran from the student's window).
-- **Confirmation batch `confirm-llama-1`: plan amended (amendment 1, 2026-11-09) and re-locked, NOT started.** Step 0,
-  the cue probe, is DONE (student's window, 2026-11-09 13:38 UTC): **NO_DETECTED_SENSITIVITY**, so steps 1-5 may run
-  on the student's "go" (see "Cue probe result"). Plan
-  `docs/plans/llama_checklist_confirmation.md` (SHA-256 `85ed1d4f…` in its `.sha256` file; the first version's hash
-  is in its section 12), cut-off unchanged in `eval/results/task_dev_1/llama_checklist_cutoff.json`.
-  `python -m eval.confirm` checks both hashes. Steps, in the student's own PowerShell window with Edge closed (each
-  resumes by running it again; step 3 with `--resume`):
+- **v1 plan SUPERSEDED (student, 2026-11-09), never run: no `confirm-llama-1` or pool-2 data exist.** Its padding left
+  helper size separating canaries (AUC 0.85 ignoring direction), so H3 had power near 0. Notice on top of
+  `docs/plans/llama_checklist_confirmation.md` (kept, re-hashed with the notice; the locked text is in commit 6a9eaa9).
+- **v2 plan: DRAFT, `docs/plans/llama_checklist_confirmation_v2.md`, decoy padding built and proved dry. WAITING FOR
+  THE STUDENT'S OK** before the development batch. Order: (1) `task-dev-2`, 40 runs on pool 1, chooses a new cut-off;
+  (2) Claude re-locks the plan with the cut-off and code hashes, the student says OK; (3) `confirm-llama-2` on pool 2.
+  `eval/confirm.py` refuses to run until the v2 plan is locked. Step 1 commands (own window, Edge closed; step 3
+  resumes with `--resume`):
 
   ```powershell
   cd "C:\Users\Balaji Keerthi\Downloads\canary"
-  .venv\Scripts\python.exe -m eval.cue_probe --dry
-  .venv\Scripts\python.exe -m eval.cue_probe
-  # continue only after "Decision: NO_DETECTED_SENSITIVITY"
-  .venv\Scripts\python.exe -m canary.cli build-pool --out data/calibration/pool-2.json --avoid data/calibration/pool.json
-  .venv\Scripts\python.exe -m canary.cli length-check --dry --pool data/calibration/pool-2.json --runs 100 --seed 1109
-  .venv\Scripts\python.exe -m canary.cli calibrate --runs 100 --batch confirm-llama-1 --pool data/calibration/pool-2.json --role skeptic_c_checklist --seed 1109
-  .venv\Scripts\python.exe -m canary.cli rescore --batch confirm-llama-1 --reviewer skeptic_c
-  .venv\Scripts\python.exe -m eval.confirm --batch confirm-llama-1
+  .venv\Scripts\python.exe -m eval.padding_proof
+  .venv\Scripts\python.exe -m canary.cli length-check --dry --pool data/calibration/pool.json --runs 40 --seed 1110
+  .venv\Scripts\python.exe -m canary.cli calibrate --runs 40 --batch task-dev-2 --pool data/calibration/pool.json --role skeptic_c_checklist --seed 1110
+  .venv\Scripts\python.exe -m eval.cutoff --batch task-dev-2
   ```
 
-  Stop and report if step 2 prints FAILED, or if step 3 says "length gate failed" (it then audits nothing).
+  Stop and report if the proof or step 2 fails, if step 3 says "length gate failed", or if the cut-off's J is 0 or
+  below (v2 section 5).
+
+## Padding redesign (2026-11-09): decoys, so no size feature separates the run types
+- **`/brainstorm`, ranked by value and effort:**
+
+  | # | Design | Value | Effort | Why |
+  |---|---|---|---|---|
+  | 1 | **Decoys + padding (chosen):** each clean run gets a harmless copy of one bug's edit (same place, lines, statements, about the same characters), in the canaries' proportions; then the usual padding | High | Medium | Every size feature matched by construction; a reviewer must judge whether the added code harms |
+  | 2 | Decoy sizes without a helper: clean runs get bug-sized decoys, no padding to one length | Medium | Medium | Line count matched only in distribution: rank noise (about +-0.06) can fail the gate by luck |
+  | 3 | Generic dead code (CONFIG copies) sized like a bug, in the bug's function | Medium-low | Low | Dead code is recognisable, so "code that is not dead" still measures the bug's size |
+  | 4 | Pad each function to its own fixed size | Low | Medium | The padding per function then shows where a bug is |
+  | 5 | A random extra padding dose on every run | Low | Low | Only blurs the cue (0.85 to about 0.7); never removes it |
+  | 6 | Length-neutral bugs (each bug replaces equal-size template code) | High for size | High | Changes the bug set, breaks the oracles and comparability with RQ1 |
+  | 7 | No padding; compare canaries with clean runs of equal size | Low | Low | Clean runs all have the template's size, so the strata are empty |
+
+- **Built:** `canary/saboteur/decoys.py` (20 variants; CONFIG-only and same-length bugs need no code), clean slots get
+  decoys in `mixer.plan_batch` (`decoy_assignment`, seeded, cycling all variants; clean slots take only bases the
+  decoy's bug applies to), `controls.run_control/run_sham` (decoy secret in the sealed table), shams choose renames
+  that change length least (random renames made shams about 170 characters longer, which left them a smaller helper),
+  and the length gate now has five features: line, character and statement count, helper statements, helper characters.
+- **Harmless, proved by running:** `tests/test_decoys.py` (slow): on 3 settings x 20 variants every decoy gives exactly
+  the clean numbers and its bug's oracle stays silent. One-off on real data in the sandbox (not stored): breast_cancer,
+  wine and diabetes, all 47 applicable decoys gave the clean numbers.
+- **Dry proof, pool 1 (`python -m eval.padding_proof`, `eval/results/padding_v2/dry_proof.json`), base 90% intervals:**
+
+  | Feature | task-dev-2 plan, decoys | 100 runs, decoys | 100 runs, old design |
+  |---|---|---|---|
+  | Line count | 0.500 [0.500, 0.500] | 0.500 [0.500, 0.500] | 0.500 [0.500, 0.500] |
+  | Character count | 0.500 [0.500, 0.500] | 0.500 [0.500, 0.500] | 0.500 [0.500, 0.500] |
+  | Statement count | 0.500 [0.418, 0.571] | 0.500 [0.456, 0.544] | 0.450 [0.420, 0.480] |
+  | Helper statements | 0.500 [0.381, 0.643] | 0.500 [0.444, 0.558] | 0.150 [0.096, 0.205] |
+  | Helper characters | 0.499 [0.369, 0.633] | 0.482 [0.410, 0.558] | 0.134 [0.084, 0.185] |
+  | Effect spread (existing 220 pool-1 runs) | 0.521 [0.469, 0.567] | same | same |
+
+  Every interval with decoys contains 0.5. Diagnostics on the existing runs: effect size 0.541 [0.498, 0.579]; **best
+  arm's score 0.591 [0.541, 0.650] separates**: bugs really inflate scores, which no padding can hide (v2 limit).
+- **Power (`eval/results/confirm_llama_2/power.json`):** H3's strongest feature is now effect spread (0.521). P(H3
+  passes) at true AUC 0.60 / 0.65 / 0.70 / 0.75: 0.22 / 0.41 / 0.65 / 0.85 (was 0.00 at 0.75). H2 unchanged. H1 waits
+  for the new cut-off.
+- **Other code:** `eval/cutoff.py --batch` (refuses confirmation batches; the task-dev-1 cut-off stays, superseded),
+  `eval/confirm.py` points at v2, refuses `confirm-llama-1` and dev batches, H3 has six features;
+  `compare_tasks.run_features` adds statement count and helper characters. Test bootstrap draws 400 -> 300 to stay
+  under 30 s.
+- **Forecast, from measured numbers** (task-dev-1: 40 runs in 7.8 min; llama-checklist 14.4 s median per audit, max
+  25 s; padded probe prompts 14.1 s median; pool-1 build 6.4 min):
+  - Step 1, `task-dev-2`: proof and dry check under 1 min, runs 7-12 min, 40 audits 10-14 min with model load, cut-off
+    seconds: **about 20-27 min**.
+  - Step 3, `confirm-llama-2`: build-pool 6-10 min, runs 22-35 min (160 script runs incl. canary twins, plus 3 B09
+    subtle slots that measure, about 2 min each), 100 audits 24-33 min, rescore 22-26 min: **about 75-105 min**
+    (50-80 min without the optional rescore).
 
 ## Amendment 1 of the confirmation plan (2026-11-09): helper-size cue
 - **`/analyze`:** length matching keeps total length constant, so a canary's bug lines take the place of helper lines.
@@ -546,12 +593,12 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **Real runs with a bug-like design are not caught yet.** `why_not_clean` only protects clones. A real run using accuracy
   above 3:1 is really buggy; Mission 5.1's B06 tripwire should catch it.
 - **Canaries were longer than clean runs (fixed for new batches).** rq1-full and task-dev-1 keep the cue; new plans
-  are length-matched and gated (see "Length matching"). Left: the helper-size cue (AUC 0.15 on a dry run; now an H3
-  feature, with a probe before the batch; see "Amendment 1"), and
+  are length-matched, carry decoys and are gated on five size features (see "Padding redesign"). Left: decoys are
+  hard controls a reviewer may flag, and
   **real runs are not padded yet**: before Mission 4.1 applies calibration numbers to real findings, real runs must
   get the same helper and target, or controls would no longer look like real runs.
-- **A sham's edits can be told apart in principle.** Its imports are out of the template's usual order, and its names are
-  slightly longer on average (about 1-2% more characters). A stateless reviewer sees one run at a time and has no template to
+- **A sham's edits can be told apart in principle.** Its imports are out of the template's usual order. (Its names were
+  also longer on average; since 2026-11-09 shams pick renames that keep the length within a few characters.) A stateless reviewer sees one run at a time and has no template to
   compare with, so this should not matter, but a reviewer that learned the template could separate them.
 - **Overall recall looks more certain than it is while classes are untested.** With no data at all, it reads about 0.50, 90% [0.35, 0.65],
   purely from averaging 10 flat priors. `trust` and RQ1 print "tested k of 10"; any report must show that too.
@@ -559,7 +606,7 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   `split_sizes` stays normal. It needs a different check.
 - **Mission 5.1's B07 tripwire needs care:** `blood-transfusion` has 246 duplicate feature rows and `pc1` 161 before any
   bug, so row overlap between splits is normal there. Compare against the overlap expected from the dataset.
-- **The test suite is still close to its limit** (29.0 s of 30 s with 593 tests on 2026-11-09; runs on a busy laptop
+- **The test suite is still close to its limit** (29.7-29.9 s of 30 s with 597 tests on 2026-11-09, test bootstrap at 300 draws; runs on a busy laptop
   measured 31-40 s with no code change, so time it twice before trimming). The broken-config and sham tests now run in-process; the 2 remaining subprocess tests take about 3 s each.
 - **Cold model loads are slow** (27-110 s seen). Handled with the 300 s cold timeout and `ModelQueue`.
 - **`qwen3:4b` writing reasoning into replies did not occur in schema mode:** 2 of 2 real replies were clean JSON. Plain
@@ -571,10 +618,10 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next actions
-1. **Cue probe done: NO_DETECTED_SENSITIVITY** (see "Cue probe result"). The plan is ready for "go" as locked.
-   Still the student's call before "go": amended H3 has power near 0 while helper size scores about 0.85 (see
-   "Amendment 1"), so run as is, or redesign the padding first as amendment 2 (`/recommend`).
-2. On the student's "go": the confirmation steps 1-5 under "In progress", then `/evaluate` the result honestly.
+1. **Waiting for the student's OK on the v2 plan** (`docs/plans/llama_checklist_confirmation_v2.md`). Then the student
+   runs step 1 (`task-dev-2`, commands under "In progress", about 20-27 min) and Claude `/evaluate`s it.
+2. Re-lock v2 (cut-off and code hashes, H1 power), student's OK, then `confirm-llama-2` (about 75-105 min) and
+   `/evaluate`.
 3. `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule; then Mission 3.1.
 4. Plan only (nothing built yet, each needs the student's OK):
    - **Cloud ceiling check on 40 runs:** one strong cloud reviewer (a different family from the Scientist) on a

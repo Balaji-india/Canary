@@ -1,13 +1,13 @@
-"""Choose and lock the llama-checklist score cut-off on task-dev-1, before the confirmation batch exists.
+"""Choose and lock the llama-checklist score cut-off on a development batch, before the confirmation batch exists.
 
-Run once: `python -m eval.cutoff`. It reads the fresh scores of all 40 task-dev-1 runs for `skeptic_c_checklist` (the
-matched rescore where the reply repeated, else the fresh pass), picks the cut-off with the highest Youden's J, and
-writes it to a file that is never overwritten. The plan (docs/plans/llama_checklist_confirmation.md) records that
-file's SHA-256, and eval/confirm.py refuses to run if the two disagree.
+Run once per development batch: `python -m eval.cutoff --batch task-dev-2`. It reads each run's score for
+`skeptic_c_checklist` (the one stored with its first audit; for older batches, the matched rescore or the fresh pass),
+picks the cut-off with the highest Youden's J, and writes it to a file that is never overwritten. The confirmation
+plan records that file's SHA-256, and eval/confirm.py refuses to run if the two disagree.
 
-Caveat written into the file: task-dev-1's canaries were longer than its clean runs (line-count AUC 0.85), so this
-cut-off was chosen on length-confounded data and may not transfer to a length-matched batch. That is why the plan
-also tests AUC (H2), which needs no cut-off.
+History: the first cut-off (task-dev-1, 2026-11-08) was chosen on length-confounded data (line-count AUC 0.85), and on
+padded clean runs it flagged 14-17 of 20 (cue probe). It is kept, superseded, at its old path. The second is chosen on
+task-dev-2: pool 1, padded, with decoys (canary/saboteur/decoys.py), so no size feature separates the run types.
 """
 from __future__ import annotations
 
@@ -21,8 +21,21 @@ from canary import ledger, mixer, sealed, trust
 from eval import compare_tasks
 
 ROLE = "skeptic_c_checklist"
-BATCH = "task-dev-1"
-CUTOFF_PATH = compare_tasks.RESULTS_DIR / "task_dev_1" / "llama_checklist_cutoff.json"
+DEV_BATCH = "task-dev-2"
+CAVEATS = {
+    "task-dev-1": "chosen on task-dev-1, whose canaries were longer than its clean runs (line-count AUC 0.85): "
+                  "length-confounded data, so the cut-off may not transfer to a length-matched batch",
+    "task-dev-2": "chosen on task-dev-2: 40 runs on pool 1 (bases also used by rq1-full and task-dev-1), padded and "
+                  "with decoys; the confirmation batch uses new bases (pool 2)",
+}
+
+
+def cutoff_path(batch: str) -> Path:
+    return compare_tasks.RESULTS_DIR / batch.replace("-", "_") / "llama_checklist_cutoff.json"
+
+
+CUTOFF_PATH = cutoff_path(DEV_BATCH)  # the cut-off the current confirmation plan uses
+SUPERSEDED_CUTOFF_PATH = cutoff_path("task-dev-1")
 TIE_RULE = "highest J; on a tie, the lowest cut-off"
 
 
@@ -86,30 +99,39 @@ def lock(path: Path, record: dict) -> str:
     return sha256_file(path)
 
 
-def build_record(scores: dict[str, tuple[bool, float | None]]) -> dict:
+def build_record(scores: dict[str, tuple[bool, float | None]], batch: str = DEV_BATCH) -> dict:
     bug = [s for b, s in scores.values() if b and s is not None]
     clean = [s for b, s in scores.values() if not b and s is not None]
     missing = sum(s is None for _, s in scores.values())
     if missing:
-        raise ValueError(f"{missing} runs have no fresh score; finish `rescore --fresh` first")
-    return {"role": ROLE, "batch": BATCH, "rule": TIE_RULE, "scored_buggy": len(bug), "scored_clean": len(clean),
+        raise ValueError(f"{missing} runs have no score; run `rescore --batch {batch} --reviewer skeptic_c --fresh` first")
+    return {"role": ROLE, "batch": batch, "rule": TIE_RULE, "scored_buggy": len(bug), "scored_clean": len(clean),
             "auc_on_these_scores": compare_tasks.auc(bug, clean), **choose_cutoff(bug, clean),
-            "caveat": "chosen on task-dev-1, whose canaries were longer than its clean runs (line-count AUC 0.85): "
-                      "length-confounded data, so the cut-off may not transfer to a length-matched batch",
+            "caveat": CAVEATS.get(batch, f"chosen on {batch}"),
             "chosen_at": datetime.now(timezone.utc).isoformat()}
 
 
 def main(argv: list[str] | None = None) -> int:
-    argparse.ArgumentParser(description=__doc__.splitlines()[0]).parse_args(argv)
-    record = build_record(role_scores(sealed.SealedTable(), ledger.Ledger(), BATCH, ROLE))
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--batch", default=DEV_BATCH, help="the development batch (never a confirmation batch)")
+    args = parser.parse_args(argv)
+    if args.batch.startswith("confirm"):
+        print("A cut-off is chosen on a development batch, never on the batch that tests it.")
+        return 2
+    scores = role_scores(sealed.SealedTable(), ledger.Ledger(), args.batch, ROLE)
+    if not scores:
+        print(f"Batch {args.batch} has no {ROLE} audits yet.")
+        return 1
+    record = build_record(scores, args.batch)
+    path = cutoff_path(args.batch)
     try:
-        digest = lock(CUTOFF_PATH, record)
+        digest = lock(path, record)
     except LockError as exc:
         print(exc)
         return 1
     print(f"Cut-off {record['cutoff']:.6g}: J {record['j']:+.3f} (recall {record['recall']:.2f}, false alarms "
           f"{record['false_alarm_rate']:.2f}) on {record['scored_buggy']}+{record['scored_clean']} runs.")
-    print(f"Locked {CUTOFF_PATH} SHA-256 {digest}")
+    print(f"Locked {path} SHA-256 {digest}")
     return 0
 
 

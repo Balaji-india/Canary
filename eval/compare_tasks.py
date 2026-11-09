@@ -29,7 +29,7 @@ from pathlib import Path
 import numpy as np
 from scipy import stats
 
-from canary import blinding, codegen, config, ledger, mixer, sandbox, sealed, trust
+from canary import blinding, codegen, config, ledger, mixer, padding, sandbox, sealed, trust
 from canary.separation import auc, base_bootstrap, bootstrap  # noqa: F401 (also used by tests via this module)
 from canary.separation import auc_stat as _auc_stat
 from canary.separation import auc_summary as _auc_of
@@ -56,13 +56,14 @@ def _observed_j(flags_bug: np.ndarray, flags_clean: np.ndarray) -> float:
     return float(flags_bug.mean() - flags_clean.mean())
 
 
-FEATURES = ("line_count", "char_count", "effect_spread", "effect_size", "top_score")
+FEATURES = ("line_count", "char_count", "statement_count", "helper_chars", "effect_spread", "effect_size", "top_score")
 
 
 def run_features(run_id: str, runs_dir: Path = sandbox.RUNS_DIR) -> dict[str, float] | None:
     """Signals visible to the reviewer that need no understanding of any bug. None if the run's files are missing.
 
-    line_count, char_count: lines and characters of the blinded script. effect_spread: standard deviation across seeds of treatment - control.
+    line_count, char_count, statement_count: lines, characters and statements of the blinded script. helper_chars:
+    characters of the padding helper (0 on unpadded runs). effect_spread: standard deviation across seeds of treatment - control.
     effect_size: |mean(treatment - control)|. top_score: the better arm's mean score.
     """
     run_dir = runs_dir / run_id
@@ -71,7 +72,8 @@ def run_features(run_id: str, runs_dir: Path = sandbox.RUNS_DIR) -> dict[str, fl
         results = json.loads((run_dir / sandbox.RESULTS_NAME).read_text(encoding="utf-8"))
         effect = np.asarray(results["treatment"], dtype=float) - np.asarray(results["control"], dtype=float)
         blinded = blinding.blind_script(script)
-        return {"line_count": float(len(blinded.splitlines())), "char_count": float(len(blinded)),
+        return {**{k: float(v) for k, v in padding.shape(blinded).items()},
+                "helper_chars": float(padding.helper_chars(blinded) or 0),
                 "effect_spread": float(effect.std(ddof=1)) if len(effect) > 1 else 0.0,
                 "effect_size": float(abs(effect.mean())),
                 "top_score": float(max(np.mean(results["control"]), np.mean(results["treatment"])))}

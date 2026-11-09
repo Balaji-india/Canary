@@ -442,10 +442,7 @@ def cmd_length_check(args: argparse.Namespace) -> int:
         plan = json.loads(mixer.plan_path(args.batch).read_text(encoding="utf-8"))
         check = mixer.batch_length_check(client, led, table, args.batch, plan.get("role", skeptic.DEFAULT_ROLE))
         extra = f"largest prompt {check['largest_prompt_chars']} characters, {check['prompts_too_large']} too large"
-    helper = check.get("helper_statements_auc")
     print(f"Length gate {'PASSED' if check['passes'] else 'FAILED'}: {mixer.gate_text(check)}; {extra}.")
-    if helper and helper["value"] is not None:
-        print(f"Diagnostic, not gating: helper size AUC {helper['value']:.3f} (canaries get a smaller helper by design).")
     print(f"{check['runs']} runs, {check['buggy']} canaries. Rule: {check['rule']}.")
     return 0 if check["passes"] else 1
 

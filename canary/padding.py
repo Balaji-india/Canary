@@ -105,6 +105,22 @@ def length(script: str) -> tuple[int, int]:
     return len(blinded.splitlines()), len(blinded)
 
 
+def shape(blinded: str) -> dict:
+    """The size features of an already blinded script: lines, characters and statements (every statement node, so a
+    multi-line CONFIG dict counts once and a loop counts with its body)."""
+    statements = sum(isinstance(node, ast.stmt) for node in ast.walk(ast.parse(blinded)))
+    return {"line_count": len(blinded.splitlines()), "char_count": len(blinded), "statement_count": statements}
+
+
+def helper_chars(blinded: str) -> int | None:
+    """Characters of the padding helper in an already blinded script, or None if it has none (a diagnostic: the
+    helper's line count is fixed by the gate, but its statements could be longer on one run type)."""
+    for node in ast.parse(blinded).body:
+        if isinstance(node, ast.FunctionDef) and node.name == FUNCTION:
+            return len(ast.unparse(node))
+    return None
+
+
 def batch_target(clean_configs: list[dict]) -> Target:
     """One length for every run of a batch, from the clean scripts of its pool's bases. Run types are not an input."""
     sizes = [length(codegen.render_script(c)) for c in clean_configs]

@@ -1,15 +1,16 @@
-"""The llama-checklist confirmation, exactly as pre-registered in docs/plans/llama_checklist_confirmation.md.
+"""The llama-checklist confirmation, exactly as pre-registered in docs/plans/llama_checklist_confirmation_v2.md.
 
-Run with `python -m eval.confirm --batch confirm-llama-1` after the batch is audited. It refuses to run unless the plan
+Run with `python -m eval.confirm --batch confirm-llama-2` after the batch is audited. The first plan
+(llama_checklist_confirmation.md, batch confirm-llama-1) is superseded and never ran: its padding left helper size
+separating canaries from clean runs. Its batch name is refused here. It refuses to run unless the plan
 matches its recorded SHA-256 and the cut-off file matches the SHA-256 written in the plan, so neither can be changed
 after the data exist without it showing.
 
 Hypotheses (90% intervals resample whole bases, 2000 draws, seed 0):
 - H1: J at the locked cut-off (flag when P(flag) >= cut-off): lower bound above 0.
 - H2: AUC of P(flag): lower bound above 0.5.
-- H3 (amended 2026-11-09): AUC of P(flag) minus the direction-free AUC of the strongest trivial feature (blinded line
-  count, character count, helper size, effect spread), paired on the same runs, the strongest re-picked in every
-  draw: lower bound above 0. The first version compared with line count alone, which length matching makes constant.
+- H3: AUC of P(flag) minus the direction-free AUC of the strongest trivial feature (H3_FEATURES), paired on the same
+  runs, the strongest re-picked in every draw: lower bound above 0.
 Confirmed = (H1 or H2) and H3. Everything else in the output is a diagnostic and decides nothing.
 """
 from __future__ import annotations
@@ -27,14 +28,16 @@ from eval import compare_tasks
 from eval.cutoff import CUTOFF_PATH, sha256_file
 
 ROLE = "skeptic_c_checklist"
-DEFAULT_BATCH = "confirm-llama-1"
-PLAN_PATH = Path(__file__).parent.parent / "docs" / "plans" / "llama_checklist_confirmation.md"
+DEFAULT_BATCH = "confirm-llama-2"
+PLAN_PATH = Path(__file__).parent.parent / "docs" / "plans" / "llama_checklist_confirmation_v2.md"
 PLAN_HASH_PATH = PLAN_PATH.with_name(PLAN_PATH.name + ".sha256")
 CUTOFF_LINE = re.compile(r"Cut-off file SHA-256: `([0-9a-f]{64})`")
-REFUSED_BATCHES = {"rq1-full", "task-dev-1"}
+# Development batches chose cut-offs, and confirm-llama-1 belongs to the superseded first plan.
+REFUSED_BATCHES = {"rq1-full", "task-dev-1", "task-dev-2", "confirm-llama-1"}
 # H3's trivial features: what a reviewer could count without understanding any bug. helper_statements is the padding
-# helper's size (secret, from the sealed table); the others come from the run folder (compare_tasks.run_features).
-H3_FEATURES = ("line_count", "char_count", "helper_statements", "effect_spread")
+# helper's size in statements (secret, from the sealed table); the others come from the run folder
+# (compare_tasks.run_features), helper_chars included.
+H3_FEATURES = ("line_count", "char_count", "statement_count", "helper_statements", "helper_chars", "effect_spread")
 
 
 class LockError(RuntimeError):
@@ -120,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--batch", default=DEFAULT_BATCH)
     args = parser.parse_args(argv)
     if args.batch in REFUSED_BATCHES:
-        print(f"{args.batch} is not a confirmation batch: the cut-off was chosen on task-dev-1.")
+        print(f"{args.batch} is not a confirmation batch of the current plan ({DEFAULT_BATCH}).")
         return 2
     try:
         locks = verify_locks()

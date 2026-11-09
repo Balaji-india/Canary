@@ -1,3 +1,17 @@
+> **SUPERSEDED on 2026-11-09 by `llama_checklist_confirmation_v2.md`. Never run: no pool-2 or `confirm-llama-1`
+> data exist.** Kept, not deleted, as the record of what was pre-registered.
+>
+> Why: the cue probe passed (section 4a), but this plan's padding left the padding helper's size separating canaries
+> from clean runs (AUC 0.15, i.e. 0.85 with direction ignored, on the pool-1 dry plan). Amended H3 had to beat that
+> number, so its power was about 0 at llama's likely AUC (`eval/results/confirm_llama_1/power.json`). The locked
+> cut-off was also chosen on length-confounded data and flagged 14 to 17 of 20 padded clean controls in the probe
+> (`eval/results/confirm_llama_1/cue_probe.json`). v2 adds decoys to clean runs so that no size feature separates the
+> run types, and chooses a new cut-off on a development batch with the new padding.
+>
+> The text below is byte for byte the version locked as amendment 1: SHA-256 `85ed1d4f1bc9d3873bc2eaef786865c0fd14b6e64af06ba72d6974fca144842c`, committed in `6a9eaa9`.
+> Only this notice was added; the `.sha256` file now hashes the file with the notice. `eval/confirm.py` refuses the
+> batch name `confirm-llama-1`.
+
 # Pre-registration: llama-checklist confirmation on a new, length-matched pool
 
 Written 2026-11-08, before pool-2 or the confirmation batch exists. Approved by the student with changes A-E (below).

@@ -233,7 +233,25 @@ def test_the_dry_gate_fails_unpadded_plans_and_passes_padded_ones():
     assert not unpadded["passes"] and unpadded["features"]["line_count"]["value"] > 0.6
     padded = mixer.dry_length_check(mixer.plan_batch("b", 30, POOL, 1))
     assert padded["passes"] and padded["slots_without_base"] == 0
-    assert {f["value"] for f in padded["features"].values()} == {0.5}  # one size for every script
+    assert padded["features"]["line_count"]["value"] == padded["features"]["char_count"]["value"] == 0.5  # one size
+
+
+@pytest.mark.slow
+def test_padding_without_decoys_fails_the_gate_on_helper_size():
+    """Canaries keep a smaller helper without decoys (AUC 0.15 on pool 1), and the gate now sees it."""
+    no_decoys = mixer.dry_length_check(mixer.plan_batch("b", 30, POOL, 1, decoys=False))
+    assert not no_decoys["passes"] and not no_decoys["features"]["helper_statements"]["contains_half"]
+
+
+def test_clean_slots_get_decoys_in_the_canaries_proportions():
+    plan = mixer.plan_batch("b", 100, POOL, 1)
+    decoys = [tuple(s["decoy"]) for s in plan["slots"] if s["run_type"] != sealed.CANARY_MEASURE]
+    canaries = [(s["bug_id"], s["tier"]) for s in plan["slots"] if s["run_type"] == sealed.CANARY_MEASURE]
+    assert len(decoys) == 40 and set(decoys) == set(canaries) == set(TRANSFORMS)
+    assert {decoys.count(v) for v in set(decoys)} == {2} and {canaries.count(v) for v in set(canaries)} == {3}
+    assert all("decoy" not in s for s in plan["slots"] if s["run_type"] == sealed.CANARY_MEASURE)
+    assert mixer.decoy_assignment(40, 1) == mixer.decoy_assignment(40, 1)  # seeded
+    assert not any("decoy" in s for s in mixer.plan_batch("b", 30, POOL, 1, length_match=False)["slots"])
 
 
 def test_a_failed_length_gate_stops_before_any_audit(world, monkeypatch):

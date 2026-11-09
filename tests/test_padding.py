@@ -55,12 +55,17 @@ def test_the_subset_search_finds_an_exact_sum_by_swapping_pairs():
 
 
 def test_the_length_gate_passes_constant_lengths_and_fails_a_length_cue():
-    same = [{"base": f"b{i % 5}", "buggy": i < 10, "line_count": 112, "char_count": 6000} for i in range(20)]
+    same = [{"base": f"b{i % 5}", "buggy": i < 10, "line_count": 112, "char_count": 6000, "statement_count": 100,
+             "helper_statements": 12, "helper_chars": 700} for i in range(20)]
     check = separation.length_check(same)
-    assert check["passes"] and check["features"]["line_count"]["value"] == 0.5
+    assert check["passes"] and {f["value"] for f in check["features"].values()} == {0.5}
     cue = [{**r, "line_count": 112 + (5 if r["buggy"] else 0) + i % 2} for i, r in enumerate(same)]
     failed = separation.length_check(cue)
     assert not failed["passes"] and failed["features"]["line_count"]["value"] == 1.0
+    # Every size feature gates: a helper-size cue alone fails, and so does a feature missing on any run.
+    helper_cue = [{**r, "helper_statements": 6 if r["buggy"] else 21} for r in same]
+    assert not separation.length_check(helper_cue)["passes"]
+    assert not separation.length_check([{**r, "helper_chars": None} for r in same])["passes"]
     assert not separation.length_check([])["passes"]  # nothing measured is not a pass
 
 

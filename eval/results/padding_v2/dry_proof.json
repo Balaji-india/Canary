@@ -1,0 +1,243 @@
+{
+ "rule": "base-level 90% AUC interval contains 0.5, for every script feature of every decoy plan and for effect spread on existing pool-1 runs",
+ "passes": true,
+ "script_features": {
+  "task-dev-2 (40 runs, seed 1110), decoys": {
+   "decoys": true,
+   "passes": true,
+   "runs": 40,
+   "buggy": 20,
+   "features": {
+    "line_count": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.5,
+      0.5
+     ],
+     "contains_half": true
+    },
+    "char_count": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.5,
+      0.5
+     ],
+     "contains_half": true
+    },
+    "statement_count": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.4177976190476191,
+      0.5714285714285714
+     ],
+     "contains_half": true
+    },
+    "helper_statements": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.38054951690821254,
+      0.643287037037037
+     ],
+     "contains_half": true
+    },
+    "helper_chars": {
+     "auc": 0.49875,
+     "interval_90_base": [
+      0.36852230378317336,
+      0.6325807416267942
+     ],
+     "contains_half": true
+    }
+   }
+  },
+  "task-dev-2 (40 runs, seed 1110), no decoys (old design)": {
+   "decoys": false,
+   "passes": false,
+   "runs": 40,
+   "buggy": 20,
+   "features": {
+    "line_count": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.5,
+      0.5
+     ],
+     "contains_half": true
+    },
+    "char_count": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.5,
+      0.5
+     ],
+     "contains_half": true
+    },
+    "statement_count": {
+     "auc": 0.45,
+     "interval_90_base": [
+      0.38450226244343894,
+      0.5
+     ],
+     "contains_half": true
+    },
+    "helper_statements": {
+     "auc": 0.15,
+     "interval_90_base": [
+      0.0625,
+      0.28125
+     ],
+     "contains_half": false
+    },
+    "helper_chars": {
+     "auc": 0.22375,
+     "interval_90_base": [
+      0.11876117496807152,
+      0.32776363636363637
+     ],
+     "contains_half": false
+    }
+   }
+  },
+  "100 runs, seed 1109, decoys": {
+   "decoys": true,
+   "passes": true,
+   "runs": 100,
+   "buggy": 60,
+   "features": {
+    "line_count": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.5,
+      0.5
+     ],
+     "contains_half": true
+    },
+    "char_count": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.5,
+      0.5
+     ],
+     "contains_half": true
+    },
+    "statement_count": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.4559336525307797,
+      0.5444444444444444
+     ],
+     "contains_half": true
+    },
+    "helper_statements": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.44420449436546017,
+      0.5578824305548443
+     ],
+     "contains_half": true
+    },
+    "helper_chars": {
+     "auc": 0.4820833333333333,
+     "interval_90_base": [
+      0.40983904941360405,
+      0.5582940021106942
+     ],
+     "contains_half": true
+    }
+   }
+  },
+  "100 runs, seed 1109, no decoys (old design)": {
+   "decoys": false,
+   "passes": false,
+   "runs": 100,
+   "buggy": 60,
+   "features": {
+    "line_count": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.5,
+      0.5
+     ],
+     "contains_half": true
+    },
+    "char_count": {
+     "auc": 0.5,
+     "interval_90_base": [
+      0.5,
+      0.5
+     ],
+     "contains_half": true
+    },
+    "statement_count": {
+     "auc": 0.45,
+     "interval_90_base": [
+      0.41962845622119815,
+      0.47959873138444564
+     ],
+     "contains_half": false
+    },
+    "helper_statements": {
+     "auc": 0.15,
+     "interval_90_base": [
+      0.09615384615384616,
+      0.20454545454545456
+     ],
+     "contains_half": false
+    },
+    "helper_chars": {
+     "auc": 0.134375,
+     "interval_90_base": [
+      0.08392154007455732,
+      0.18476979325785692
+     ],
+     "contains_half": false
+    }
+   }
+  }
+ },
+ "result_features": {
+  "batches": [
+   "rq1-full",
+   "task-dev-1"
+  ],
+  "features": {
+   "effect_spread": {
+    "auc": 0.520625,
+    "interval_90_base": [
+     0.46914671722178164,
+     0.567249788698382
+    ],
+    "contains_half": true,
+    "gating": true,
+    "buggy": 120,
+    "clean": 100,
+    "bases": 18
+   },
+   "effect_size": {
+    "auc": 0.54075,
+    "interval_90_base": [
+     0.49782574187651324,
+     0.5794843919335987
+    ],
+    "contains_half": true,
+    "gating": false,
+    "buggy": 120,
+    "clean": 100,
+    "bases": 18
+   },
+   "top_score": {
+    "auc": 0.5912916666666667,
+    "interval_90_base": [
+     0.5411901384946588,
+     0.6503734678398059
+    ],
+    "contains_half": false,
+    "gating": false,
+    "buggy": 120,
+    "clean": 100,
+    "bases": 18
+   }
+  }
+ },
+ "generated_at": "2026-11-09T14:08:56.928275+00:00"
+}

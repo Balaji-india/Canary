@@ -23,7 +23,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from canary import (codegen, controls, ledger, llm, padding, prereg, review_tasks, sandbox, scientist, sealed,
+from canary import (blinding, codegen, controls, ledger, llm, padding, prereg, review_tasks, sandbox, scientist, sealed,
                     separation, skeptic)
 from canary.config import DATA_DIR, load_yaml
 from canary.saboteur.classes import IMBALANCE_RATIO, NotApplicable, class_counts, why_not_applicable
@@ -121,15 +121,31 @@ def build_pool(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable, p
     return pool
 
 
-def _usable(run_type: str, bug: str | None, tier: str | None, base: dict) -> bool:
+def _usable(run_type: str, bug: str | None, tier: str | None, base: dict, decoy: tuple | None = None) -> bool:
+    """A base fits a slot if it is clean and, for a canary, the bug applies to it. A clean slot with a decoy takes
+    only bases its decoy's bug would apply to, so decoys meet the same mix of experiments as that bug's canaries."""
     config = prereg.to_run_config(base["prereg"])
     if controls.why_not_clean(config):
+        return False
+    if decoy is not None and why_not_applicable(decoy[0], decoy[1], config) is not None:
         return False
     return run_type != sealed.CANARY_MEASURE or why_not_applicable(bug, tier, config) is None
 
 
+def decoy_assignment(n_clean: int, seed: int, variants: list[tuple[str, str]] | None = None) -> list[tuple[str, str]]:
+    """One bug variant per clean slot, cycling through every variant before any repeats, in a seeded order.
+
+    With 40 clean runs and 20 variants each variant is a decoy exactly twice, in the same proportions as the canaries
+    (3 each in a 100-run batch), so a clean run's added code has the same size distribution as a canary's bug code.
+    """
+    variants = variants or sorted(TRANSFORMS)
+    cycled = [variants[i % len(variants)] for i in range(n_clean)]
+    random.Random(f"{seed}:decoys").shuffle(cycled)
+    return cycled
+
+
 def plan_batch(batch: str, runs: int, pool: dict, seed: int, length_match: bool = True,
-               role: str = skeptic.DEFAULT_ROLE) -> dict:
+               role: str = skeptic.DEFAULT_ROLE, decoys: bool | None = None) -> dict:
     """Assign every slot a type and an ordered list of bases to try, then shuffle the slots.
 
     Each kind of slot walks through its usable bases in turn, so clones spread over experiments. The later bases on
@@ -137,37 +153,44 @@ def plan_batch(batch: str, runs: int, pool: dict, seed: int, length_match: bool 
     Raises MixerError if some variant has no usable base: dropping it silently would leave a class untested.
     `length_match` pads every run to a length drawn independently of its type (canary/padding.py); plans written
     before it existed have no such key and run unpadded on resume. `role` is the reviewer that audits the batch.
+    `decoys` (default: on when length matching) gives every clean slot a decoy (canary/saboteur/decoys.py), so the
+    padding helper's size no longer gives canaries away. Plans without the key run without decoys on resume.
     """
+    decoys = length_match if decoys is None else decoys
     rng = random.Random(seed)
     split = split_runs(runs)
     bases = pool["bases"]
-    wanted: list[tuple[str, str | None, str | None]] = []
+    wanted: list[tuple[str, str | None, str | None, tuple | None]] = []
     variants = sorted(TRANSFORMS)
     per_variant = split[sealed.CANARY_MEASURE] // len(variants)
-    wanted += [(sealed.CANARY_MEASURE, bug, tier) for bug, tier in variants for _ in range(per_variant)]
-    wanted += [(sealed.CONTROL, None, None)] * split[sealed.CONTROL]
-    wanted += [(sealed.SHAM, None, None)] * split[sealed.SHAM]
+    wanted += [(sealed.CANARY_MEASURE, bug, tier, None) for bug, tier in variants for _ in range(per_variant)]
+    clean = [sealed.CONTROL] * split[sealed.CONTROL] + [sealed.SHAM] * split[sealed.SHAM]
+    assigned = decoy_assignment(len(clean), seed, variants) if decoys else [None] * len(clean)
+    wanted += [(run_type, None, None, decoy) for run_type, decoy in zip(clean, assigned)]
 
     usable_cache: dict[tuple, list[int]] = {}
     turn: dict[tuple, int] = {}
     slots = []
-    for run_type, bug, tier in wanted:
-        key = (run_type, bug, tier)
+    for run_type, bug, tier, decoy in wanted:
+        key = (run_type, bug, tier, decoy)
         if key not in usable_cache:
-            usable_cache[key] = [i for i, base in enumerate(bases) if _usable(run_type, bug, tier, base)]
+            usable_cache[key] = [i for i, base in enumerate(bases) if _usable(run_type, bug, tier, base, decoy)]
             if not usable_cache[key]:
-                raise MixerError(f"no base in the pool fits {run_type} {bug or ''} {tier or ''}")
+                raise MixerError(f"no base in the pool fits {run_type} {bug or ''} {tier or ''} decoy {decoy}")
             rng.shuffle(usable_cache[key])
         usable = usable_cache[key]
         start = turn.get(key, 0)
         turn[key] = start + 1
         order = [usable[(start + offset) % len(usable)] for offset in range(len(usable))]
-        slots.append({"run_type": run_type, "bug_id": bug, "tier": tier, "candidates": order})
+        slot = {"run_type": run_type, "bug_id": bug, "tier": tier, "candidates": order}
+        if decoys and decoy is not None:
+            slot["decoy"] = list(decoy)
+        slots.append(slot)
     rng.shuffle(slots)
     for number, slot in enumerate(slots):
         slot["slot"] = number
     plan = {"batch": batch, "seed": seed, "runs": runs, "split": split, "bases": bases, "slots": slots,
-            "length_match": length_match, "role": role}
+            "length_match": length_match, "role": role, "decoys": decoys}
     if length_match:
         target = padding.batch_target([prereg.to_run_config(b["prereg"]) for b in bases])
         plan["length_target"] = {"lines": target.lines, "chars": target.chars}
@@ -208,11 +231,12 @@ def _run_slot(slot: dict, plan: dict, table: sealed.SealedTable, runs_dir: Path,
                 # The run's own record: `canary.status` also reports a failed twin, but this run may still be reviewable.
                 record = json.loads((runs_dir / canary.run_id / sandbox.RECORD_NAME).read_text(encoding="utf-8"))
                 return controls.clone_prereg(base["prereg"], canary.config), record, base
+            decoy = tuple(slot["decoy"]) if slot.get("decoy") else None
             if run_type == sealed.CONTROL:
                 return (controls.clone_prereg(base["prereg"], clone),
-                        controls.run_control(clone, table, runs_dir, source, extra, padder), base)
+                        controls.run_control(clone, table, runs_dir, source, extra, padder, decoy), base)
             return (controls.clone_prereg(base["prereg"], clone),
-                    controls.run_sham(clone, table, rng, runs_dir, source, extra, padder), base)
+                    controls.run_sham(clone, table, rng, runs_dir, source, extra, padder, decoy), base)
         except (NotApplicable, TransformError):
             continue
     return None
@@ -298,8 +322,9 @@ def batch_length_check(client: llm.LLM, led: ledger.Ledger, table: sealed.Sealed
             continue
         job = skeptic._prepare(entry, locks[entry.hypothesis_id], runs_dir)
         rows.append({"base": truth.source or run_id, "buggy": truth.known_buggy,
-                     "line_count": len(job.blinded.script.splitlines()), "char_count": len(job.blinded.script),
-                     "helper_statements": truth.details.get("padding", {}).get("statements")})
+                     **padding.shape(job.blinded.script),
+                     "helper_statements": truth.details.get("padding", {}).get("statements"),
+                     "helper_chars": padding.helper_chars(job.blinded.script)})
         system, prompt, _ = review_tasks.build(task, job.blinded, bugs, None)
         largest = max(largest, len(prompt) + len(system or ""))
         try:
@@ -321,6 +346,7 @@ def dry_rows(plan: dict) -> list[dict]:
     """
     rows = []
     for slot in plan["slots"]:
+        decoy = tuple(slot["decoy"]) if slot.get("decoy") else None
         for attempt, index in enumerate(slot["candidates"]):
             base = plan["bases"][index]
             rng = random.Random(f"{plan['seed']}:{slot['slot']}:{attempt}")
@@ -330,18 +356,19 @@ def dry_rows(plan: dict) -> list[dict]:
                 if slot["run_type"] == sealed.CANARY_MEASURE:
                     script = sabotage(clone, slot["bug_id"], slot["tier"], measure=False).script
                 elif slot["run_type"] == sealed.CONTROL:
-                    script = codegen.render_script(clone)
+                    script = controls.clean_script(clone, decoy)
                 else:
-                    script = controls.make_sham(clone, rng).script
+                    script = controls.make_sham(clone, rng, controls.clean_script(clone, decoy)).script
             except (NotApplicable, TransformError):
                 continue
             helper = None
             if padder:
                 padded = padder.pad(script)
                 script, helper = padded.script, padded.statements
-            lines, chars = padding.length(script)
+            blinded = blinding.blind_script(script)
             rows.append({"base": f"pool:{index}", "buggy": slot["run_type"] == sealed.CANARY_MEASURE,
-                         "line_count": lines, "char_count": chars, "helper_statements": helper})
+                         **padding.shape(blinded), "helper_statements": helper,
+                         "helper_chars": padding.helper_chars(blinded)})
             break
     return rows
 
