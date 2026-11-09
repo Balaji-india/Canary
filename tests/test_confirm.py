@@ -37,16 +37,20 @@ def test_the_plan_and_cutoff_hashes_are_checked(tmp_path):
         confirm.verify_locks(plan, plan_hash, cut)
 
 
-def batch(tmp_path, bug_scores, clean_scores, bases=6):
-    """Sealed runs with one checklist audit each, a script per run (all the same length) and spread over bases."""
+def batch(tmp_path, bug_scores, clean_scores, bases=6, helper=lambda buggy: 21):
+    """Sealed runs with one checklist audit each, a script and results per run (all the same length and numbers),
+    spread over bases. `helper` gives each run's padding-helper size from whether it is buggy."""
     table, led, runs = sealed.SealedTable(tmp_path / "s.db"), Ledger(tmp_path / "l.db"), tmp_path / "runs"
     rows = [(sealed.CANARY_MEASURE, s) for s in bug_scores] + [(sealed.CONTROL, s) for s in clean_scores]
     for i, (run_type, score) in enumerate(rows):
         run, hyp = f"r{i:03d}", f"h{i:03d}"
         bug = ("B01", "obvious") if run_type == sealed.CANARY_MEASURE else (None, None)
-        table.seal(run, run_type, *bug, source=f"pool:{i % bases}", details={"batch": "c"})
+        table.seal(run, run_type, *bug, source=f"pool:{i % bases}",
+                   details={"batch": "c", "padding": {"statements": helper(run_type == sealed.CANARY_MEASURE)}})
         (runs / run).mkdir(parents=True)
         (runs / run / "experiment.py").write_text("x = 1\ny = 2\n", encoding="utf-8")
+        (runs / run / "results.json").write_text(json.dumps({"control": [0.8, 0.9], "treatment": [0.85, 0.9]}),
+                                                 encoding="utf-8")
         led.append(hyp, ledger.PROPOSED, {})
         led.append(hyp, ledger.PREREGISTERED, {})
         led.append(hyp, ledger.RAN, {"run_id": run, "run_status": "ok", "results_sha256": "x"})
@@ -58,15 +62,33 @@ def batch(tmp_path, bug_scores, clean_scores, bases=6):
 
 
 def test_a_separating_score_is_confirmed_and_a_flat_one_is_not(tmp_path):
-    table, led, runs = batch(tmp_path / "a", [0.8, 0.7, 0.9, 0.6, 0.85, 0.75] * 2, [0.2, 0.3, 0.1, 0.4, 0.25, 0.35] * 2)
-    result = confirm.build(table, led, "c", 0.5, ["B01"], 1000, runs, tmp_path / "rescore")
+    table, led, runs = batch(tmp_path / "a", [0.8, 0.7, 0.9, 0.6, 0.85, 0.75], [0.2, 0.3, 0.1, 0.4, 0.25, 0.35])
+    result = confirm.build(table, led, "c", 0.5, ["B01"], 200, runs, tmp_path / "rescore")
     assert result["H1"]["j_at_cutoff"] == 1.0 and result["H2"]["value"] == 1.0
-    assert result["H3"]["value"] == pytest.approx(0.5)  # line count is constant, so its AUC is 0.5
+    # Every trivial feature is constant here (AUC 0.5), so H3 = 1.0 - 0.5.
+    assert result["H3"]["value"] == pytest.approx(0.5) and result["H3"]["runs"] == 12
     assert all(result[h]["passes"] for h in ("H1", "H2", "H3")) and result["confirmed"]
 
-    table, led, runs = batch(tmp_path / "b", [0.5] * 12, [0.5] * 12)
-    flat = confirm.build(table, led, "c", 0.5, ["B01"], 1000, runs, tmp_path / "rescore")
+    table, led, runs = batch(tmp_path / "b", [0.5] * 6, [0.5] * 6)
+    flat = confirm.build(table, led, "c", 0.5, ["B01"], 200, runs, tmp_path / "rescore")
     assert flat["H2"]["value"] == 0.5 and not flat["confirmed"]
+
+
+def test_h3_fails_when_the_helper_size_separates_as_well_as_the_score(tmp_path):
+    """The amended H3: a perfect score does not confirm if the helper's size alone separates just as well."""
+    # Six bases, each with one canary and one control, so every bootstrap draw keeps both kinds.
+    table, led, runs = batch(tmp_path, [0.8, 0.7, 0.9, 0.6, 0.85, 0.75], [0.2, 0.3, 0.1, 0.4, 0.25, 0.35],
+                             helper=lambda buggy: 6 if buggy else 21)
+    result = confirm.build(table, led, "c", 0.5, ["B01"], 200, runs, tmp_path / "rescore")
+    assert result["H2"]["passes"]
+    assert result["H3"]["strongest_feature"] == "helper_statements"
+    assert result["H3"]["feature_auc"]["helper_statements"] == 0.0  # lower on buggy runs: direction-free 1.0
+    assert result["H3"]["value"] == pytest.approx(0.0) and not result["H3"]["passes"] and not result["confirmed"]
+
+
+def test_h3_power_is_the_one_sided_error_rate_when_the_score_only_ties_the_feature():
+    assert confirm_power.h3_power(0.85, 0.85, 60, 40, 1.27) == pytest.approx(0.05)
+    assert confirm_power.h3_power(0.95, 0.85, 60, 40, 1.0) > confirm_power.h3_power(0.90, 0.85, 60, 40, 1.0)
 
 
 def test_power_uses_hanley_mcneil_and_rises_with_the_effect():

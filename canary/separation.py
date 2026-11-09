@@ -91,6 +91,44 @@ def paired_auc_gap(pairs: dict[str, tuple[float, float]], buggy: set[str], base_
         [(base_of[r], r in buggy, x, y) for r, (x, y) in pairs.items()], gap), "runs": len(pairs)}
 
 
+def direction_free(value: float | None) -> float | None:
+    """max(AUC, 1 - AUC): a feature that is lower on buggy runs separates them just as well as one that is higher."""
+    return None if value is None else max(value, 1 - value)
+
+
+def strongest_feature_gap(rows: dict[str, tuple[float, dict[str, float]]], features: tuple[str, ...],
+                          buggy: set[str], base_of: dict[str, str]) -> dict:
+    """AUC of a score minus the direction-free AUC of the strongest trivial feature, on the same runs.
+
+    `rows` maps run ID to (score, {feature: value}). A run missing any feature is left out, so every AUC uses the same
+    runs. The score keeps its direction (higher must mean buggy); each feature counts as max(AUC, 1 - AUC). The
+    strongest feature is picked again inside every bootstrap draw, so the interval carries the luck of picking a
+    maximum instead of treating the observed winner as fixed. Base-level 90% interval, as everywhere else.
+    """
+    complete = {r: (s, tuple(f[name] for name in features)) for r, (s, f) in sorted(rows.items(), key=lambda kv: str(kv[0]))
+                if s is not None and all(f.get(name) is not None for name in features)}
+
+    def per_feature(bug, clean) -> list[float | None]:
+        return [auc([x[1][i] for x in bug], [x[1][i] for x in clean]) for i in range(len(features))]
+
+    def gap(bug, clean):
+        score_auc = auc([x[0] for x in bug], [x[0] for x in clean])
+        if score_auc is None:
+            return None
+        return score_auc - max(direction_free(v) for v in per_feature(bug, clean))
+
+    bug = [v for r, v in complete.items() if r in buggy]
+    clean = [v for r, v in complete.items() if r not in buggy]
+    aucs = dict(zip(features, per_feature(bug, clean))) if bug and clean else {}
+    strongest = max(aucs, key=lambda n: direction_free(aucs[n])) if aucs else None
+    # base_bootstrap passes extra fields as a tuple, so each run's value arrives as (score, feature values).
+    items = [(base_of[r], r in buggy, s, fv) for r, (s, fv) in complete.items()]
+    return {"value": gap(bug, clean), "interval_90_base": base_bootstrap(items, gap),
+            "score_auc": auc([x[0] for x in bug], [x[0] for x in clean]),
+            "feature_auc": aucs, "feature_auc_direction_free": {n: direction_free(v) for n, v in aucs.items()},
+            "strongest_feature": strongest, "runs": len(complete), "left_out": len(rows) - len(complete)}
+
+
 def length_check(rows: list[dict]) -> dict:
     """The length gate. `rows` holds one dict per run: base, buggy, line_count, char_count.
 

@@ -12,3 +12,4 @@ eval/confirm.py -text
 eval/compare_tasks.py -text
 config/models.yaml -text
 config/bug_classes.yaml -text
+eval/cue_probe.py -text

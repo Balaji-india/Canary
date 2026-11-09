@@ -72,15 +72,19 @@ Claude updates this at the end of every mission. If a mission stops early, write
 No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen and its AUC rescore
 are finished (all 360 rescore records; the llama passes ran from the student's own window, ending 2026-11-08 12:27 UTC).
 The fresh pass is complete (73 records; llama's ran from the student's window).
-- **Confirmation batch `confirm-llama-1`: built and locked, NOT started, ON HOLD (student, 2026-11-08): fix the
-  helper-size cue first (Next action 1).** That amends H3, so the plan gets a new hash before any data; do not run
-  the steps below until then. The cut-off stays as locked. Plan
-  `docs/plans/llama_checklist_confirmation.md` (SHA-256 in its `.sha256` file), cut-off locked in
-  `eval/results/task_dev_1/llama_checklist_cutoff.json`. `python -m eval.confirm` checks both hashes. Steps, in the
-  student's own PowerShell window with Edge closed (each resumes by running it again; step 3 with `--resume`):
+- **Confirmation batch `confirm-llama-1`: plan amended (amendment 1, 2026-11-09) and re-locked, NOT started.** First
+  the cue-sensitivity probe (step 0, about 10-15 min of llama), run by the student. **Nothing after step 0 runs unless
+  the probe prints NO_DETECTED_SENSITIVITY**; on CUE_LIVE or INCONCLUSIVE, stop and design the padding fix first. Plan
+  `docs/plans/llama_checklist_confirmation.md` (SHA-256 `85ed1d4f…` in its `.sha256` file; the first version's hash
+  is in its section 12), cut-off unchanged in `eval/results/task_dev_1/llama_checklist_cutoff.json`.
+  `python -m eval.confirm` checks both hashes. Steps, in the student's own PowerShell window with Edge closed (each
+  resumes by running it again; step 3 with `--resume`):
 
   ```powershell
   cd "C:\Users\Balaji Keerthi\Downloads\canary"
+  .venv\Scripts\python.exe -m eval.cue_probe --dry
+  .venv\Scripts\python.exe -m eval.cue_probe
+  # continue only after "Decision: NO_DETECTED_SENSITIVITY"
   .venv\Scripts\python.exe -m canary.cli build-pool --out data/calibration/pool-2.json --avoid data/calibration/pool.json
   .venv\Scripts\python.exe -m canary.cli length-check --dry --pool data/calibration/pool-2.json --runs 100 --seed 1109
   .venv\Scripts\python.exe -m canary.cli calibrate --runs 100 --batch confirm-llama-1 --pool data/calibration/pool-2.json --role skeptic_c_checklist --seed 1109
@@ -89,6 +93,35 @@ The fresh pass is complete (73 records; llama's ran from the student's window).
   ```
 
   Stop and report if step 2 prints FAILED, or if step 3 says "length gate failed" (it then audits nothing).
+
+## Amendment 1 of the confirmation plan (2026-11-09): helper-size cue
+- **`/analyze`:** length matching keeps total length constant, so a canary's bug lines take the place of helper lines.
+  On the pool-1 dry plan (100 runs, seed 1109) every clean run gets 21 helper statements; canaries get 6 (B10 subtle)
+  to 22 (B06 subtle), and 12 of 60 get 21 (B03 obvious, B06 obvious, B09). Helper-size AUC 0.15 (0.85 inverted). The
+  cue moved from "how long is the script" to "how much settings-copying code does it have". As a non-monotone rule
+  ("helper differs from 21") it would separate even better, but a stateless reviewer does not know 21 is the clean size.
+- **H3 amended:** llama's AUC minus the direction-free AUC of the strongest of line count, character count, helper size
+  and effect spread, re-picked in every base-level draw (`separation.strongest_feature_gap`, used by `eval/confirm.py`).
+  The old H3 used line count alone, which is constant under length matching. Effect size and best arm's score stay as
+  diagnostics (the student's list had four features).
+- **Consequence, computed before any data (`eval/results/confirm_llama_1/power.json`):** with helper size at 0.85,
+  P(H3 passes) is 0.00 / 0.05 / 0.23 / 0.66 at true llama AUC 0.75 / 0.85 / 0.90 / 0.95. llama's task-dev-1 AUC was
+  0.735. **So with this padding, "not confirmed" is close to certain whatever the probe says.** A padding redesign
+  that removes the cue (decoy code in clean runs, so helper size has the same distribution for every type) is
+  probably needed anyway; the student decides after the probe.
+- **Cue-sensitivity probe (`eval/cue_probe.py`, plan section 4a):** 20 pool-1 controls from rq1-full/task-dev-1 on 18
+  bases. Each is padded with 6 and with 21 statements (97 vs 112 blinded lines) and scored by llama-checklist with the
+  cache bypassed. Nothing goes to the ledger, the sealed table or the cache. Rule: mean P(flag | small) - P(flag | large),
+  base-level 90% interval; excludes 0 in either direction -> CUE_LIVE (stop); fewer than 15 pairs or a prompt too large
+  -> INCONCLUSIVE (stop); else NO_DETECTED_SENSITIVITY. Dry run: 40 prompts built, 0 too large for `num_ctx` 4096.
+  Limit: the small version is also 15 lines shorter, so size and length effects cannot be told apart. Either one stops.
+- **Forecast for the probe:** 40 llama calls. Past llama-checklist calls on unpadded 84-line scripts: median 14.4 s,
+  mean 14.7 s, max 25.2 s (40 ledger audits); rescore median 14.1 s. Padded scripts are 13-28 lines longer (97 and 112 vs 84), so assume
+  14-19 s per call, plus a cold load of 30-110 s. Expect **10-15 min** (likely about 12).
+- **Also fixed:** six frozen files had been hashed as CRLF working copies while git stores LF (`-text`), so their
+  hashes could not be reproduced from a checkout. They were restored to the git bytes (content checked identical) and
+  re-hashed. `mixer.dry_length_check` was split into `dry_rows` + the check (same output), so the probe can read
+  helper sizes. Tests: `tests/test_cue_probe.py` (8), H3 tests in `tests/test_confirm.py`, and a hand-computed gap test.
 
 ## Finding (2026-11-08): a trivial line-count baseline beat every LLM reviewer
 **The trivial line-count baseline (AUC 0.85) beat every LLM reviewer, exposing a length cue in the canaries.** On
@@ -498,7 +531,8 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **Real runs with a bug-like design are not caught yet.** `why_not_clean` only protects clones. A real run using accuracy
   above 3:1 is really buggy; Mission 5.1's B06 tripwire should catch it.
 - **Canaries were longer than clean runs (fixed for new batches).** rq1-full and task-dev-1 keep the cue; new plans
-  are length-matched and gated (see "Length matching"). Left: the helper-size cue (AUC 0.15 on a dry run), and
+  are length-matched and gated (see "Length matching"). Left: the helper-size cue (AUC 0.15 on a dry run; now an H3
+  feature, with a probe before the batch; see "Amendment 1"), and
   **real runs are not padded yet**: before Mission 4.1 applies calibration numbers to real findings, real runs must
   get the same helper and target, or controls would no longer look like real runs.
 - **A sham's edits can be told apart in principle.** Its imports are out of the template's usual order, and its names are
@@ -510,7 +544,8 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   `split_sizes` stays normal. It needs a different check.
 - **Mission 5.1's B07 tripwire needs care:** `blood-transfusion` has 246 duplicate feature rows and `pc1` 161 before any
   bug, so row overlap between splits is normal there. Compare against the overlap expected from the dataset.
-- **The test suite is still close to its limit** (28 s of 30 s after the trim). The broken-config and sham tests now run in-process; the 2 remaining subprocess tests take about 3 s each.
+- **The test suite is still close to its limit** (29.0 s of 30 s with 593 tests on 2026-11-09; runs on a busy laptop
+  measured 31-40 s with no code change, so time it twice before trimming). The broken-config and sham tests now run in-process; the 2 remaining subprocess tests take about 3 s each.
 - **Cold model loads are slow** (27-110 s seen). Handled with the 300 s cold timeout and `ModelQueue`.
 - **`qwen3:4b` writing reasoning into replies did not occur in schema mode:** 2 of 2 real replies were clean JSON. Plain
   text mode was not retested, and any remaining `<think>` block is stripped.
@@ -521,17 +556,13 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next actions
-1. **First, before "go": fix the helper-size cue** (helper-size AUC 0.15 on the pool-1 dry run).
-   - **Amend H3:** the score's AUC minus the AUC of the *strongest* trivial feature on the same runs, helper size
-     included (line count, character count, helper size, effect spread, effect size, best arm's score). Direction
-     does not matter, so each feature counts as max(AUC, 1 - AUC). Paired, base-level 90% interval, lower bound above
-     0. This also ends "H3 reduces to H2", since line count is constant.
-   - **Cue-sensitivity probe on about 20 clean controls:** pad each control twice, with the smallest and the largest
-     helper a run of the batch would get (same code otherwise), and score both with llama-checklist. If P(flag)
-     moves with helper size on clean code, the cue is live for this reviewer. Probe runs stay out of every recall,
-     specificity and AUC estimate. About 40 llama calls, roughly 10 min in the student's own window.
-   - Then amend the plan, re-hash it and commit before any pool-2 or batch data exist. The cut-off stays as locked.
-2. On the student's "go": run the confirmation steps under "In progress", then `/evaluate` the result honestly.
+1. **The student runs the cue probe** (step 0 under "In progress", 10-15 min, own window, Edge closed), then
+   `/evaluate` its `eval/results/confirm_llama_1/cue_probe.json`.
+   - CUE_LIVE or INCONCLUSIVE: stop. Design the padding redesign (decoy code in clean runs) as amendment 2, re-run
+     the dry check and the probe, and only then the batch.
+   - NO_DETECTED_SENSITIVITY: the batch may run, but amended H3 has power near 0 at llama's likely AUC (see
+     "Amendment 1"). Decide first whether to run it as is or redesign the padding anyway (`/recommend`).
+2. Only then, on the student's "go": the confirmation steps 1-5, then `/evaluate` the result honestly.
 3. `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule; then Mission 3.1.
 4. Plan only (nothing built yet, each needs the student's OK):
    - **Cloud ceiling check on 40 runs:** one strong cloud reviewer (a different family from the Scientist) on a

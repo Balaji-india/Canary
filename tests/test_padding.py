@@ -70,6 +70,19 @@ def test_the_paired_gap_is_zero_for_identical_values():
     assert gap["value"] == 0.0 and gap["interval_90_base"] == [0.0, 0.0]
 
 
+def test_the_strongest_feature_gap_matches_hand_computed_values():
+    """Score AUC 1.0. Feature f1: buggy [1, 3] vs clean [2, 4] wins 1 of 4 pairs, AUC 0.25, direction-free 0.75.
+    f2 is constant (0.5). So the gap is 1.0 - 0.75 = 0.25, and the run missing f1 is left out."""
+    rows = {"a": (0.9, {"f1": 1, "f2": 7}), "b": (0.8, {"f1": 3, "f2": 7}),
+            "c": (0.1, {"f1": 2, "f2": 7}), "d": (0.2, {"f1": 4, "f2": 7}), "e": (0.5, {"f1": None, "f2": 7})}
+    gap = separation.strongest_feature_gap(rows, ("f1", "f2"), {"a", "b"}, {r: r for r in rows})
+    assert gap["feature_auc"] == {"f1": 0.25, "f2": 0.5}
+    assert gap["strongest_feature"] == "f1" and gap["score_auc"] == 1.0
+    assert gap["value"] == pytest.approx(0.25) and gap["runs"] == 4 and gap["left_out"] == 1
+    low, high = gap["interval_90_base"]
+    assert low <= 0.25 <= high
+
+
 @pytest.mark.slow
 def test_a_padded_run_gives_exactly_the_same_numbers(tmp_path):
     """The helper's result is never used, so padding must not move a single score."""

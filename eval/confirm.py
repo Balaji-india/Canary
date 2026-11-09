@@ -7,7 +7,9 @@ after the data exist without it showing.
 Hypotheses (90% intervals resample whole bases, 2000 draws, seed 0):
 - H1: J at the locked cut-off (flag when P(flag) >= cut-off): lower bound above 0.
 - H2: AUC of P(flag): lower bound above 0.5.
-- H3: AUC of P(flag) minus AUC of blinded line count, paired on the same runs: lower bound above 0.
+- H3 (amended 2026-11-09): AUC of P(flag) minus the direction-free AUC of the strongest trivial feature (blinded line
+  count, character count, helper size, effect spread), paired on the same runs, the strongest re-picked in every
+  draw: lower bound above 0. The first version compared with line count alone, which length matching makes constant.
 Confirmed = (H1 or H2) and H3. Everything else in the output is a diagnostic and decides nothing.
 """
 from __future__ import annotations
@@ -20,7 +22,7 @@ from pathlib import Path
 
 import numpy as np
 
-from canary import blinding, codegen, config, ledger, mixer, sandbox, sealed, separation, trust
+from canary import config, ledger, mixer, sandbox, sealed, separation, trust
 from eval import compare_tasks
 from eval.cutoff import CUTOFF_PATH, sha256_file
 
@@ -30,6 +32,9 @@ PLAN_PATH = Path(__file__).parent.parent / "docs" / "plans" / "llama_checklist_c
 PLAN_HASH_PATH = PLAN_PATH.with_name(PLAN_PATH.name + ".sha256")
 CUTOFF_LINE = re.compile(r"Cut-off file SHA-256: `([0-9a-f]{64})`")
 REFUSED_BATCHES = {"rq1-full", "task-dev-1"}
+# H3's trivial features: what a reviewer could count without understanding any bug. helper_statements is the padding
+# helper's size (secret, from the sealed table); the others come from the run folder (compare_tasks.run_features).
+H3_FEATURES = ("line_count", "char_count", "helper_statements", "effect_spread")
 
 
 class LockError(RuntimeError):
@@ -58,13 +63,6 @@ def _j_at(cutoff: float):
     return statistic
 
 
-def _line_count(run_id: str, runs_dir: Path) -> int | None:
-    try:
-        return len(blinding.blind_script((runs_dir / run_id / codegen.SCRIPT_NAME).read_text(encoding="utf-8")).splitlines())
-    except (OSError, SyntaxError):
-        return None
-
-
 def build(table: sealed.SealedTable, led: ledger.Ledger, batch: str, cutoff: float, bug_ids: list[str], draws: int,
           runs_dir: Path = sandbox.RUNS_DIR, rescore_dir: Path = mixer.RESCORE_DIR) -> dict:
     observations, excluded = trust.collect_observations(table, led, ROLE, batch)
@@ -82,16 +80,15 @@ def build(table: sealed.SealedTable, led: ledger.Ledger, batch: str, cutoff: flo
     h1_value = _j_at(cutoff)(j_bug, j_clean)
     h1_interval = separation.base_bootstrap(items, _j_at(cutoff))
     h2 = separation.auc_summary(scored, buggy, base_of)
-    lines = {r: _line_count(r, runs_dir) for r in scored}
-    h3 = separation.paired_auc_gap({r: (s, float(lines[r])) for r, s in scored.items() if lines[r] is not None},
-                                   buggy, base_of)
+    helper = {r: t.details.get("padding", {}).get("statements") for r, t in truth.items() if r in scored}
+    features = {r: compare_tasks.run_features(r, runs_dir) for r in scored}
+    h3_rows = {r: (s, {**(features[r] or {}), "helper_statements": helper[r]}) for r, s in scored.items()}
+    h3 = separation.strongest_feature_gap(h3_rows, H3_FEATURES, buggy, base_of)
     passes = {"H1": bool(h1_interval and h1_interval[0] > 0),
               "H2": bool(h2["interval_90_base"] and h2["interval_90_base"][0] > 0.5),
               "H3": bool(h3["interval_90_base"] and h3["interval_90_base"][0] > 0)}
 
     # Diagnostics only.
-    helper = {r: t.details.get("padding", {}).get("statements") for r, t in truth.items() if r in scored}
-    features = {r: compare_tasks.run_features(r, runs_dir) for r in scored}
     summary = trust.summarize(observations, bug_ids, draws)
     rescored = [r for r in mixer.read_rescores(batch, rescore_dir) if r["role"] == ROLE]
     return {
@@ -143,8 +140,10 @@ def main(argv: list[str] | None = None) -> int:
           f"-> {'pass' if result['H1']['passes'] else 'fail'}")
     print(f"  H2 AUC: {result['H2']['value']:.3f} {_iv(result['H2']['interval_90_base'])} "
           f"-> {'pass' if result['H2']['passes'] else 'fail'}")
-    print(f"  H3 AUC minus line-count AUC: {result['H3']['value']:+.3f} {_iv(result['H3']['interval_90_base'])} "
-          f"-> {'pass' if result['H3']['passes'] else 'fail'}")
+    h3 = result["H3"]
+    value = "n/a" if h3["value"] is None else f"{h3['value']:+.3f}"
+    print(f"  H3 AUC minus strongest trivial feature ({h3['strongest_feature']}): {value} "
+          f"{_iv(h3['interval_90_base'])} -> {'pass' if h3['passes'] else 'fail'}")
     print(f"  {'CONFIRMED' if result['confirmed'] else 'NOT CONFIRMED'}")
     out = compare_tasks.RESULTS_DIR / args.batch.replace("-", "_") / "confirm.json"
     out.parent.mkdir(parents=True, exist_ok=True)

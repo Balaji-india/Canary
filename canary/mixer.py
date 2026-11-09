@@ -312,11 +312,12 @@ def batch_length_check(client: llm.LLM, led: ledger.Ledger, table: sealed.Sealed
     return check
 
 
-def dry_length_check(plan: dict) -> dict:
-    """The gate before anything runs: every slot's script as it would be written, from its first base that fits.
+def dry_rows(plan: dict) -> list[dict]:
+    """Every slot's script as it would be written, from its first base that fits: base, buggy, lengths, helper size.
 
     No experiment runs and nothing is stored. B09 subtle uses its ladder's first rung instead of measuring, which
-    matters for its numbers but barely for its length (that bug only changes values in CONFIG).
+    matters for its numbers but barely for its length (that bug only changes values in CONFIG). Its rows carry run
+    types, so they are as secret as the plan (eval/cue_probe.py takes only helper sizes from them).
     """
     rows = []
     for slot in plan["slots"]:
@@ -342,6 +343,12 @@ def dry_length_check(plan: dict) -> dict:
             rows.append({"base": f"pool:{index}", "buggy": slot["run_type"] == sealed.CANARY_MEASURE,
                          "line_count": lines, "char_count": chars, "helper_statements": helper})
             break
+    return rows
+
+
+def dry_length_check(plan: dict) -> dict:
+    """The gate before anything runs, on `dry_rows`."""
+    rows = dry_rows(plan)
     check = separation.length_check(rows)
     check["slots_without_base"] = len(plan["slots"]) - len(rows)
     check["largest_script_chars"] = max((r["char_count"] for r in rows), default=0)
