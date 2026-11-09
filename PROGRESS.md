@@ -40,6 +40,10 @@ Claude updates this at the end of every mission. If a mission stops early, write
 
 **M4 How much should we trust our findings?**
 - [ ] 4.1 Prevalence, contamination, trust gate
+  - **Requirement (student, 2026-11-09):** real Scientist runs must get the same padding and decoy treatment as
+    calibration runs (`canary/padding.py`, `canary/saboteur/decoys.py`, decoys in the canaries' proportions), or
+    measured trust (recall, specificity, contamination) may not transfer to them. Check it with the length gate on
+    real runs mixed with calibration runs before any gate decision uses calibration numbers.
 - [ ] 4.2 Hidden-truth validation (RQ4)
 - [ ] 4.3 Control chart and drift alarms
 - [ ] 4.4 Campaign agent loop
@@ -75,8 +79,8 @@ The fresh pass is complete (73 records; llama's ran from the student's window).
 - **v1 plan SUPERSEDED (student, 2026-11-09), never run: no `confirm-llama-1` or pool-2 data exist.** Its padding left
   helper size separating canaries (AUC 0.85 ignoring direction), so H3 had power near 0. Notice on top of
   `docs/plans/llama_checklist_confirmation.md` (kept, re-hashed with the notice; the locked text is in commit 6a9eaa9).
-- **v2 plan: DRAFT, `docs/plans/llama_checklist_confirmation_v2.md`, decoy padding built and proved dry. WAITING FOR
-  THE STUDENT'S OK** before the development batch. Order: (1) `task-dev-2`, 40 runs on pool 1, chooses a new cut-off;
+- **v2 plan: APPROVED by the student (2026-11-09), still a draft until the re-lock after `task-dev-2`.**
+  `docs/plans/llama_checklist_confirmation_v2.md`; decoy padding built and proved dry. Nothing of step 1 has run. Order: (1) `task-dev-2`, 40 runs on pool 1, chooses a new cut-off;
   (2) Claude re-locks the plan with the cut-off and code hashes, the student says OK; (3) `confirm-llama-2` on pool 2.
   `eval/confirm.py` refuses to run until the v2 plan is locked. Step 1 commands (own window, Edge closed; step 3
   resumes with `--resume`):
@@ -87,6 +91,7 @@ The fresh pass is complete (73 records; llama's ran from the student's window).
   .venv\Scripts\python.exe -m canary.cli length-check --dry --pool data/calibration/pool.json --runs 40 --seed 1110
   .venv\Scripts\python.exe -m canary.cli calibrate --runs 40 --batch task-dev-2 --pool data/calibration/pool.json --role skeptic_c_checklist --seed 1110
   .venv\Scripts\python.exe -m eval.cutoff --batch task-dev-2
+  .venv\Scripts\python.exe -m eval.dev_report --batch task-dev-2
   ```
 
   Stop and report if the proof or step 2 fails, if step 3 says "length gate failed", or if the cut-off's J is 0 or
@@ -376,6 +381,11 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 - `confirm-llama-1` has not started (no pool-2, no runs, no audits): on hold for the helper-size fix.
 
 ## Decisions
+- **Working rule for improving the reviewer (student, 2026-11-09).** We keep improving the reviewer until it works
+  properly, but every change (prompt, task, model, cut-off, padding, hints) is chosen on development data and judged
+  only on a fresh batch it has never seen. No re-tuning on a batch whose results we have seen: once a batch's results
+  are known, that batch becomes development data for the next change, never the test of it. Each test batch is
+  pre-registered and locked before it runs (as in `docs/plans/`).
 - **Ollama only for now, no API keys.** A cloud model is added later with `/api`. Mission 1.3 must build `llm.py`
   so that switching to an API needs only a config change (`provider` in `config/models.yaml`, key in `.env`), with
   no changes to the code that calls it. Whatever is chosen, the Skeptic stays a different family from the Scientist.
@@ -595,8 +605,8 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **Canaries were longer than clean runs (fixed for new batches).** rq1-full and task-dev-1 keep the cue; new plans
   are length-matched, carry decoys and are gated on five size features (see "Padding redesign"). Left: decoys are
   hard controls a reviewer may flag, and
-  **real runs are not padded yet**: before Mission 4.1 applies calibration numbers to real findings, real runs must
-  get the same helper and target, or controls would no longer look like real runs.
+  **real runs have neither padding nor decoys yet**: a Mission 4.1 requirement (see Missions), or calibration runs
+  would no longer look like real runs and measured trust may not transfer.
 - **A sham's edits can be told apart in principle.** Its imports are out of the template's usual order. (Its names were
   also longer on average; since 2026-11-09 shams pick renames that keep the length within a few characters.) A stateless reviewer sees one run at a time and has no template to
   compare with, so this should not matter, but a reviewer that learned the template could separate them.
@@ -618,12 +628,16 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next actions
-1. **Waiting for the student's OK on the v2 plan** (`docs/plans/llama_checklist_confirmation_v2.md`). Then the student
-   runs step 1 (`task-dev-2`, commands under "In progress", about 20-27 min) and Claude `/evaluate`s it.
-2. Re-lock v2 (cut-off and code hashes, H1 power), student's OK, then `confirm-llama-2` (about 75-105 min) and
-   `/evaluate`.
-3. `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule; then Mission 3.1.
-4. Plan only (nothing built yet, each needs the student's OK):
+Tomorrow, in this order (v2 plan approved 2026-11-09):
+1. **`task-dev-2` in the student's own window** (commands under "In progress", about 20-27 min), then `/evaluate` it
+   with `eval/results/task_dev_2/dev_report.json` (AUC, own cut-off, decoy diagnostic). Stop if the cut-off's J <= 0.
+2. **Lock the cut-off and the plan:** cut-off SHA-256 and frozen code hashes into v2 section 4, H1 power from
+   `eval.confirm_power`, status LOCKED, `.sha256`, pytest, commit.
+3. **`/challenge` the locked plan** (attack it like a reviewer). A flaw found here means a new amendment and re-lock
+   before any pool-2 data, never a change afterwards.
+4. **`confirm-llama-2` in the student's own window** (v2 section 10, steps 6-10, about 75-105 min), then `/evaluate`.
+5. `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule; then Mission 3.1.
+6. Plan only (nothing built yet, each needs the student's OK):
    - **Cloud ceiling check on 40 runs:** one strong cloud reviewer (a different family from the Scientist) on a
      length-matched 40-run batch, to learn whether the task is hard or only the small local models are weak. Needs an
      API key and `/api`.

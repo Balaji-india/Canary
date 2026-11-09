@@ -57,8 +57,13 @@ the 220 existing pool-1 runs (rq1-full and task-dev-1).
 - **Cut-off rule** (`python -m eval.cutoff --batch task-dev-2`, written once, never overwritten): on the score stored
   with the first audit of each of the 40 runs, the cut-off with the highest Youden's J, the lowest on a tie. Any run
   without a score: fill it with `rescore --batch task-dev-2 --reviewer skeptic_c --fresh` first.
-- Reported, deciding nothing: AUC of P(flag) with its base-level interval, each trivial feature's AUC, and recall and
-  false alarms at the chosen cut-off. These are development numbers: the batch that chose the cut-off cannot confirm it.
+- Reported, deciding nothing (`python -m eval.dev_report --batch task-dev-2`, `eval/results/task_dev_2/dev_report.json`):
+  AUC of P(flag) with its base-level interval, each trivial feature's AUC, and recall and false alarms at the chosen
+  cut-off. **Decoy diagnostic** (student, 2026-11-09): on clean runs, llama's flag rate (the code's checklist decision)
+  and mean P(flag) by decoy class, pooled over decoys with code and decoys without code (B03 obvious, B06 obvious, B09:
+  padded, nothing added), compared with the plain clean runs of task-dev-1 (no padding, no decoys). Each class has two
+  clean runs here, so classes are anecdotes and the pooled rows are the measurement. These are development numbers:
+  the batch that chose the cut-off cannot confirm it.
 - **Stop rule:** if the chosen cut-off's J is 0 or below, stop and report before the re-lock. H1 could then not pass,
   and the student decides whether the confirmation should run on H2 and H3 alone.
 
@@ -99,14 +104,15 @@ Step 1 (development):
 3. `canary.cli calibrate --runs 40 --batch task-dev-2 --pool data/calibration/pool.json --role skeptic_c_checklist
    --seed 1110` (`--resume` after any stop; stops itself if the length gate fails)
 4. `python -m eval.cutoff --batch task-dev-2`
+5. `python -m eval.dev_report --batch task-dev-2`
 
 Step 2: re-lock (Claude, then the student's OK). Step 3 (confirmation):
-5. `canary.cli build-pool --out data/calibration/pool-2.json --avoid data/calibration/pool.json`
-6. `canary.cli length-check --dry --pool data/calibration/pool-2.json --runs 100 --seed 1109`
-7. `canary.cli calibrate --runs 100 --batch confirm-llama-2 --pool data/calibration/pool-2.json --role
+6. `canary.cli build-pool --out data/calibration/pool-2.json --avoid data/calibration/pool.json`
+7. `canary.cli length-check --dry --pool data/calibration/pool-2.json --runs 100 --seed 1109`
+8. `canary.cli calibrate --runs 100 --batch confirm-llama-2 --pool data/calibration/pool-2.json --role
    skeptic_c_checklist --seed 1109`
-8. `canary.cli rescore --batch confirm-llama-2 --reviewer skeptic_c` (repeatability, diagnostic only)
-9. `python -m eval.confirm --batch confirm-llama-2`
+9. `canary.cli rescore --batch confirm-llama-2 --reviewer skeptic_c` (repeatability, diagnostic only)
+10. `python -m eval.confirm --batch confirm-llama-2`
 
 ## 11. Reported, deciding nothing
 Each H3 feature's own AUC; effect size and best arm's score; the code's checklist decision J (posterior, as in RQ1);
@@ -115,8 +121,9 @@ repeatability (replies matched on a second call, verdict changes).
 
 ## 12. Limits, written before the data
 - **Decoys are hard controls.** They look like real but redundant code (a refit, an identity re-index, a search whose
-  result is unused). A reviewer may flag them, which lowers measured specificity. Real runs carry neither decoys nor
-  padding, so before Mission 4.1 applies these numbers to real findings, real runs need the same treatment.
+  result is unused). A reviewer may flag them, which lowers measured specificity (task-dev-2's decoy diagnostic
+  measures this). Real runs carry neither decoys nor padding: **requirement for Mission 4.1** (PROGRESS.md) is that
+  real Scientist runs get the same padding and decoy treatment, or measured trust may not transfer to them.
 - **The best arm's score separates** (0.591, base 90% [0.541, 0.650], on existing pool-1 runs): several bugs really
   inflate scores. That is the bug's footprint in the results, which a reviewer may legitimately notice, and no padding
   can remove it. Reported, not in H3.

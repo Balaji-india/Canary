@@ -54,6 +54,7 @@ def test_a_later_record_replaces_an_earlier_one_and_flips_are_counted():
     assert result["mean_difference"] == pytest.approx(0.4 / 16)
 
 
+@pytest.mark.slow  # the probe is finished (2026-11-09); kept in the slow suite
 def test_padding_to_a_size_adds_only_that_many_helper_statements():
     script = codegen.render_script(CONFIG)
     small = cue_probe.pad_to_statements(script, 6, random.Random(1))
@@ -122,6 +123,7 @@ def test_the_run_stores_each_reply_and_resumes_where_it_stopped(tmp_path):
     assert [r["outcome"] for r in stored].count(llm.KIND_PROMPT_TOO_LARGE) == 1
 
 
+@pytest.mark.slow  # the probe is finished (2026-11-09); kept in the slow suite
 def test_the_probe_writes_nothing_to_the_ledger(tmp_path):
     """A real control on disk, padded twice and asked about: the ledger and sealed table are unchanged."""
     led, table = Ledger(tmp_path / "l.db"), sealed.SealedTable(tmp_path / "s.db")
