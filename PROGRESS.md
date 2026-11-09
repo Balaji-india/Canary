@@ -73,7 +73,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen and its AUC rescore
+**Stopped at (2026-11-09):** v2 plan approved, decoy padding and its report built, tested and committed; README
+updated. Nothing of `task-dev-2` has run. No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen and its AUC rescore
 are finished (all 360 rescore records; the llama passes ran from the student's own window, ending 2026-11-08 12:27 UTC).
 The fresh pass is complete (73 records; llama's ran from the student's window).
 - **v1 plan SUPERSEDED (student, 2026-11-09), never run: no `confirm-llama-1` or pool-2 data exist.** Its padding left
@@ -95,7 +96,8 @@ The fresh pass is complete (73 records; llama's ran from the student's window).
   ```
 
   Stop and report if the proof or step 2 fails, if step 3 says "length gate failed", or if the cut-off's J is 0 or
-  below (v2 section 5).
+  below (v2 section 5). If step 4 says runs have no score, run
+  `.venv\Scripts\python.exe -m canary.cli rescore --batch task-dev-2 --reviewer skeptic_c --fresh`, then step 4 again.
 
 ## Padding redesign (2026-11-09): decoys, so no size feature separates the run types
 - **`/brainstorm`, ranked by value and effort:**
@@ -378,7 +380,9 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   review-task screen above). The last part ran from the student's own PowerShell window.
 - The task-dev-1 rescore is complete (360 of 360 records; llama passes took 566 s for the checklist alone, from the
   student's own window), and so is its fresh pass (73 records).
-- `confirm-llama-1` has not started (no pool-2, no runs, no audits): on hold for the helper-size fix.
+- The cue probe finished 2026-11-09 13:38 UTC (40 records, `eval/results/confirm_llama_1/cue_probe.jsonl`).
+- `confirm-llama-1` never started and is superseded (no pool-2, no runs, no audits); the name is refused.
+- `task-dev-2` (v2 step 1) has not started: the next run, in the student's own window.
 
 ## Decisions
 - **Working rule for improving the reviewer (student, 2026-11-09).** We keep improving the reviewer until it works
@@ -616,7 +620,7 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   `split_sizes` stays normal. It needs a different check.
 - **Mission 5.1's B07 tripwire needs care:** `blood-transfusion` has 246 duplicate feature rows and `pc1` 161 before any
   bug, so row overlap between splits is normal there. Compare against the overlap expected from the dataset.
-- **The test suite is still close to its limit** (29.7-29.9 s of 30 s with 597 tests on 2026-11-09, test bootstrap at 300 draws; runs on a busy laptop
+- **The test suite is still close to its limit** (28.9-30.0 s of 30 s with 597 tests on 2026-11-09, test bootstrap at 200 draws; runs on a busy laptop
   measured 31-40 s with no code change, so time it twice before trimming). The broken-config and sham tests now run in-process; the 2 remaining subprocess tests take about 3 s each.
 - **Cold model loads are slow** (27-110 s seen). Handled with the 300 s cold timeout and `ModelQueue`.
 - **`qwen3:4b` writing reasoning into replies did not occur in schema mode:** 2 of 2 real replies were clean JSON. Plain
@@ -625,6 +629,8 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   and the cause is unknown.
 - OpenML returns temporary 503 and "not found" errors. If a download fails, re-run `cache-datasets`; it skips what is
   already cached.
+- **README's status line is hand-maintained:** when task-dev-2 or confirm-llama-2 finishes, update its "Status" line
+  and the "What happens next" paragraph from `eval/results/` (llama stays "not confirmed" unless `confirm.json` says so).
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next actions
