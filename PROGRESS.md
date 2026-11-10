@@ -50,6 +50,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 
 **M5 Defense in depth**
 - [ ] 5.1 Tripwires
+  - Outlined only (2026-11-10, `docs/plans/mission_5_1_tripwires_outline.md`); waits for the student's OK. Not built.
 - [ ] 5.2 Skeptic B and jury
 - [ ] 5.3 Replication gate
 - [ ] 5.4 RQ2 and RQ3
@@ -73,11 +74,39 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check (approve the outline, then /api), before Mission 5.1
+**Current focus:** Cloud ceiling check (approve the 3 proposals in the revised outline, then /api), before Mission 5.1
 
 **Stopped at (2026-11-10):** llama confirmation stopped by the student's decision (see Decisions); the v2 plan stays
-unlocked and is not run. The cloud ceiling check is outlined only (`docs/plans/cloud_ceiling_check_outline.md`),
-nothing of it is built. No mission is part-way through; Mission 2.4 is the last mission complete. No pool-2 data exist.
+unlocked and is not run. The cloud ceiling check is outlined only (`docs/plans/cloud_ceiling_check_outline.md`,
+revised after a `/challenge` review in a thinking-only session: docs only, no code, no model run, no cloud call),
+nothing of it is built. Mission 5.1 is outlined only. No mission is part-way through; Mission 2.4 is the last mission
+complete. No pool-2 data exist.
+
+## Proposed, pending the student's approval (2026-11-10, thinking-only session)
+Nothing below is decided or built. Details, trade-off tables and the review log: `docs/plans/cloud_ceiling_check_outline.md`
+(sections 2, 6, 8 and 12) and `docs/plans/mission_5_1_tripwires_outline.md`.
+- **(a) Provider and model: proposed, pending my approval.** OpenAI, two arms on one key. Arm L: reasoning off,
+  temperature 0, token probabilities, scored like llama (80 calls). Arm R: the strongest model with reasoning on,
+  verdict only, run only if arm L is not SOLVABLE; without it "HARD" may not be declared. The exact dated model is
+  picked by a smoke test with fixed pass criteria. Where a cell has no token probabilities, the AUC is computed
+  from the code's decision as a 0/1 score, which equals (recall + specificity) / 2.
+- **(b) The "solvable" rule: proposed, pending my approval.** Per cell (arm x prompt, at most 4), on the lower end of
+  97.5% base-level intervals: T1 J above 0 (the verdict works; Rogan-Gladen's condition), T2 AUC above 0.70 (a fixed
+  line, replacing llama's 0.643), T3 AUC above the strongest of seven named trivial features. SOLVABLE: one cell
+  passes all three. HARD: arm R was run and every cell's AUC upper bound is below 0.70. Otherwise INCONCLUSIVE, with
+  a planned follow-up on a fresh pool-2 batch. An outcome table from simulation is required before the lock; Claude's
+  rough guess is that a true AUC of 0.60-0.80 ends INCONCLUSIVE at 40 runs.
+- **(c) New code: proposed, pending my approval.** A standard-library HTTP provider with a configurable base URL (no
+  new dependency), not the `openai` package.
+- **Mission 5.1 design: proposed, pending my approval.** Replay each run with a probe that records what data reaches
+  the split, every fit and the metric, and check properties of a correct experiment, instead of DESIGN section 6's
+  syntax-tree patterns. Split into 5.1a and 5.1b.
+- **Decided by the student, not pending (isolation rule):** the ceiling reviewer is called only through `canary/llm.py`
+  with the blinded prompt. Claude Code never reviews runs itself, because it can see the sealed table, the bug
+  catalog and the code (outline section 3).
+
+## Model use (student, 2026-11-10)
+Until 2026-11-16: use Fable for planning, `/challenge` and statistics design. Use the usual model for routine building.
 - **v1 plan SUPERSEDED (student, 2026-11-09), never run: no `confirm-llama-1` or pool-2 data exist.** Its padding left
   helper size separating canaries (AUC 0.85 ignoring direction), so H3 had power near 0. Notice on top of
   `docs/plans/llama_checklist_confirmation.md` (kept, re-hashed with the notice; the locked text is in commit 6a9eaa9).
@@ -429,7 +458,7 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 - `task-dev-2` (v2 step 1) finished 2026-11-10 in the student's own window: 40 runs in 357 s (length gate passed on
   the run folders), 40 audits in 602 s, 0 failed; cut-off written once (`eval/results/task_dev_2/llama_checklist_cutoff.json`).
 - `confirm-llama-2` will not run (llama stopped, 2026-11-10); no pool-2 data exist; the v2 plan stays unlocked.
-- No cloud call has been made; the ceiling check is an outline only.
+- No cloud call has been made; the ceiling check is an outline only (revised 2026-11-10, still not locked).
 
 ## Decisions
 - **llama3.1:8b not confirmed for use; llama confirmation stopped (student, 2026-11-10).** Its development AUC on
@@ -620,6 +649,9 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
+- **Cloud provider facts in the ceiling outline are secondhand** (forum threads and third-party pages, 2026-11-10):
+  which OpenAI models return token probabilities, whether temperature 0 is honoured, prices and shutdown dates. The
+  smoke test and the official pages decide at the lock; `gpt-4.1` is reported to shut down 2027-01-14.
 - **`pytest -q` is at or over the 30 s target** (30.2-35 s on 2026-11-10, 607 tests; slower while other work runs).
   Next step: mark a few more slow tests or lower draws further.
 - **Base-level intervals over few bases run slightly narrow:** at 100 runs on 18 bases the bootstrap spread was 0.054
@@ -692,13 +724,15 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next actions
-1. **Cloud ceiling check** (outline: `docs/plans/cloud_ceiling_check_outline.md`; needs the student's OK on the
-   provider, the new-code choice and the "solvable" rule, then `/api`, a locked pre-registration, and a key in `.env`).
+1. **Cloud ceiling check** (outline: `docs/plans/cloud_ceiling_check_outline.md`). First the student's OK on the
+   three proposals (see "Proposed, pending the student's approval"). Then `/api` (provider + tests), `eval/ceiling.py`
+   and the simulated outcome table, the locked pre-registration, a key in `.env`, the smoke test, and the runs.
    One strong cloud reviewer of another family than the qwen Scientist, on the 40 task-dev-2 runs, baseline and
-   checklist prompts, scored like llama (verdict J, AUC with base-level intervals, trivial-feature baselines).
+   checklist prompts, called only through `llm.py`.
 2. **Only if the ceiling check says SOLVABLE: efficiency search** for the cheapest model that still clears the bar:
    local non-Qwen code models that fit 6 GB VRAM and smaller cloud models. Each candidate is tested on its own fresh,
    never-seen batch, pre-registered and locked, with the same rules and the same bar; nothing is chosen on a batch
    whose results we have seen.
 3. **`/mission 5.1` (deterministic tripwires)**, the main defence whatever the ceiling check says; then Mission 3.1.
+   Needs the student's OK on the outline first (`docs/plans/mission_5_1_tripwires_outline.md`: replay with a probe).
 4. Housekeeping: `pytest -q` takes 30-35 s, over the 30 s target; trim or mark more tests slow.
