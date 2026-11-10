@@ -1,0 +1,262 @@
+{
+ "batch": "task-dev-2",
+ "role": "skeptic_c_checklist",
+ "generated_at": "2026-11-10T13:40:46.388607+00:00",
+ "note": "development numbers: this batch chose the cut-off, so nothing here confirms anything",
+ "runs": 40,
+ "buggy": 20,
+ "auc": {
+  "value": 0.6425,
+  "interval_90": [
+   0.49,
+   0.7825
+  ],
+  "interval_90_base": [
+   0.4866289671563505,
+   0.7777951388888888
+  ],
+  "scored_buggy": 20,
+  "scored_clean": 20,
+  "bases": 16
+ },
+ "trivial_features": {
+  "line_count": {
+   "value": 0.5,
+   "interval_90": [
+    0.5,
+    0.5
+   ],
+   "interval_90_base": [
+    0.5,
+    0.5
+   ],
+   "scored_buggy": 20,
+   "scored_clean": 20,
+   "bases": 16
+  },
+  "char_count": {
+   "value": 0.5,
+   "interval_90": [
+    0.5,
+    0.5
+   ],
+   "interval_90_base": [
+    0.5,
+    0.5
+   ],
+   "scored_buggy": 20,
+   "scored_clean": 20,
+   "bases": 16
+  },
+  "statement_count": {
+   "value": 0.5,
+   "interval_90": [
+    0.425,
+    0.575
+   ],
+   "interval_90_base": [
+    0.4177976190476191,
+    0.5714285714285714
+   ],
+   "scored_buggy": 20,
+   "scored_clean": 20,
+   "bases": 16
+  },
+  "helper_chars": {
+   "value": 0.49875,
+   "interval_90": [
+    0.345,
+    0.6538125
+   ],
+   "interval_90_base": [
+    0.36852230378317336,
+    0.6325807416267942
+   ],
+   "scored_buggy": 20,
+   "scored_clean": 20,
+   "bases": 16
+  },
+  "effect_spread": {
+   "value": 0.50375,
+   "interval_90": [
+    0.35875,
+    0.6513125
+   ],
+   "interval_90_base": [
+    0.37035041507024263,
+    0.6691778273809524
+   ],
+   "scored_buggy": 20,
+   "scored_clean": 20,
+   "bases": 16
+  },
+  "effect_size": {
+   "value": 0.46875,
+   "interval_90": [
+    0.32875,
+    0.6188125
+   ],
+   "interval_90_base": [
+    0.3367312925170068,
+    0.6295584045584045
+   ],
+   "scored_buggy": 20,
+   "scored_clean": 20,
+   "bases": 16
+  },
+  "top_score": {
+   "value": 0.47,
+   "interval_90": [
+    0.3025,
+    0.625
+   ],
+   "interval_90_base": [
+    0.2694176003734827,
+    0.6133021346469621
+   ],
+   "scored_buggy": 20,
+   "scored_clean": 20,
+   "bases": 16
+  }
+ },
+ "at_own_cutoff": {
+  "cutoff": 0.49729650000000003,
+  "recall": 0.45,
+  "false_alarm_rate": 0.15
+ },
+ "decoy_diagnostic": {
+  "by_decoy_class": {
+   "B01": {
+    "runs": 2,
+    "flagged": 0,
+    "flag_rate": 0.0,
+    "mean_p_flag": 0.3260615,
+    "scored": 2,
+    "variants": [
+     "obvious",
+     "subtle"
+    ]
+   },
+   "B02": {
+    "runs": 2,
+    "flagged": 0,
+    "flag_rate": 0.0,
+    "mean_p_flag": 0.451855,
+    "scored": 2,
+    "variants": [
+     "obvious",
+     "subtle"
+    ]
+   },
+   "B03": {
+    "runs": 2,
+    "flagged": 0,
+    "flag_rate": 0.0,
+    "mean_p_flag": 0.456148,
+    "scored": 2,
+    "variants": [
+     "obvious (no code)",
+     "subtle"
+    ]
+   },
+   "B04": {
+    "runs": 2,
+    "flagged": 0,
+    "flag_rate": 0.0,
+    "mean_p_flag": 0.38901399999999997,
+    "scored": 2,
+    "variants": [
+     "obvious",
+     "subtle"
+    ]
+   },
+   "B05": {
+    "runs": 2,
+    "flagged": 0,
+    "flag_rate": 0.0,
+    "mean_p_flag": 0.3854565,
+    "scored": 2,
+    "variants": [
+     "obvious",
+     "subtle"
+    ]
+   },
+   "B06": {
+    "runs": 2,
+    "flagged": 0,
+    "flag_rate": 0.0,
+    "mean_p_flag": 0.3553235,
+    "scored": 2,
+    "variants": [
+     "obvious (no code)",
+     "subtle"
+    ]
+   },
+   "B07": {
+    "runs": 2,
+    "flagged": 0,
+    "flag_rate": 0.0,
+    "mean_p_flag": 0.5247685,
+    "scored": 2,
+    "variants": [
+     "obvious",
+     "subtle"
+    ]
+   },
+   "B08": {
+    "runs": 2,
+    "flagged": 0,
+    "flag_rate": 0.0,
+    "mean_p_flag": 0.461321,
+    "scored": 2,
+    "variants": [
+     "obvious",
+     "subtle"
+    ]
+   },
+   "B09": {
+    "runs": 2,
+    "flagged": 0,
+    "flag_rate": 0.0,
+    "mean_p_flag": 0.429786,
+    "scored": 2,
+    "variants": [
+     "obvious (no code)",
+     "subtle (no code)"
+    ]
+   },
+   "B10": {
+    "runs": 2,
+    "flagged": 0,
+    "flag_rate": 0.0,
+    "mean_p_flag": 0.4586825,
+    "scored": 2,
+    "variants": [
+     "obvious",
+     "subtle"
+    ]
+   }
+  },
+  "decoys with code": {
+   "runs": 16,
+   "flagged": 0,
+   "flag_rate": 0.0,
+   "mean_p_flag": 0.428216,
+   "scored": 16
+  },
+  "decoys without code (padded, nothing added)": {
+   "runs": 4,
+   "flagged": 0,
+   "flag_rate": 0.0,
+   "mean_p_flag": 0.40634425,
+   "scored": 4
+  },
+  "plain clean runs (task-dev-1)": {
+   "runs": 20,
+   "flagged": 0,
+   "flag_rate": 0.0,
+   "mean_p_flag": 0.3757122,
+   "scored": 20
+  }
+ }
+}

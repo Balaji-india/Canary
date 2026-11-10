@@ -73,15 +73,15 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Stopped at (2026-11-09):** v2 plan approved, decoy padding and its report built, tested and committed; README
-updated. Nothing of `task-dev-2` has run. No mission is part-way through. Mission 2.4 is the last mission complete. The review-task screen and its AUC rescore
-are finished (all 360 rescore records; the llama passes ran from the student's own window, ending 2026-11-08 12:27 UTC).
-The fresh pass is complete (73 records; llama's ran from the student's window).
+**Stopped at (2026-11-10):** `task-dev-2` done (student's window) and evaluated; power simulated with base-level
+resampling (`eval/power_sim.py`). **The v2 plan is NOT locked, on purpose:** the student decides between a 400-run
+confirmation and stopping llama here (see "task-dev-2 result and power" below). No mission is part-way through;
+Mission 2.4 is the last mission complete. No pool-2 data exist.
 - **v1 plan SUPERSEDED (student, 2026-11-09), never run: no `confirm-llama-1` or pool-2 data exist.** Its padding left
   helper size separating canaries (AUC 0.85 ignoring direction), so H3 had power near 0. Notice on top of
   `docs/plans/llama_checklist_confirmation.md` (kept, re-hashed with the notice; the locked text is in commit 6a9eaa9).
 - **v2 plan: APPROVED by the student (2026-11-09), still a draft until the re-lock after `task-dev-2`.**
-  `docs/plans/llama_checklist_confirmation_v2.md`; decoy padding built and proved dry. Nothing of step 1 has run. Order: (1) `task-dev-2`, 40 runs on pool 1, chooses a new cut-off;
+  `docs/plans/llama_checklist_confirmation_v2.md`; decoy padding built and proved dry. Step 1 (`task-dev-2`) done 2026-11-10; steps 2-3 wait on the student's decision. Order: (1) `task-dev-2`, 40 runs on pool 1, chooses a new cut-off;
   (2) Claude re-locks the plan with the cut-off and code hashes, the student says OK; (3) `confirm-llama-2` on pool 2.
   `eval/confirm.py` refuses to run until the v2 plan is locked. Step 1 commands (own window, Edge closed; step 3
   resumes with `--resume`):
@@ -98,6 +98,49 @@ The fresh pass is complete (73 records; llama's ran from the student's window).
   Stop and report if the proof or step 2 fails, if step 3 says "length gate failed", or if the cut-off's J is 0 or
   below (v2 section 5). If step 4 says runs have no score, run
   `.venv\Scripts\python.exe -m canary.cli rescore --batch task-dev-2 --reviewer skeptic_c --fresh`, then step 4 again.
+
+## task-dev-2 result and power (2026-11-10): weak signal, confirmation needs about 4x the planned runs
+Development numbers only (this batch chose the cut-off). Sources: `eval/results/task_dev_2/dev_report.json`,
+`llama_checklist_cutoff.json`, `dev_compare.json` (new, `python -m eval.dev_compare`), and
+`eval/results/confirm_llama_2/power_sim.json` (new, `python -m eval.power_sim`, 300 simulated batches x 1000 base draws
+per cell, plan seed 1109, no LLM). Model `llama3.1:8b`, role `skeptic_c_checklist`, 40 runs (20 canaries) on 16 pool-1 bases, seed 1110.
+- **AUC 0.643, base 90% [0.487, 0.778]**; every size feature 0.5 (line and character count exactly), effect spread
+  0.504, helper characters 0.499. Cut-off 0.4973 (highest J, written once): J +0.30, recall 0.45, false alarms 0.15.
+  The J is optimistic (chosen on these same 40 runs); the AUC is not, since llama was picked on task-dev-1.
+- **How much of task-dev-1's AUC was length? Not measurable, and no sign that it was.** AUC 0.735 -> 0.643, change
+  -0.093, joint-base 90% [-0.323, +0.164] (39% of the above-chance part, but the interval runs from losing all of it
+  to gaining). Split by side: canaries' mean P(flag) went **up** +0.028 [-0.017, +0.073], clean runs' up +0.048
+  [-0.005, +0.095]. A lost length cue would have pushed canaries down. Together with the cue probe
+  (NO_DETECTED_SENSITIVITY), the data fit "padding nudged every score up, decoys a little more" better than "llama
+  was reading length". Line count (0.85) was simply a better separator than llama on task-dev-1.
+- **Decoy diagnostic:** the code's checklist decision flagged 0 of 40 clean runs in either batch (decoy or not), so
+  decoys draw no hard flags. On P(flag), decoys with code sit +0.053 [-0.003, +0.105] above task-dev-1's plain clean
+  runs; padded no-code decoys +0.031 [-0.032, +0.078]; with minus without code +0.022 [-0.031, +0.080]. Every
+  interval touches 0: decoys make clean runs look slightly more suspicious, probably, and padding and decoy code
+  cannot be told apart on 4 no-code runs. Consequence: specificity measured with decoys is a little pessimistic,
+  which is why Mission 4.1 must give real runs the same treatment. Per class (2 runs each) is anecdote only.
+- **Power (runs for 80%, 18-base pool as planned; laptop time = pool build + runs + audits at task-dev-2's measured
+  rates, without the optional rescore; the earlier 100-run forecast was 50-80 min, so treat these as the low end):**
+
+  | True AUC | H2 (AUC > 0.5) | H3 (beats strongest trivial feature) | Confirmed needs H3 |
+  |---|---|---|---|
+  | 0.60 | 300 runs, ~127 min | not reached by 400 (power 0.53) | not feasible |
+  | 0.64 | 100 runs, ~47 min | 400 runs, ~167 min (300 gives 0.78) | ~400 runs |
+  | 0.70 | 100 runs, ~47 min | 150 runs, ~67 min | ~150 runs |
+
+  At the planned 100 runs, P(H3) is only 0.10 / 0.25 / 0.61 at true AUC 0.60 / 0.64 / 0.70: the plan's section 9
+  (0.22 / 0.41 at 0.60 / 0.65) was optimistic because it treated the strongest feature as fixed at 0.521, while H3
+  takes a maximum of noisy features and effect spread clusters strongly by base (ICC 0.69; llama's score 0.012).
+- **Caveats of the simulation:** bootstrap over 18 bases is slightly narrow (spread 0.054 vs true 0.058 at 100 runs),
+  so the 18-base powers are a little optimistic. More bases (36, 54) bought nothing: the score barely clusters by
+  base, and those layouts left helper characters at 0.46-0.47, raising H3's bar. A score ICC of 0.20 instead of
+  0.012 changed powers by at most a few points. H1 not simulated. Score and features drawn independently.
+- **Recommendation (Claude):** stop llama here; do not lock or run confirm-llama-2. Go to Mission 5.1 (tripwires)
+  plus the 40-run cloud ceiling check. Reason: even a confirmed AUC near 0.64 is a weak reviewer (dev recall 0.45 at
+  15% false alarms), and confirming it costs about 3 laptop hours with a real chance of "not confirmed" anyway.
+  What would change it: the cloud check also lands near 0.65 (then the task is hard for everyone and a confirmed
+  small llama signal is worth a paper result), or the student wants the 400-run confirmation as an overnight job.
+  **Student's decision pending.** If confirming: amend v2 to 400 runs (and say so in section 9) before the lock.
 
 ## Padding redesign (2026-11-09): decoys, so no size feature separates the run types
 - **`/brainstorm`, ranked by value and effort:**
@@ -382,7 +425,9 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   student's own window), and so is its fresh pass (73 records).
 - The cue probe finished 2026-11-09 13:38 UTC (40 records, `eval/results/confirm_llama_1/cue_probe.jsonl`).
 - `confirm-llama-1` never started and is superseded (no pool-2, no runs, no audits); the name is refused.
-- `task-dev-2` (v2 step 1) has not started: the next run, in the student's own window.
+- `task-dev-2` (v2 step 1) finished 2026-11-10 in the student's own window: 40 runs in 357 s (length gate passed on
+  the run folders), 40 audits in 602 s, 0 failed; cut-off written once (`eval/results/task_dev_2/llama_checklist_cutoff.json`).
+- `confirm-llama-2` has not started; no pool-2 data exist. The v2 plan is still a DRAFT (not locked).
 
 ## Decisions
 - **Working rule for improving the reviewer (student, 2026-11-09).** We keep improving the reviewer until it works
@@ -634,20 +679,12 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next actions
-Tomorrow, in this order (v2 plan approved 2026-11-09):
-1. **`task-dev-2` in the student's own window** (commands under "In progress", about 20-27 min), then `/evaluate` it
-   with `eval/results/task_dev_2/dev_report.json` (AUC, own cut-off, decoy diagnostic). Stop if the cut-off's J <= 0.
-2. **Lock the cut-off and the plan:** cut-off SHA-256 and frozen code hashes into v2 section 4, H1 power from
-   `eval.confirm_power`, status LOCKED, `.sha256`, pytest, commit.
-3. **`/challenge` the locked plan** (attack it like a reviewer). A flaw found here means a new amendment and re-lock
-   before any pool-2 data, never a change afterwards.
-4. **`confirm-llama-2` in the student's own window** (v2 section 10, steps 6-10, about 75-105 min), then `/evaluate`.
-5. `/mission 5.1` (deterministic tripwires) as the main defence, following the fixed rule; then Mission 3.1.
-6. Plan only (nothing built yet, each needs the student's OK):
-   - **Cloud ceiling check on 40 runs:** one strong cloud reviewer (a different family from the Scientist) on a
-     length-matched 40-run batch, to learn whether the task is hard or only the small local models are weak. Needs an
-     API key and `/api`.
-   - **Mission 5.1 tripwires plus llama as a union reviewer:** flag if a tripwire fires or llama flags; measure the
-     union's recall and specificity against each alone (feeds RQ2).
-   - **4B vs 8B vs cloud comparison for the report:** gemma3:4b and phi4-mini vs llama3.1:8b vs the cloud model, on
-     the same length-matched batch, with AUC and J and base-level intervals.
+1. **Student decides:** stop llama here (Claude's recommendation) or amend v2 to ~400 runs, lock, `/challenge`, then
+   run confirm-llama-2 in own window (several sessions with `--resume`). Numbers in "task-dev-2 result and power".
+2. If stopping: write a short notice on top of the v2 plan ("not run, power too low at the dev AUC") and README
+   status; `/mission 5.1` (deterministic tripwires) as the main defence; then Mission 3.1.
+3. **Cloud ceiling check on 40 runs** (needs the student's OK, an API key and `/api`): one strong cloud reviewer of
+   another family on a length-matched, decoyed 40-run batch: is the task hard, or only the small models weak?
+4. Plan only (each needs the student's OK): tripwires plus llama as a union reviewer (RQ2); 4B vs 8B vs cloud
+   comparison for the report, with AUC, J and base-level intervals.
+5. Housekeeping: `pytest -q` takes 33-35 s, over the 30 s target; trim or mark more tests slow.
