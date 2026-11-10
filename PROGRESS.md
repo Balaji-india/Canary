@@ -73,10 +73,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Stopped at (2026-11-10):** `task-dev-2` done (student's window) and evaluated; power simulated with base-level
-resampling (`eval/power_sim.py`). **The v2 plan is NOT locked, on purpose:** the student decides between a 400-run
-confirmation and stopping llama here (see "task-dev-2 result and power" below). No mission is part-way through;
-Mission 2.4 is the last mission complete. No pool-2 data exist.
+**Stopped at (2026-11-10):** llama confirmation stopped by the student's decision (see Decisions); the v2 plan stays
+unlocked and is not run. The cloud ceiling check is outlined only (`docs/plans/cloud_ceiling_check_outline.md`),
+nothing of it is built. No mission is part-way through; Mission 2.4 is the last mission complete. No pool-2 data exist.
 - **v1 plan SUPERSEDED (student, 2026-11-09), never run: no `confirm-llama-1` or pool-2 data exist.** Its padding left
   helper size separating canaries (AUC 0.85 ignoring direction), so H3 had power near 0. Notice on top of
   `docs/plans/llama_checklist_confirmation.md` (kept, re-hashed with the notice; the locked text is in commit 6a9eaa9).
@@ -135,12 +134,12 @@ per cell, plan seed 1109, no LLM). Model `llama3.1:8b`, role `skeptic_c_checklis
   so the 18-base powers are a little optimistic. More bases (36, 54) bought nothing: the score barely clusters by
   base, and those layouts left helper characters at 0.46-0.47, raising H3's bar. A score ICC of 0.20 instead of
   0.012 changed powers by at most a few points. H1 not simulated. Score and features drawn independently.
-- **Recommendation (Claude):** stop llama here; do not lock or run confirm-llama-2. Go to Mission 5.1 (tripwires)
+- **Recommendation (Claude), accepted by the student 2026-11-10:** stop llama here; do not lock or run confirm-llama-2. Go to Mission 5.1 (tripwires)
   plus the 40-run cloud ceiling check. Reason: even a confirmed AUC near 0.64 is a weak reviewer (dev recall 0.45 at
   15% false alarms), and confirming it costs about 3 laptop hours with a real chance of "not confirmed" anyway.
   What would change it: the cloud check also lands near 0.65 (then the task is hard for everyone and a confirmed
   small llama signal is worth a paper result), or the student wants the 400-run confirmation as an overnight job.
-  **Student's decision pending.** If confirming: amend v2 to 400 runs (and say so in section 9) before the lock.
+  **Decided: stopped** (see Decisions).
 
 ## Padding redesign (2026-11-09): decoys, so no size feature separates the run types
 - **`/brainstorm`, ranked by value and effort:**
@@ -430,6 +429,12 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 - `confirm-llama-2` has not started; no pool-2 data exist. The v2 plan is still a DRAFT (not locked).
 
 ## Decisions
+- **llama3.1:8b not confirmed for use; llama confirmation stopped (student, 2026-11-10).** Its development AUC on
+  task-dev-2 is weak (0.643, base 90% [0.487, 0.778], `eval/results/task_dev_2/dev_report.json`), and confirming it
+  would need about 400 runs (~167+ laptop minutes) for 80% power on H3 at a true AUC of 0.64, against the 100
+  planned. The reason is the power simulation (`eval/results/confirm_llama_2/power_sim.json`, `eval/power_sim.py`;
+  section "task-dev-2 result and power"). The v2 plan stays **unlocked and is not run**: no pool-2, no
+  confirm-llama-2. llama's dev numbers remain development numbers and may not be reported as a confirmed result.
 - **Working rule for improving the reviewer (student, 2026-11-09).** We keep improving the reviewer until it works
   properly, but every change (prompt, task, model, cut-off, padding, hints) is chosen on development data and judged
   only on a fresh batch it has never seen. No re-tuning on a batch whose results we have seen: once a batch's results
@@ -679,12 +684,13 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next actions
-1. **Student decides:** stop llama here (Claude's recommendation) or amend v2 to ~400 runs, lock, `/challenge`, then
-   run confirm-llama-2 in own window (several sessions with `--resume`). Numbers in "task-dev-2 result and power".
-2. If stopping: write a short notice on top of the v2 plan ("not run, power too low at the dev AUC") and README
-   status; `/mission 5.1` (deterministic tripwires) as the main defence; then Mission 3.1.
-3. **Cloud ceiling check on 40 runs** (needs the student's OK, an API key and `/api`): one strong cloud reviewer of
-   another family on a length-matched, decoyed 40-run batch: is the task hard, or only the small models weak?
-4. Plan only (each needs the student's OK): tripwires plus llama as a union reviewer (RQ2); 4B vs 8B vs cloud
-   comparison for the report, with AUC, J and base-level intervals.
-5. Housekeeping: `pytest -q` takes 33-35 s, over the 30 s target; trim or mark more tests slow.
+1. **Cloud ceiling check** (outline: `docs/plans/cloud_ceiling_check_outline.md`; needs the student's OK on the
+   provider, the new-code choice and the "solvable" rule, then `/api`, a locked pre-registration, and a key in `.env`).
+   One strong cloud reviewer of another family than the qwen Scientist, on the 40 task-dev-2 runs, baseline and
+   checklist prompts, scored like llama (verdict J, AUC with base-level intervals, trivial-feature baselines).
+2. **Only if the ceiling check says SOLVABLE: efficiency search** for the cheapest model that still clears the bar:
+   local non-Qwen code models that fit 6 GB VRAM and smaller cloud models. Each candidate is tested on its own fresh,
+   never-seen batch, pre-registered and locked, with the same rules and the same bar; nothing is chosen on a batch
+   whose results we have seen.
+3. **`/mission 5.1` (deterministic tripwires)**, the main defence whatever the ceiling check says; then Mission 3.1.
+4. Housekeeping: `pytest -q` takes 30-35 s, over the 30 s target; trim or mark more tests slow.
