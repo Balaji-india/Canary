@@ -4,6 +4,12 @@ Written 2026-11-10. Revised the same day after a `/challenge` review (section 12
 Nothing here is code yet, and no cloud call has been made. When approved, it becomes a locked pre-registration
 (`docs/plans/cloud_ceiling_check.md` + `.sha256`, LF bytes) **before** any cloud call.
 
+> **Decision 1 changed by the student (2026-11-10, after this revision): no paid API for now.** The ceiling check uses
+> GitHub Models (free), with the Gemini free tier as backup. A paid model is used only if the free result is
+> INCONCLUSIVE or HARD and a newer paid model would change the conclusion. Sections 2, 9 and 10 below still describe
+> the earlier OpenAI proposal and will be rewritten after GitHub Models has been researched (not done yet). The rule
+> (section 6), the isolation rule (section 3) and the scoring (section 5) do not depend on the provider.
+
 ## Pending decisions (the student's, before anything is built)
 Every choice in this file is **proposed by Claude, pending the student's approval**.
 1. **Provider and model (section 2):** OpenAI. A logprob arm (reasoning off, temperature 0) decides first; a reasoning
