@@ -426,7 +426,8 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 - `confirm-llama-1` never started and is superseded (no pool-2, no runs, no audits); the name is refused.
 - `task-dev-2` (v2 step 1) finished 2026-11-10 in the student's own window: 40 runs in 357 s (length gate passed on
   the run folders), 40 audits in 602 s, 0 failed; cut-off written once (`eval/results/task_dev_2/llama_checklist_cutoff.json`).
-- `confirm-llama-2` has not started; no pool-2 data exist. The v2 plan is still a DRAFT (not locked).
+- `confirm-llama-2` will not run (llama stopped, 2026-11-10); no pool-2 data exist; the v2 plan stays unlocked.
+- No cloud call has been made; the ceiling check is an outline only.
 
 ## Decisions
 - **llama3.1:8b not confirmed for use; llama confirmation stopped (student, 2026-11-10).** Its development AUC on
@@ -616,6 +617,10 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
+- **`pytest -q` is at or over the 30 s target** (30.2-35 s on 2026-11-10, 607 tests; slower while other work runs).
+  Next step: mark a few more slow tests or lower draws further.
+- **Base-level intervals over few bases run slightly narrow:** at 100 runs on 18 bases the bootstrap spread was 0.054
+  against a true 0.058 (`eval/power_sim.py` check, 2026-11-10). Read borderline lower bounds with care.
 - **Reviewers are not fully repeatable at temperature 0, and the cache hides it.** phi4-mini repeated its stored reply
   75/120 times, llama3.1:8b 94/120 (all 26 differences kept the verdict), gemma3:4b 118/120. Mismatched rescore records
   store no score, so AUC for phi and llama rests on a subset chosen by the model's own instability. Any trust number built from one cached reply per run treats the reviewer as
