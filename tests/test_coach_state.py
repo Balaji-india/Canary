@@ -47,3 +47,23 @@ def test_campaign_state_reads_the_last_line(tmp_path, text, age, expected):
 
 def test_no_log_means_no_campaign(tmp_path):
     assert load_state().campaign_state(tmp_path) is None
+
+
+def test_current_focus_outranks_the_next_mission(tmp_path, monkeypatch):
+    (tmp_path / "PROGRESS.md").write_text("- [ ] 3.1 Graveyard\n**Current focus:** Cloud ceiling check (approve)\n",
+                                          encoding="utf-8")
+    state = load_state()
+    assert state.current_focus(tmp_path) == "Cloud ceiling check (approve)"
+    assert state.next_mission(tmp_path) == ("3.1", "Graveyard")
+    monkeypatch.setattr(state.time, "time", lambda: 0.0)  # slot 0: the focus/mission tip, not a general tip
+    monkeypatch.setattr(state, "git_dirty_count", lambda root: 0)
+    assert "cloud_ceiling_check_outline" in state.pick_tip(tmp_path, None)
+
+
+def test_no_focus_line_falls_back_to_the_mission_tip(tmp_path, monkeypatch):
+    (tmp_path / "PROGRESS.md").write_text("- [ ] 3.1 Graveyard\n", encoding="utf-8")
+    state = load_state()
+    assert state.current_focus(tmp_path) is None
+    monkeypatch.setattr(state.time, "time", lambda: 0.0)
+    monkeypatch.setattr(state, "git_dirty_count", lambda root: 0)
+    assert state.pick_tip(tmp_path, None) == state.mission_tip("3.1")

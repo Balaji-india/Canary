@@ -6,9 +6,10 @@
 >
 > Canary puts its own canaries into the research loop.
 
-**Status (2026-11-09):** Milestones M1–M2 are complete. None of the three local reviewers tested so far can be
-trusted yet. One candidate, `llama3.1:8b` with a checklist prompt, is waiting for a pre-registered confirmation
-(plan v2, not yet run). Until it passes, **llama is not confirmed.**
+**Status (2026-11-10):** Milestones M1–M2 are complete. None of the local reviewers tested so far can be trusted.
+**`llama3.1:8b` is not confirmed for use:** with no size cue left, its development AUC was weak (0.643, base 90%
+[0.487, 0.778]), and confirming it would need about 400 runs, so the confirmation was stopped and never run. Next: a
+cloud ceiling check (is the review task solvable at all?), then Mission 5.1 (deterministic tripwires).
 
 ---
 
@@ -138,10 +139,14 @@ holds the 40-run plan and the helper's size in characters (both pass). Effect sp
 is 0.521 [0.469, 0.567] on existing runs. One cue remains: bugs really inflate the best arm's score (0.591
 [0.541, 0.650]); a reviewer may notice that legitimately.</sub>
 
-**What happens next (plan v2, `docs/plans/llama_checklist_confirmation_v2.md`).** A 40-run development batch with
-decoys chooses llama's cut-off. Then the plan is locked, and a fresh 100-run batch on new experiments tests it. To confirm, that
-batch must show J above 0 or AUC above 0.5 (lower ends of 90% intervals), *and* beat the strongest trivial feature. The rule: every change to the reviewer
-is chosen on development data and judged only on a batch it has never seen.
+**What happens next.** The llama confirmation (`docs/plans/llama_checklist_confirmation_v2.md`) was stopped
+before it ran: on task-dev-2 (40 runs, decoys, every size feature at 0.5) llama's AUC was 0.643, base 90% [0.487,
+0.778], and a simulation of the plan's own analysis gave about 400 runs for 80% power at that level
+(`eval/results/task_dev_2/dev_report.json`, `eval/results/confirm_llama_2/power_sim.json`). Next is a cloud ceiling
+check on the same 40 runs (`docs/plans/cloud_ceiling_check_outline.md`, outline only): if a strong cloud reviewer
+clearly beats llama, the task is solvable and a search for the cheapest model that clears the bar follows, each
+candidate on its own fresh batch. Mission 5.1 (tripwires) comes next either way. The rule stays: every change to the
+reviewer is chosen on development data and judged only on a batch it has never seen.
 
 ## Try it
 
@@ -155,7 +160,7 @@ pip install -r requirements.txt
 ollama pull qwen2.5-coder:7b   # Scientist (fallback qwen3:4b)
 ollama pull gemma3:4b          # Skeptic A
 ollama pull phi4-mini          # Skeptic B
-ollama pull llama3.1:8b        # the reviewer under confirmation (optional; heavy on RAM, close other apps)
+ollama pull llama3.1:8b        # third reviewer, not confirmed for use (optional; heavy on RAM, close other apps)
 
 python -m canary.cli doctor            # checks Python, packages, models, datasets
 python -m canary.cli cache-datasets    # one-time download; offline afterwards
@@ -192,8 +197,9 @@ docs/        DESIGN.md (design, maths, bug catalogue) and plans/ (pre-registrati
 ## Scope
 
 **Done:** M1–M2, the honest core loop, the saboteur, controls and shams, trust statistics and the first reviewer
-study. Then the review-task screen, and length matching plus decoys. **Now:** confirming a reviewer worth trusting
-before building on its numbers.
+study. Then the review-task screen, length matching plus decoys, and task-dev-2 (llama not confirmed for use; its
+confirmation stopped on power grounds). **Now:** a cloud ceiling check, to learn whether any reviewer can do this
+task, then Mission 5.1 (tripwires).
 
 | Milestone | What it adds |
 |---|---|

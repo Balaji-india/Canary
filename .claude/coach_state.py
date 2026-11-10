@@ -28,6 +28,12 @@ MISSION_TIPS = [
     ("8.", "/write <section>, /visualize, /proofread, /viva, /novelty"),
 ]
 
+# Work between missions (a "**Current focus:** ..." line in PROGRESS.md) outranks the first unticked mission.
+FOCUS_TIPS = [
+    ("cloud ceiling", "/challenge docs/plans/cloud_ceiling_check_outline.md, then approve it and /api"),
+    ("efficiency search", "/compare the candidate models; each one gets its own fresh, locked batch"),
+]
+
 GENERAL_TIPS = [
     "/btw <question> asks a side question without derailing the session",
     "/tldr shows what changed since the last commit, in 5 bullets",
@@ -62,6 +68,24 @@ def next_mission(root: Path) -> tuple[str, str] | None:
         return None
     m = re.search(r"- \[ \] (\d+\.\d+) (.+)", text)
     return (m.group(1), m.group(2).strip()) if m else None
+
+
+def current_focus(root: Path) -> str | None:
+    """The '**Current focus:** ...' line of PROGRESS.md (work that comes before the next mission), if any."""
+    try:
+        text = (root / "PROGRESS.md").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = re.search(r"\*\*Current focus:\*\* *(.+)", text)
+    return m.group(1).strip() if m else None
+
+
+def focus_tip(focus: str) -> str | None:
+    low = focus.lower()
+    for key, tip in FOCUS_TIPS:
+        if key in low:
+            return tip
+    return None
 
 
 def last_done(root: Path) -> str | None:
@@ -117,11 +141,11 @@ def pick_tip(root: Path, ctx_pct: float | None) -> str:
         return "context over 60%: /compact keep the current mission details"
     if git_dirty_count(root) >= 15:
         return "many uncommitted changes: finish the mission, or /summary to save state"
-    nm = next_mission(root)
-    # Alternate every 40 s between the mission tip and a rotating general tip.
+    nm, focus = next_mission(root), current_focus(root)
+    # Alternate every 40 s between the focus or mission tip and a rotating general tip.
     slot = int(time.time() // 40)
-    if nm and slot % 2 == 0:
-        tip = mission_tip(nm[0])
+    if slot % 2 == 0 and (focus or nm):
+        tip = focus_tip(focus) if focus else mission_tip(nm[0])
         if tip:
             return tip
     return GENERAL_TIPS[slot % len(GENERAL_TIPS)]

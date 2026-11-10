@@ -73,6 +73,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
+**Current focus:** Cloud ceiling check (approve the outline, then /api), before Mission 5.1
+
 **Stopped at (2026-11-10):** llama confirmation stopped by the student's decision (see Decisions); the v2 plan stays
 unlocked and is not run. The cloud ceiling check is outlined only (`docs/plans/cloud_ceiling_check_outline.md`),
 nothing of it is built. No mission is part-way through; Mission 2.4 is the last mission complete. No pool-2 data exist.

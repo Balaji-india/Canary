@@ -1,6 +1,6 @@
 # Pre-registration v2: llama-checklist confirmation with decoy padding
 
-> **Notice (2026-11-10): not run, never locked.** The student stopped the llama confirmation after `task-dev-2`
+> **Notice (2026-11-10): not locked, not run; stopped on power grounds.** The student stopped the llama confirmation after `task-dev-2`
 > (development AUC 0.643, base 90% [0.487, 0.778]): simulated power for H3 at the planned 100 runs is 0.10 / 0.25 /
 > 0.61 at true AUC 0.60 / 0.64 / 0.70, and about 400 runs would be needed at 0.64
 > (`eval/results/confirm_llama_2/power_sim.json`). No pool-2 or `confirm-llama-2` data exist. Kept as written below
