@@ -74,7 +74,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check (approve the 3 proposals in the revised outline, then /api), before Mission 5.1
+**Current focus:** Cloud ceiling check on a free API (research GitHub Models, finalize the outline, then /api), before Mission 5.1
 
 **Stopped at (2026-11-10):** llama confirmation stopped by the student's decision (see Decisions); the v2 plan stays
 unlocked and is not run. The cloud ceiling check is outlined only (`docs/plans/cloud_ceiling_check_outline.md`,
@@ -85,7 +85,11 @@ complete. No pool-2 data exist.
 ## Proposed, pending the student's approval (2026-11-10, thinking-only session)
 Nothing below is decided or built. Details, trade-off tables and the review log: `docs/plans/cloud_ceiling_check_outline.md`
 (sections 2, 6, 8 and 12) and `docs/plans/mission_5_1_tripwires_outline.md`.
-- **(a) Provider and model: proposed, pending my approval.** OpenAI, two arms on one key. Arm L: reasoning off,
+- **(a) Provider and model: CHANGED by the student (2026-11-10), see Decisions: no paid API for now; GitHub Models
+  (free), Gemini free tier as backup.** The OpenAI proposal below is kept as the paid fallback only. Which free model,
+  whether it returns token probabilities and accepts temperature 0, its rate limits and its data terms are **not
+  researched yet**; outline section 2 still shows the old proposal until the next session rewrites it.
+  Old proposal: OpenAI, two arms on one key. Arm L: reasoning off,
   temperature 0, token probabilities, scored like llama (80 calls). Arm R: the strongest model with reasoning on,
   verdict only, run only if arm L is not SOLVABLE; without it "HARD" may not be declared. The exact dated model is
   picked by a smoke test with fixed pass criteria. Where a cell has no token probabilities, the AUC is computed
@@ -107,6 +111,7 @@ Nothing below is decided or built. Details, trade-off tables and the review log:
 
 ## Model use (student, 2026-11-10)
 Until 2026-11-16: use Fable for planning, `/challenge` and statistics design. Use the usual model for routine building.
+Next session: Fable researches GitHub Models and finalizes the ceiling outline and the build plan; then Opus builds `/api`.
 - **v1 plan SUPERSEDED (student, 2026-11-09), never run: no `confirm-llama-1` or pool-2 data exist.** Its padding left
   helper size separating canaries (AUC 0.85 ignoring direction), so H3 had power near 0. Notice on top of
   `docs/plans/llama_checklist_confirmation.md` (kept, re-hashed with the notice; the locked text is in commit 6a9eaa9).
@@ -461,6 +466,13 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 - No cloud call has been made; the ceiling check is an outline only (revised 2026-11-10, still not locked).
 
 ## Decisions
+- **Ceiling check uses a free API first; no paid API for now (student, 2026-11-10).** Reviewer: GitHub Models (free);
+  backup: the Gemini free tier. Pay for a model only if the free result is INCONCLUSIVE or HARD **and** a newer paid
+  model would change the conclusion. This replaces proposal (a) (OpenAI, paid) in
+  `docs/plans/cloud_ceiling_check_outline.md`; proposals (b) the "solvable" rule and (c) standard-library HTTP are
+  still pending approval. The isolation rule is unchanged: the reviewer is called only through `canary/llm.py` with
+  the blinded prompt. Nothing about GitHub Models has been checked yet (models, token probabilities, temperature,
+  rate limits, data terms); that is the next session's first job, before any call.
 - **llama3.1:8b not confirmed for use; llama confirmation stopped (student, 2026-11-10).** Its development AUC on
   task-dev-2 is weak (0.643, base 90% [0.487, 0.778], `eval/results/task_dev_2/dev_report.json`), and confirming it
   would need about 400 runs (~167+ laptop minutes) for 80% power on H3 at a true AUC of 0.64, against the 100
@@ -652,6 +664,9 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **Cloud provider facts in the ceiling outline are secondhand** (forum threads and third-party pages, 2026-11-10):
   which OpenAI models return token probabilities, whether temperature 0 is honoured, prices and shutdown dates. The
   smoke test and the official pages decide at the lock; `gpt-4.1` is reported to shut down 2027-01-14.
+  **GitHub Models and the Gemini free tier are not researched at all yet.** Open points for the free route: a free
+  tier may not offer the strongest models or token probabilities, daily rate limits may spread 80 calls over more
+  than one day, and free tiers can have looser data terms than paid ones.
 - **`pytest -q` is at or over the 30 s target** (30.2-35 s on 2026-11-10, 607 tests; slower while other work runs).
   Next step: mark a few more slow tests or lower draws further.
 - **Base-level intervals over few bases run slightly narrow:** at 100 runs on 18 bases the bootstrap spread was 0.054
@@ -724,11 +739,13 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next actions
-1. **Cloud ceiling check** (outline: `docs/plans/cloud_ceiling_check_outline.md`). First the student's OK on the
-   three proposals (see "Proposed, pending the student's approval"). Then `/api` (provider + tests), `eval/ceiling.py`
-   and the simulated outcome table, the locked pre-registration, a key in `.env`, the smoke test, and the runs.
-   One strong cloud reviewer of another family than the qwen Scientist, on the 40 task-dev-2 runs, baseline and
-   checklist prompts, called only through `llm.py`.
+1. **Cloud ceiling check on a free API** (outline: `docs/plans/cloud_ceiling_check_outline.md`). Next session (Fable):
+   `/research` GitHub Models (which strong non-Qwen models, token probabilities, temperature 0, rate limits for about
+   80-160 calls, data terms, endpoint shape) and the Gemini free tier as backup; rewrite outline section 2, the smoke
+   test and the cost section; get the student's OK on (b) and (c); write the build plan. Then (Opus) `/api`: provider +
+   mocked tests. Then `eval/ceiling.py` and the simulated outcome table, the locked pre-registration, a token in
+   `.env`, the smoke test, and the runs: the 40 task-dev-2 runs, baseline and checklist prompts, called only through
+   `llm.py`. Pay only if the free result is INCONCLUSIVE or HARD and a newer paid model would change the conclusion.
 2. **Only if the ceiling check says SOLVABLE: efficiency search** for the cheapest model that still clears the bar:
    local non-Qwen code models that fit 6 GB VRAM and smaller cloud models. Each candidate is tested on its own fresh,
    never-seen batch, pre-registered and locked, with the same rules and the same bar; nothing is chosen on a batch
