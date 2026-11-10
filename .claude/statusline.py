@@ -14,7 +14,7 @@ except Exception:
     pass
 
 try:
-    from coach_state import next_mission, pick_tip, project_root
+    from coach_state import current_focus, next_mission, pick_tip, project_root
 
     raw = sys.stdin.read()
     data = json.loads(raw) if raw.strip() else {}
@@ -23,8 +23,8 @@ try:
     ctx = (data.get("context_window") or {}).get("used_percentage")
     ctx = float(ctx) if ctx is not None else None
 
-    nm = next_mission(root)
-    mission = f"next: Mission {nm[0]} {nm[1]}" if nm else "all missions done"
+    nm, focus = next_mission(root), current_focus(root)
+    mission = (f"now: {focus}" if focus else f"next: Mission {nm[0]} {nm[1]}" if nm else "all missions done")
     ctx_txt = f" | context {ctx:.0f}%" if ctx is not None else ""
     print(f"Canary | {mission}{ctx_txt}")
     print(f"TIP > {pick_tip(root, ctx)}")

@@ -4,6 +4,14 @@ Written 2026-11-10 as an outline for the student's OK. Nothing here is code yet,
 When approved, it becomes a locked pre-registration (`docs/plans/cloud_ceiling_check.md` + `.sha256`) **before** any
 cloud call.
 
+## Pending decisions (the student's, before anything is built)
+1. **Provider and model:** OpenAI (GPT family), chosen because it still returns token probabilities; the model is
+   picked by a one-call smoke test (newest GPT-5.x at reasoning "none", else GPT-4.1). See section 2.
+2. **The "solvable" rule** in section 5 (SOLVABLE / HARD / INCONCLUSIVE, 95% base-level intervals, the 0.75 line).
+3. **New code:** a ~60-line standard-library HTTP provider (no new dependency; Claude's suggestion) or the `openai`
+   SDK (a new dependency, CLAUDE.md section 4). See section 6.
+Separately, at run time: the OK to send the 40 blinded runs to the cloud API.
+
 ## 1. Question
 Is the review task solvable at all from a blinded run? llama3.1:8b reached development AUC 0.643 (base 90%
 [0.487, 0.778]) on task-dev-2. If a strong cloud reviewer clearly does better on the same runs, the task is solvable
@@ -81,7 +89,7 @@ Two prompts give two chances, so the rule uses **95% base-level intervals** (Bon
   blinded runs to an outside service is the student's call).
 
 ## 9. Order once approved
-1. Student approves sections 2, 5 and 6 (provider, rule, standard library vs SDK).
+1. Student approves the three pending decisions at the top (provider, rule, standard library vs SDK).
 2. `/api`: provider + tests; `pytest -q`; commit.
 3. Lock `docs/plans/cloud_ceiling_check.md` (this outline, with the power numbers) + `.sha256`; commit.
 4. Smoke test (toy prompt) picks the model; key and budget set.

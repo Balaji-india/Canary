@@ -40,7 +40,7 @@ def main() -> None:
     event = sys.argv[1] if len(sys.argv) > 1 else ""
     raw = sys.stdin.read()
     data = json.loads(raw) if raw.strip() else {}
-    from coach_state import last_done, next_mission, project_root, campaign_state
+    from coach_state import current_focus, last_done, next_mission, project_root, campaign_state
 
     root = project_root(data.get("cwd"))
 
@@ -53,7 +53,10 @@ def main() -> None:
         parts = ["Canary coach:"]
         if ld:
             parts.append(f"last done Mission {ld}.")
-        if nm:
+        focus = current_focus(root)
+        if focus:
+            parts.append(f"Now: {focus}.")
+        elif nm:
             parts.append(f"Next: Mission {nm[0]} {nm[1]}.")
         if campaign_state(root) == "interrupted":
             parts.append("A campaign was interrupted: /campaign resumes it.")
