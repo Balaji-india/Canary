@@ -1,0 +1,15 @@
+{
+ "role": "skeptic_c_checklist",
+ "batch": "task-dev-2",
+ "rule": "highest J; on a tie, the lowest cut-off",
+ "scored_buggy": 20,
+ "scored_clean": 20,
+ "auc_on_these_scores": 0.6425,
+ "cutoff": 0.49729650000000003,
+ "j": 0.30000000000000004,
+ "recall": 0.45,
+ "false_alarm_rate": 0.15,
+ "tied_candidates": 2,
+ "caveat": "chosen on task-dev-2: 40 runs on pool 1 (bases also used by rq1-full and task-dev-1), padded and with decoys; the confirmation batch uses new bases (pool 2)",
+ "chosen_at": "2026-11-10T13:40:13.168554+00:00"
+}

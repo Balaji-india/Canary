@@ -1,0 +1,715 @@
+{
+ "target_power": 0.8,
+ "auc_grid": [
+  0.6,
+  0.64,
+  0.7
+ ],
+ "runs_grid": [
+  100,
+  150,
+  200,
+  300,
+  400
+ ],
+ "sims": 300,
+ "draws": 1000,
+ "plan_seed": 1109,
+ "icc": {
+  "score": 0.011989289056349568,
+  "effect_spread": 0.6938307327418135,
+  "source": "task-dev-1 and task-dev-2, residuals after type means, bases pooled"
+ },
+ "effect_spread_true_auc": 0.520625,
+ "times": {
+  "batch": "task-dev-2",
+  "runs": 40,
+  "run_seconds_per_run": 8.925,
+  "audit_seconds_per_run": 15.05,
+  "pool_seconds_per_base": 22.470588235294116,
+  "pool_1_bases_logged": 18
+ },
+ "assumptions": "(all assumptions, written in the result file):\n- Layout: the real mixer plans the batch (`mixer.plan_batch`, seed 1109) on pool 1 (pool 2 is built on the same\n  grid and does not exist yet). \"More bases\" copies pool 1 under new indices, i.e. an equally varied larger pool.\n- Size features (statement count, helper statements, helper characters) are the real dry-plan values of that layout,\n  so their ties and decoys are as in the batch. Line and character count are padded constant (AUC exactly 0.5).\n- llama's score and effect spread are latent normals: value = base effect + shift if buggy + noise, with the share of\n  variance between bases (ICC) estimated from task-dev-1 and task-dev-2 on normal scores. The shift gives the true\n  AUC between runs on independent bases: d = sqrt(2) * Phi^-1(AUC). Effect spread's true AUC is 0.521 (pool-1 runs,\n  dry_proof.json). Score and features are drawn independently of each other.\n- Each batch is analysed as the plan says: 90% percentile interval over base-level draws; H2 passes if AUC's lower\n  bound is above 0.5, H3 if the lower bound of AUC minus the strongest direction-free feature AUC (picked again in\n  each draw) is above 0. All simulated batches of one cell share the same base-draw indices (common random numbers),\n  which leaves each batch's interval correct and makes the grid cheaper.\nLaptop time comes from task-dev-2's measured rates in data/runs/campaign.log and pool 1's build rate.",
+ "grid": {
+  "18": {
+   "0.60": {
+    "100": {
+     "H2": 0.5633333333333334,
+     "H3": 0.1,
+     "H2_and_H3": 0.1,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 46.69950980392157
+    },
+    "150": {
+     "H2": 0.73,
+     "H3": 0.14666666666666667,
+     "H2_and_H3": 0.14666666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 66.67867647058823
+    },
+    "200": {
+     "H2": 0.7933333333333333,
+     "H3": 0.17666666666666667,
+     "H2_and_H3": 0.17666666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 86.6578431372549
+    },
+    "300": {
+     "H2": 0.9033333333333333,
+     "H3": 0.36666666666666664,
+     "H2_and_H3": 0.36666666666666664,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 126.61617647058823
+    },
+    "400": {
+     "H2": 0.9366666666666666,
+     "H3": 0.53,
+     "H2_and_H3": 0.53,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 166.57450980392156
+    }
+   },
+   "0.64": {
+    "100": {
+     "H2": 0.83,
+     "H3": 0.24666666666666667,
+     "H2_and_H3": 0.24666666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 46.69950980392157
+    },
+    "150": {
+     "H2": 0.9266666666666666,
+     "H3": 0.4,
+     "H2_and_H3": 0.4,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 66.67867647058823
+    },
+    "200": {
+     "H2": 0.9633333333333334,
+     "H3": 0.53,
+     "H2_and_H3": 0.53,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 86.6578431372549
+    },
+    "300": {
+     "H2": 0.9966666666666667,
+     "H3": 0.7833333333333333,
+     "H2_and_H3": 0.7833333333333333,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 126.61617647058823
+    },
+    "400": {
+     "H2": 1.0,
+     "H3": 0.8866666666666667,
+     "H2_and_H3": 0.8866666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 166.57450980392156
+    }
+   },
+   "0.70": {
+    "100": {
+     "H2": 0.9666666666666667,
+     "H3": 0.6133333333333333,
+     "H2_and_H3": 0.6133333333333333,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 46.69950980392157
+    },
+    "150": {
+     "H2": 1.0,
+     "H3": 0.87,
+     "H2_and_H3": 0.87,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 66.67867647058823
+    },
+    "200": {
+     "H2": 0.9966666666666667,
+     "H3": 0.93,
+     "H2_and_H3": 0.93,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 86.6578431372549
+    },
+    "300": {
+     "H2": 1.0,
+     "H3": 0.9933333333333333,
+     "H2_and_H3": 0.9933333333333333,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 126.61617647058823
+    },
+    "400": {
+     "H2": 1.0,
+     "H3": 0.9966666666666667,
+     "H2_and_H3": 0.9966666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 18,
+     "laptop_minutes": 166.57450980392156
+    }
+   }
+  },
+  "36": {
+   "0.60": {
+    "100": {
+     "H2": 0.5033333333333333,
+     "H3": 0.06,
+     "H2_and_H3": 0.06,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 53.44068627450981
+    },
+    "150": {
+     "H2": 0.66,
+     "H3": 0.07666666666666666,
+     "H2_and_H3": 0.07666666666666666,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 35,
+     "laptop_minutes": 73.41985294117647
+    },
+    "200": {
+     "H2": 0.8166666666666667,
+     "H3": 0.08,
+     "H2_and_H3": 0.08,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 93.39901960784314
+    },
+    "300": {
+     "H2": 0.9266666666666666,
+     "H3": 0.2733333333333333,
+     "H2_and_H3": 0.2733333333333333,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 133.35735294117646
+    },
+    "400": {
+     "H2": 0.9766666666666667,
+     "H3": 0.44333333333333336,
+     "H2_and_H3": 0.44333333333333336,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 173.3156862745098
+    }
+   },
+   "0.64": {
+    "100": {
+     "H2": 0.7766666666666666,
+     "H3": 0.14333333333333334,
+     "H2_and_H3": 0.14333333333333334,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 53.44068627450981
+    },
+    "150": {
+     "H2": 0.9,
+     "H3": 0.29333333333333333,
+     "H2_and_H3": 0.29333333333333333,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 35,
+     "laptop_minutes": 73.41985294117647
+    },
+    "200": {
+     "H2": 0.9833333333333333,
+     "H3": 0.37666666666666665,
+     "H2_and_H3": 0.37666666666666665,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 93.39901960784314
+    },
+    "300": {
+     "H2": 1.0,
+     "H3": 0.6666666666666666,
+     "H2_and_H3": 0.6666666666666666,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 133.35735294117646
+    },
+    "400": {
+     "H2": 1.0,
+     "H3": 0.8866666666666667,
+     "H2_and_H3": 0.8866666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 173.3156862745098
+    }
+   },
+   "0.70": {
+    "100": {
+     "H2": 0.98,
+     "H3": 0.4766666666666667,
+     "H2_and_H3": 0.4766666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 53.44068627450981
+    },
+    "150": {
+     "H2": 0.9966666666666667,
+     "H3": 0.78,
+     "H2_and_H3": 0.78,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 35,
+     "laptop_minutes": 73.41985294117647
+    },
+    "200": {
+     "H2": 1.0,
+     "H3": 0.8533333333333334,
+     "H2_and_H3": 0.8533333333333334,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 93.39901960784314
+    },
+    "300": {
+     "H2": 1.0,
+     "H3": 0.9866666666666667,
+     "H2_and_H3": 0.9866666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 133.35735294117646
+    },
+    "400": {
+     "H2": 1.0,
+     "H3": 1.0,
+     "H2_and_H3": 1.0,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 36,
+     "laptop_minutes": 173.3156862745098
+    }
+   }
+  },
+  "54": {
+   "0.60": {
+    "100": {
+     "H2": 0.49666666666666665,
+     "H3": 0.02666666666666667,
+     "H2_and_H3": 0.02666666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 48,
+     "laptop_minutes": 60.18186274509803
+    },
+    "150": {
+     "H2": 0.6666666666666666,
+     "H3": 0.12,
+     "H2_and_H3": 0.12,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 52,
+     "laptop_minutes": 80.1610294117647
+    },
+    "200": {
+     "H2": 0.77,
+     "H3": 0.11666666666666667,
+     "H2_and_H3": 0.11666666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 53,
+     "laptop_minutes": 100.14019607843137
+    },
+    "300": {
+     "H2": 0.85,
+     "H3": 0.28,
+     "H2_and_H3": 0.28,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 54,
+     "laptop_minutes": 140.0985294117647
+    },
+    "400": {
+     "H2": 0.9866666666666667,
+     "H3": 0.4266666666666667,
+     "H2_and_H3": 0.4266666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 54,
+     "laptop_minutes": 180.05686274509804
+    }
+   },
+   "0.64": {
+    "100": {
+     "H2": 0.7333333333333333,
+     "H3": 0.11333333333333333,
+     "H2_and_H3": 0.11333333333333333,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 48,
+     "laptop_minutes": 60.18186274509803
+    },
+    "150": {
+     "H2": 0.8966666666666666,
+     "H3": 0.32,
+     "H2_and_H3": 0.32,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 52,
+     "laptop_minutes": 80.1610294117647
+    },
+    "200": {
+     "H2": 0.9333333333333333,
+     "H3": 0.41333333333333333,
+     "H2_and_H3": 0.41333333333333333,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 53,
+     "laptop_minutes": 100.14019607843137
+    },
+    "300": {
+     "H2": 0.9933333333333333,
+     "H3": 0.6533333333333333,
+     "H2_and_H3": 0.6533333333333333,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 54,
+     "laptop_minutes": 140.0985294117647
+    },
+    "400": {
+     "H2": 1.0,
+     "H3": 0.85,
+     "H2_and_H3": 0.85,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 54,
+     "laptop_minutes": 180.05686274509804
+    }
+   },
+   "0.70": {
+    "100": {
+     "H2": 0.9566666666666667,
+     "H3": 0.41,
+     "H2_and_H3": 0.41,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 48,
+     "laptop_minutes": 60.18186274509803
+    },
+    "150": {
+     "H2": 1.0,
+     "H3": 0.7333333333333333,
+     "H2_and_H3": 0.7333333333333333,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 52,
+     "laptop_minutes": 80.1610294117647
+    },
+    "200": {
+     "H2": 1.0,
+     "H3": 0.8433333333333334,
+     "H2_and_H3": 0.8433333333333334,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 53,
+     "laptop_minutes": 100.14019607843137
+    },
+    "300": {
+     "H2": 1.0,
+     "H3": 0.9666666666666667,
+     "H2_and_H3": 0.9666666666666667,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 54,
+     "laptop_minutes": 140.0985294117647
+    },
+    "400": {
+     "H2": 1.0,
+     "H3": 1.0,
+     "H2_and_H3": 1.0,
+     "sims": 300,
+     "draws": 1000,
+     "bases_used": 54,
+     "laptop_minutes": 180.05686274509804
+    }
+   }
+  }
+ },
+ "runs_needed": {
+  "18": {
+   "0.60": {
+    "H2": {
+     "runs": 300,
+     "laptop_minutes": 126.61617647058823
+    },
+    "H3": {
+     "runs": null,
+     "laptop_minutes": null
+    },
+    "H2_and_H3": {
+     "runs": null,
+     "laptop_minutes": null
+    }
+   },
+   "0.64": {
+    "H2": {
+     "runs": 100,
+     "laptop_minutes": 46.69950980392157
+    },
+    "H3": {
+     "runs": 400,
+     "laptop_minutes": 166.57450980392156
+    },
+    "H2_and_H3": {
+     "runs": 400,
+     "laptop_minutes": 166.57450980392156
+    }
+   },
+   "0.70": {
+    "H2": {
+     "runs": 100,
+     "laptop_minutes": 46.69950980392157
+    },
+    "H3": {
+     "runs": 150,
+     "laptop_minutes": 66.67867647058823
+    },
+    "H2_and_H3": {
+     "runs": 150,
+     "laptop_minutes": 66.67867647058823
+    }
+   }
+  },
+  "36": {
+   "0.60": {
+    "H2": {
+     "runs": 200,
+     "laptop_minutes": 93.39901960784314
+    },
+    "H3": {
+     "runs": null,
+     "laptop_minutes": null
+    },
+    "H2_and_H3": {
+     "runs": null,
+     "laptop_minutes": null
+    }
+   },
+   "0.64": {
+    "H2": {
+     "runs": 150,
+     "laptop_minutes": 73.41985294117647
+    },
+    "H3": {
+     "runs": 400,
+     "laptop_minutes": 173.3156862745098
+    },
+    "H2_and_H3": {
+     "runs": 400,
+     "laptop_minutes": 173.3156862745098
+    }
+   },
+   "0.70": {
+    "H2": {
+     "runs": 100,
+     "laptop_minutes": 53.44068627450981
+    },
+    "H3": {
+     "runs": 200,
+     "laptop_minutes": 93.39901960784314
+    },
+    "H2_and_H3": {
+     "runs": 200,
+     "laptop_minutes": 93.39901960784314
+    }
+   }
+  },
+  "54": {
+   "0.60": {
+    "H2": {
+     "runs": 300,
+     "laptop_minutes": 140.0985294117647
+    },
+    "H3": {
+     "runs": null,
+     "laptop_minutes": null
+    },
+    "H2_and_H3": {
+     "runs": null,
+     "laptop_minutes": null
+    }
+   },
+   "0.64": {
+    "H2": {
+     "runs": 150,
+     "laptop_minutes": 80.1610294117647
+    },
+    "H3": {
+     "runs": 400,
+     "laptop_minutes": 180.05686274509804
+    },
+    "H2_and_H3": {
+     "runs": 400,
+     "laptop_minutes": 180.05686274509804
+    }
+   },
+   "0.70": {
+    "H2": {
+     "runs": 100,
+     "laptop_minutes": 60.18186274509803
+    },
+    "H3": {
+     "runs": 200,
+     "laptop_minutes": 100.14019607843137
+    },
+    "H2_and_H3": {
+     "runs": 200,
+     "laptop_minutes": 100.14019607843137
+    }
+   }
+  }
+ },
+ "sensitivity_score_icc": {
+  "icc": 0.2,
+  "pool_bases": 18,
+  "grid": {
+   "0.60": {
+    "100": {
+     "H2": 0.5766666666666667,
+     "H3": 0.09,
+     "H2_and_H3": 0.09,
+     "sims": 300,
+     "draws": 1000
+    },
+    "150": {
+     "H2": 0.7133333333333334,
+     "H3": 0.15666666666666668,
+     "H2_and_H3": 0.15666666666666668,
+     "sims": 300,
+     "draws": 1000
+    },
+    "200": {
+     "H2": 0.8,
+     "H3": 0.18666666666666668,
+     "H2_and_H3": 0.18666666666666668,
+     "sims": 300,
+     "draws": 1000
+    },
+    "300": {
+     "H2": 0.9366666666666666,
+     "H3": 0.4166666666666667,
+     "H2_and_H3": 0.4166666666666667,
+     "sims": 300,
+     "draws": 1000
+    },
+    "400": {
+     "H2": 0.9666666666666667,
+     "H3": 0.53,
+     "H2_and_H3": 0.53,
+     "sims": 300,
+     "draws": 1000
+    }
+   },
+   "0.64": {
+    "100": {
+     "H2": 0.8066666666666666,
+     "H3": 0.25333333333333335,
+     "H2_and_H3": 0.25333333333333335,
+     "sims": 300,
+     "draws": 1000
+    },
+    "150": {
+     "H2": 0.95,
+     "H3": 0.42,
+     "H2_and_H3": 0.42,
+     "sims": 300,
+     "draws": 1000
+    },
+    "200": {
+     "H2": 0.97,
+     "H3": 0.49666666666666665,
+     "H2_and_H3": 0.49666666666666665,
+     "sims": 300,
+     "draws": 1000
+    },
+    "300": {
+     "H2": 0.9966666666666667,
+     "H3": 0.8233333333333334,
+     "H2_and_H3": 0.8233333333333334,
+     "sims": 300,
+     "draws": 1000
+    },
+    "400": {
+     "H2": 1.0,
+     "H3": 0.9133333333333333,
+     "H2_and_H3": 0.9133333333333333,
+     "sims": 300,
+     "draws": 1000
+    }
+   },
+   "0.70": {
+    "100": {
+     "H2": 0.9666666666666667,
+     "H3": 0.62,
+     "H2_and_H3": 0.62,
+     "sims": 300,
+     "draws": 1000
+    },
+    "150": {
+     "H2": 0.9966666666666667,
+     "H3": 0.87,
+     "H2_and_H3": 0.87,
+     "sims": 300,
+     "draws": 1000
+    },
+    "200": {
+     "H2": 1.0,
+     "H3": 0.9266666666666666,
+     "H2_and_H3": 0.9266666666666666,
+     "sims": 300,
+     "draws": 1000
+    },
+    "300": {
+     "H2": 1.0,
+     "H3": 0.9933333333333333,
+     "H2_and_H3": 0.9933333333333333,
+     "sims": 300,
+     "draws": 1000
+    },
+    "400": {
+     "H2": 1.0,
+     "H3": 0.9966666666666667,
+     "H2_and_H3": 0.9966666666666667,
+     "sims": 300,
+     "draws": 1000
+    }
+   }
+  }
+ }
+}

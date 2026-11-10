@@ -1,0 +1,115 @@
+{
+ "generated_at": "2026-11-10T13:45:54.959151+00:00",
+ "role": "skeptic_c_checklist",
+ "batches": [
+  "task-dev-1",
+  "task-dev-2"
+ ],
+ "note": "development numbers; both batches are on pool-1 bases, intervals resample bases jointly",
+ "runs": {
+  "task-dev-1": 40,
+  "task-dev-2": 40
+ },
+ "bases": {
+  "task-dev-1": 17,
+  "task-dev-2": 16,
+  "shared": 16
+ },
+ "observed": {
+  "auc_before": 0.735,
+  "auc_after": 0.6425,
+  "auc_change": -0.09250000000000003,
+  "mean_buggy_before": 0.44509195,
+  "mean_buggy_after": 0.4729333,
+  "buggy_change": 0.027841349999999987,
+  "mean_clean_before": 0.3757122,
+  "mean_clean_after": 0.42384165,
+  "clean_change": 0.04812945000000002,
+  "decoy_with_code_minus_plain": 0.05250379999999999,
+  "decoy_no_code_minus_plain": 0.030632050000000022,
+  "decoy_with_minus_without_code": 0.021871749999999968,
+  "gap_before": 0.06937975000000002,
+  "gap_after": 0.04909164999999999
+ },
+ "interval_90_joint_base": {
+  "auc_before": [
+   0.5765508021390374,
+   0.8643067226890756
+  ],
+  "auc_after": [
+   0.49463798701298706,
+   0.7733685897435897
+  ],
+  "auc_change": [
+   -0.3225021958717611,
+   0.1635169832102881
+  ],
+  "mean_buggy_before": [
+   0.42369762282913165,
+   0.46965651842105266
+  ],
+  "mean_buggy_after": [
+   0.44075042678571424,
+   0.5064103247474747
+  ],
+  "buggy_change": [
+   -0.017427971805194807,
+   0.07324370297658865
+  ],
+  "mean_clean_before": [
+   0.3416759691666667,
+   0.41069119291666667
+  ],
+  "mean_clean_after": [
+   0.3898119033333333,
+   0.4533031283333333
+  ],
+  "clean_change": [
+   -0.0050864529637681235,
+   0.09470552870098038
+  ],
+  "decoy_with_code_minus_plain": [
+   -0.002766511330409335,
+   0.10534215281862741
+  ],
+  "decoy_no_code_minus_plain": [
+   -0.03183290144927535,
+   0.07792621515151514
+  ],
+  "decoy_with_minus_without_code": [
+   -0.03139645892857144,
+   0.08014691480392154
+  ],
+  "gap_before": [
+   0.02016392257846324,
+   0.11852944790555353
+  ],
+  "gap_after": [
+   0.006736617620946318,
+   0.0929270344642857
+  ]
+ },
+ "share_of_above_chance_lost": 0.39361702127659587,
+ "task_dev_1_line_count_auc": {
+  "value": 0.85,
+  "interval_90": [
+   0.75,
+   0.95
+  ],
+  "interval_90_base": [
+   0.75,
+   0.9411764705882353
+  ],
+  "scored_buggy": 20,
+  "scored_clean": 20,
+  "bases": 17
+ },
+ "task_dev_1_score_vs_line_count_rho": {
+  "buggy": {
+   "rho": 0.39026238077609327,
+   "p": 0.08891494407668907,
+   "n": 20
+  },
+  "clean": null
+ }
+}
