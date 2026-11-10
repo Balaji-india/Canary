@@ -610,6 +610,7 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **B06 obvious is unmeasured,** because the bug is the metric, so its twin's numbers are on another scale.
 
 ## Fixes
+- Coach status line pointed at Mission 3.1 (first unticked mission) while the real next step was the ceiling check: `coach_state.current_focus` now reads the "**Current focus:**" line under In progress, and the status line and session-start hook show it first (2 tests). Change that line when the focus changes.
 - Token-probability scores were all None on task-dev-1: the ollama client drops `bytes`, and an empty list was read as zero bytes. The chosen token also did not count when it was outside the model's top 20. Both fixed with tests.
 - The batch log crashed on the first checklist reply (no `verdict` field): the log and the `audit` printout now show the code's decision.
 - Status-line tip said "a campaign was interrupted" after a finished `calibrate` batch: `coach_state.py` now recognises the batch's closing line, reads only the log's last line, and still treats a `STOPPED` batch as interrupted.
