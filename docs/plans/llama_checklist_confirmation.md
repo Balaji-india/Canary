@@ -1,3 +1,7 @@
+> **Note (2026-11-11): the `config/models.yaml` hash recorded in this plan no longer matches, as expected.** The
+> file gained the cloud ceiling check's roles and providers (`/api`). This plan is dead (never run), so nothing
+> depends on that hash; it is kept as the record of what was pre-registered.
+>
 > **SUPERSEDED on 2026-11-09 by `llama_checklist_confirmation_v2.md`. Never run: no pool-2 or `confirm-llama-1`
 > data exist.** Kept, not deleted, as the record of what was pre-registered.
 >

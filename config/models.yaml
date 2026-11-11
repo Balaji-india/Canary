@@ -29,10 +29,11 @@ roles:
   skeptic_e_checklist: {use_role: skeptic_e, task: checklist}
 # Cloud endpoints (canary/llm.py OpenAIStyleProvider); Ollama needs no entry. key_env is the NAME of the key in .env,
 # never the key. `models` is an allow-list: any other model is refused before a request (the $0 guard against typos).
-# PLACEHOLDER LIMITS: the budgets below are set under the limits read on the providers' pages on 2026-11-11 and must be
-# replaced by the numbers the student reads in each console on key day (outline section 9), before the lock.
+# Groq's budget is set from the limits the student read in the console (2026-11-11). Gemini's are still placeholders
+# (worst case found); they are read in AI Studio only if arm R is needed.
 providers:
-  groq:                       # arm L. Free plan read as 30 req/min, 1,000 req/day, 8,000 tokens/min, 200,000 tokens/day
+  groq:                       # arm L. Free plan, read in the console by the student 2026-11-11: 30 requests/min,
+                              # 1,000 requests/day, 8,000 tokens/min, 200,000 tokens/day (tokens/day binds first)
     kind: openai_style
     base_url: "https://api.groq.com/openai/v1"
     key_env: GROQ_API_KEY
@@ -40,9 +41,10 @@ providers:
     schema_mode: json_schema  # json_schema | json_object (fallback if the smoke test shows the schema is refused)
     max_tokens_field: max_completion_tokens
     context_tokens: 131072
-    min_interval_s: 35        # about 2 calls a minute at ~4k tokens each stays under 8,000 tokens a minute
-    max_calls_per_day: 45     # our budget, below the provider's daily limit (the token limit binds first)
-    max_tokens_per_day: 180000  # our budget, below 200,000; counted from the call log's reported usage
+    min_interval_s: 45        # at ~4.5k tokens a call: about 6k tokens/min, under 8,000; 1.3 requests/min, under 30
+    max_calls_per_day: 900    # 90% of 1,000 requests/day (never binding: the token budget stops first)
+    max_tokens_per_day: 180000  # 90% of 200,000 tokens/day, counted from the call log's reported usage
+    expected_tokens_per_call: 4500  # planning estimate (prompt ~3k + reasoning and reply); replace with the smoke test's measured usage
     max_wait_s: 90            # a 429 with a longer retry-after stops the pass instead of waiting
     timeout_s: 300            # one request; a timeout still costs quota and is retried by the wrapper
   gemini:                     # arm R. Limits not published; 20 requests a day is the worst case found

@@ -5,8 +5,12 @@ L is not SOLVABLE). Development check on existing local audits: `python -m eval.
 Plan: docs/plans/cloud_ceiling_check_outline.md (sections 5 and 6; rule approved by the student 2026-11-11). This file
 is frozen before the first cloud call: its SHA-256 goes in the lock, and it is not changed after any cloud reply exists.
 
-The rule, per **cell** (one arm with one prompt; at most 4 cells), each test on the lower end of a 97.5% two-sided
-base-level percentile interval (0.05 shared over 4 cells; bases resampled because clones of a base are not independent):
+Design (student's rule, applied to eval/results/ceiling/design_study.json on 2026-11-11): **2 cells**, one per arm, the
+baseline prompt only (the checklist cells were dropped), on **120 runs** (the 40 task-dev-2 runs + 80 fresh pool-2 runs
+in `ceiling-ext`), at the **97.5%** level: the least strict level at which power at a true J of 0.70 is at least 0.80
+and the 2-cell false-positive bound at J 0.40 is at most 0.05 under verdict ICC 0.1, 0.2 and 0.4, with the fewest calls.
+The rule, per **cell** (one arm with one prompt), each test on the lower end of a 97.5% two-sided base-level percentile
+interval (bases resampled because clones of a base are not independent):
 - T1, the verdict works: Youden's J > 0 (recall + specificity > 1, where Rogan-Gladen is defined).
 - T2, strong enough: AUC > 0.70. No cloud cell has token probabilities, so the score is the code's verdict as 0/1, and
   its AUC is exactly (1 + J) / 2 (ties count half): T2 reads "J above 0.40", and T1 follows from it.
@@ -14,7 +18,7 @@ base-level percentile interval (0.05 shared over 4 cells; bases resampled becaus
   (`compare_tasks.FEATURES`), re-picked in every draw, is above 0.
 Outcomes, which cannot overlap (SOLVABLE needs one lower bound above 0.70, HARD every upper bound below it):
 - SOLVABLE (for the named model): at least one non-void cell passes T1, T2 and T3.
-- HARD (for these two models): arm R was run, all 4 cells exist, none is void, and every AUC upper bound is below 0.70.
+- HARD (for these two models): arm R was run, both cells exist, none is void, and every AUC upper bound is below 0.70.
 - INCONCLUSIVE: anything else; sub-case "works but strength unknown" when a non-void cell passes T1 but not T2.
 Failed audits: a run whose audits all failed, after the command was run again (two or more failure records), counts
 against the reviewer (a canary as passed, a clean run as flagged); a cell with more than 10% of its runs like that is
@@ -36,9 +40,10 @@ import numpy as np
 from canary import ledger, llm, mixer, sandbox, sealed
 from eval import compare_tasks
 
-ARMS = {"L": ("skeptic_d", "skeptic_d_checklist"), "R": ("skeptic_e", "skeptic_e_checklist")}
-BATCHES = ("task-dev-2",)  # the locked batch size may add "ceiling-ext" (eval/ceiling_power.py); set before the lock
-LEVEL = 0.975
+ARMS = {"L": ("skeptic_d",), "R": ("skeptic_e",)}  # the 2-cell design: baseline prompt only (design_study.json)
+CELLS = sum(len(roles) for roles in ARMS.values())
+BATCHES = ("task-dev-2", "ceiling-ext")  # 40 + 80 runs; ceiling-ext is planned with calibrate --no-audit on pool 2
+LEVEL = 0.975  # the least strict qualifying level for the 2-cell design (design_study.json)
 PERCENTILES = (100 * (1 - LEVEL) / 2, 100 * (1 + LEVEL) / 2)  # 1.25 and 98.75
 DRAWS = 10_000
 SEED = 0
@@ -68,7 +73,7 @@ def cell_tests(j_low: float, auc_low: float, auc_high: float, gap_low: float | N
             "passes": bool(t1 and t2 and t3 and not void), "below_bar": bool(auc_high < AUC_BAR)}
 
 
-def outcome(tests: dict[str, dict], arm_r_run: bool, cells_expected: int = 4) -> dict:
+def outcome(tests: dict[str, dict], arm_r_run: bool, cells_expected: int = CELLS) -> dict:
     """SOLVABLE, HARD or INCONCLUSIVE from the cells' tests. Exactly one is returned, by construction."""
     passing = sorted(name for name, t in tests.items() if t["passes"])
     if passing:

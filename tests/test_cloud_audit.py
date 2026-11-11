@@ -226,7 +226,8 @@ def test_cloud_smoke_dry_prints_valid_bodies_and_sends_nothing(tmp_path, monkeyp
     blocks = out.split("\n--- ")[1:]
     bodies = [json.loads(block.split("\n", 1)[1]) for block in blocks]
     assert [b["messages"][-1]["content"][:20] for b in bodies][0].startswith("What is 2 + 3?")
-    assert len(bodies) == 3 and all(b["response_format"]["type"] == "json_schema" for b in bodies)
+    assert len(bodies) == 2 and all(b["response_format"]["type"] == "json_schema" for b in bodies)
+    assert "review baseline" in blocks[1]  # only the task the role runs (the 2-cell design: baseline)
     assert {b["model"] for b in bodies} == {config.load_yaml("models.yaml")["roles"][role]["model"]}
     assert KEY not in out and not llm.CALL_LOG_PATH.exists()
 

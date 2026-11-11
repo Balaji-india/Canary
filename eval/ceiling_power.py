@@ -36,6 +36,7 @@ import argparse
 import copy
 import json
 import math
+from pathlib import Path
 
 import numpy as np
 from scipy import stats
@@ -150,26 +151,92 @@ def criterion(grid: dict) -> dict:
     return {"rows": rows, "chosen_runs": chosen, "why": why, "verdict_icc": PRIMARY_ICC, "level": ceiling.LEVEL}
 
 
-def cost(size: int | None, models_cfg: dict, times: dict, pool_bases: int) -> dict | None:
-    """Extension runs, laptop minutes and calendar days per arm at each provider's daily call budget."""
+def calls_per_arm(size: int, prompts: int = PROMPTS_PER_ARM) -> int:
+    """One call per run and prompt, the repeat pass (20 per cell), and the smoke test (toy, one per prompt, a repeat)."""
+    return prompts * size + prompts * REPEAT_PER_CELL + (2 + prompts)
+
+
+def calls_per_day(entry: dict) -> int:
+    """Calls a day inside our budget: the call cap, or the token budget at the expected tokens per call if lower."""
+    by_calls = entry["max_calls_per_day"]
+    if entry.get("max_tokens_per_day") and entry.get("expected_tokens_per_call"):
+        return min(by_calls, entry["max_tokens_per_day"] // entry["expected_tokens_per_call"])
+    return by_calls
+
+
+def cost(size: int | None, models_cfg: dict, times: dict, pool_bases: int, prompts: int = PROMPTS_PER_ARM) -> dict | None:
+    """Extension runs, laptop minutes and calendar days per arm at each provider's daily budget."""
     if size is None:
         return None
     extension = max(0, size - DEV_RUNS)
     laptop_s = (pool_bases * times["pool_seconds_per_base"] + extension * times["run_seconds_per_run"]) if extension else 0
-    calls = PROMPTS_PER_ARM * size + PROMPTS_PER_ARM * REPEAT_PER_CELL + SMOKE_CALLS
+    calls = calls_per_arm(size, prompts)
     arms = {}
     for arm, roles in ceiling.ARMS.items():
-        entry = models_cfg["providers"][models_cfg["roles"][roles[0]]["provider"]]
-        budget = entry["max_calls_per_day"]
-        arms[arm] = {"provider": models_cfg["roles"][roles[0]]["provider"], "daily_call_budget": budget,
-                     "calls": calls, "days": math.ceil(calls / budget),
-                     "minutes_per_daily_session": round(budget * entry.get("min_interval_s", 0) / 60, 1)}
-    return {"runs": size, "task_dev_2_runs": min(size, DEV_RUNS), "fresh_pool_2_runs": extension,
-            "pool_2_build_bases": pool_bases if extension else 0, "laptop_minutes": round(laptop_s / 60, 1),
-            "calls_per_arm": calls, "arms": arms,
+        provider = models_cfg["roles"][roles[0]]["provider"]
+        entry = models_cfg["providers"][provider]
+        per_day = calls_per_day(entry)
+        arms[arm] = {"provider": provider, "calls_per_day": per_day, "calls": calls, "days": math.ceil(calls / per_day),
+                     "minutes_per_daily_session": round(per_day * entry.get("min_interval_s", 0) / 60, 1)}
+    return {"runs": size, "prompts_per_arm": prompts, "task_dev_2_runs": min(size, DEV_RUNS),
+            "fresh_pool_2_runs": extension, "pool_2_build_bases": pool_bases if extension else 0,
+            "laptop_minutes": round(laptop_s / 60, 1), "calls_per_arm": calls, "arms": arms,
             "note": "laptop: pool-2 build by the Scientist plus the extension runs, no local audits (the reviewer is "
-                    "in the cloud); calls: 2 prompts x runs + the repeat pass (20 per cell) + the smoke test; "
-                    "invalid-reply retries would add calls; budgets are placeholders until read in the consoles"}
+                    "in the cloud); calls: prompts x runs + the repeat pass (20 per cell) + the smoke test; "
+                    "invalid-reply retries would add calls; tokens per call are an estimate until the smoke test"}
+
+
+# ---------- the design study (student's rule, 2026-11-11, fixed before these simulations ran) ----------
+# Candidates: a 4-cell design (2 arms x 2 prompts) and a 2-cell design (one prompt per arm: baseline only), at
+# interval levels 97.5% (the approved one; with 2 cells there are only 2 chances), 99% and 99.5%, for 120 and 160 runs,
+# under verdict ICC 0.1, 0.2 and 0.4. A cell's simulation does not depend on the design: the design only sets how many
+# cells share the false-positive budget (Bonferroni bound = cells x p) and how many calls an arm costs.
+# Rule (Claude's reading of the student's wording, written before any result): a (design, level, size) qualifies if,
+# under EVERY ICC, power at true J 0.70 is at least 0.80 and the false-positive bound at J 0.40 is at most 0.05. For each
+# design keep its least strict qualifying level, at its smallest qualifying size. Among those, the fewest calls per arm.
+DESIGNS = {"4-cell": 2, "2-cell": 1}  # prompts per arm
+STUDY_LEVELS = (0.975, 0.99, 0.995)
+STUDY_ICCS = (0.1, 0.2, 0.4)
+STUDY_SIZES = (120, 160)
+STUDY_PATH = ceiling.OUT_DIR / "design_study.json"
+
+
+def set_level(level: float) -> None:
+    """Simulate at another interval level (this process only; eval/ceiling.py's file is not touched)."""
+    ceiling.LEVEL = level
+    ceiling.PERCENTILES = (100 * (1 - level) / 2, 100 * (1 + level) / 2)
+
+
+def level_path(level: float) -> Path:
+    return ceiling.OUT_DIR / f"design_level_{level * 100:g}.json"
+
+
+def choose_design(per_level: dict[float, dict]) -> dict:
+    """Apply the rule above to {level: grid} (grid as built by `build`). Returns every row and the choice."""
+    rows = []
+    for design, prompts in DESIGNS.items():
+        cells = 2 * prompts
+        for level in sorted(per_level):
+            for size in STUDY_SIZES:
+                by_icc = {}
+                for icc in STUDY_ICCS:
+                    c = per_level[level][f"{icc:.1f}"][str(size)]
+                    power, p_fp = c[f"{POWER_J:.2f}"]["p_solvable_cell"], c[f"{FP_J:.2f}"]["p_solvable_cell"]
+                    by_icc[f"{icc:.1f}"] = {"power": power, "fp_bound": min(1.0, cells * p_fp),
+                                            "fp_bound_mc_se": cells * c[f"{FP_J:.2f}"]["mc_se_solvable"]}
+                ok = all(v["power"] >= POWER_TARGET and v["fp_bound"] <= FP_TARGET for v in by_icc.values())
+                rows.append({"design": design, "cells": cells, "level": level, "runs": size,
+                             "calls_per_arm": calls_per_arm(size, prompts), "qualifies": ok, "by_icc": by_icc})
+    picks = []
+    for design in DESIGNS:
+        ok = [r for r in rows if r["design"] == design and r["qualifies"]]
+        if ok:
+            least = min(r["level"] for r in ok)
+            picks.append(min((r for r in ok if r["level"] == least), key=lambda r: r["runs"]))
+    choice = min(picks, key=lambda r: (r["calls_per_arm"], -r["cells"])) if picks else None
+    return {"rows": rows, "per_design_picks": picks, "choice": choice,
+            "rule": "qualifies under every ICC (power >= 0.80 at J 0.70, cells x p <= 0.05 at J 0.40); per design the "
+                    "least strict qualifying level at its smallest size; then the fewest calls per arm"}
 
 
 def build(sims: int = SIMS, fp_sims: int = FP_SIMS, draws: int = DRAWS, bank_size: int = FEATURE_BANK,
@@ -209,7 +276,37 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--level", type=float, help="simulate another interval level (a proposal for the lock; "
                                                     "eval/ceiling.py keeps its own until the student changes it)")
     parser.add_argument("--quick", action="store_true", help="only what the criterion needs: ICC 0.2, J 0.40 and 0.70")
+    parser.add_argument("--design-study", action="store_true",
+                        help="with --level: 120 and 160 runs, ICC 0.1/0.2/0.4, J 0.40 and 0.70, full thoroughness")
+    parser.add_argument("--choose", action="store_true", help="merge the design-study levels and apply the rule")
     args = parser.parse_args(argv)
+    if args.design_study:
+        set_level(args.level)
+        result = build(args.sims, args.fp_sims, args.draws, sizes=STUDY_SIZES, j_grid=(FP_J, POWER_J), iccs=STUDY_ICCS)
+        result["level_simulated"] = args.level
+        level_path(args.level).write_text(json.dumps(result, indent=1), encoding="utf-8")
+        print(f"Wrote {level_path(args.level)}")
+        return 0
+    if args.choose:
+        files = {level: json.loads(level_path(level).read_text(encoding="utf-8")) for level in STUDY_LEVELS}
+        study = choose_design({level: f["grid"] for level, f in files.items()})
+        pool = json.loads(mixer.POOL_PATH.read_text(encoding="utf-8"))
+        times, models = power_sim.measured_times(), config.load_yaml("models.yaml")
+        if study["choice"]:
+            c = study["choice"]
+            study["cost"] = cost(c["runs"], models, times, len(pool["bases"]), DESIGNS[c["design"]])
+        study["costs_of_picks"] = [cost(p["runs"], models, times, len(pool["bases"]), DESIGNS[p["design"]])
+                                   for p in study["per_design_picks"]]
+        study.update(times=times, sims=files[STUDY_LEVELS[0]]["sims"], fp_sims=files[STUDY_LEVELS[0]]["fp_sims"],
+                     draws=files[STUDY_LEVELS[0]]["draws"], level_files=[str(level_path(l)) for l in STUDY_LEVELS])
+        STUDY_PATH.write_text(json.dumps(study, indent=1), encoding="utf-8")
+        for r in study["rows"]:
+            print(f"{r['design']} {r['level']:.3f} {r['runs']} runs, {r['calls_per_arm']} calls: " + "  ".join(
+                f"ICC {i} pow {v['power']:.3f} fp {v['fp_bound']:.3f}" for i, v in r["by_icc"].items()) +
+                ("  QUALIFIES" if r["qualifies"] else ""))
+        print(f"Choice: {study['choice'] and {k: study['choice'][k] for k in ('design', 'level', 'runs', 'calls_per_arm')}}")
+        print(f"Wrote {STUDY_PATH}")
+        return 0
     out_path = OUT_PATH
     if args.level:
         ceiling.LEVEL = args.level
@@ -236,7 +333,7 @@ def main(argv: list[str] | None = None) -> int:
         r = result["recommendation"]
         print(f"Batch: {r['task_dev_2_runs']} task-dev-2 runs + {r['fresh_pool_2_runs']} fresh pool-2 runs; laptop "
               f"{r['laptop_minutes']} min; {r['calls_per_arm']} calls per arm: " +
-              ", ".join(f"arm {a} {v['days']} days at {v['daily_call_budget']}/day" for a, v in r["arms"].items()))
+              ", ".join(f"arm {a} {v['days']} days at {v['calls_per_day']}/day" for a, v in r["arms"].items()))
     print(f"Wrote {out_path}")
     return 0
 
