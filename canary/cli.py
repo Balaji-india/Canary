@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import hashlib
 import importlib.metadata
 import json
 import platform
@@ -66,17 +67,38 @@ def installed_ollama_models() -> set[str]:
     return {m.model for m in ollama.Client(timeout=10).list().models}
 
 
+def check_cloud_roles(cfg: dict) -> bool:
+    """One line per cloud role: provider, model, and whether its key is present. Never prints the key, never calls.
+
+    A missing key is a note, not a failure: Canary runs without any cloud role.
+    """
+    ok = True
+    for role in config.cloud_roles(cfg):
+        if "use_role" in cfg["roles"][role]:
+            continue
+        settings = cfg["roles"][role]
+        entry = cfg["providers"][settings["provider"]]
+        if settings["model"] not in entry["models"]:
+            ok = _line(False, f"Cloud {role}", f"{settings['model']} is not on {settings['provider']}'s allow-list")
+            continue
+        key = "key present" if llm.read_key(entry["key_env"]) else \
+            f"key missing (add {entry['key_env']} to .env; needed only for the ceiling check)"
+        _line(True, f"Cloud {role}", f"{settings['provider']} {settings['model']}, {key}, not called")
+    return ok
+
+
 def check_models() -> bool:
     cfg = config.load_yaml("models.yaml")
     if cfg["provider"] != "ollama":
         return _line(False, "Models", f"provider '{cfg['provider']}' is not supported yet")
+    cloud_ok = check_cloud_roles(cfg)
     try:
         installed = installed_ollama_models()
     except Exception as exc:  # the client raises several types when the server is down
         return _line(False, "Ollama", f"server not reachable ({exc}). Start the Ollama app.")
     _line(True, "Ollama", f"server running, {len(installed)} models installed")
 
-    ok = True
+    ok = cloud_ok
     clashes = config.family_clashes(cfg)
     if clashes:
         ok = _line(False, "Model families", f"same family as the Scientist: {clashes}")
@@ -151,7 +173,10 @@ SMOKE_SCHEMA = {"type": "object", "required": ["answer", "word"], "additionalPro
 def cmd_llm_smoke(_args: argparse.Namespace) -> int:
     """Prove each role returns schema-valid JSON from the real model, then that a repeat comes from the cache."""
     client = llm.LLM()
-    roles = [role for role, cfg in client.cfg["roles"].items() if "use_role" not in cfg]
+    cloud = set(config.cloud_roles(client.cfg))
+    roles = [role for role, cfg in client.cfg["roles"].items() if "use_role" not in cfg and role not in cloud]
+    if cloud:  # a routine check must never spend a daily quota
+        print(f"Skipping cloud roles (use cloud-smoke --role R): {', '.join(sorted(cloud))}")
     ok = True
     for label, refresh in (("live", True), ("repeat", False)):
         queue = llm.ModelQueue(client)
@@ -167,6 +192,77 @@ def cmd_llm_smoke(_args: argparse.Namespace) -> int:
     client.release()
     print("\nllm-smoke: all OK" if ok else "\nllm-smoke: problems found (see FAIL lines)")
     return 0 if ok else 1
+
+
+SMOKE_RUN = "1875ec26"  # an old real run that is in no batch (outline section 2): never a batch run
+
+
+def _smoke_requests(client: llm.LLM, role: str, runs_dir: Path = sandbox.RUNS_DIR,
+                    led: ledger.Ledger | None = None) -> list[tuple[str, str, str | None, dict]]:
+    """(label, prompt, system, schema) for the toy prompt and the review prompts of both tasks on the smoke run."""
+    from canary import review_tasks
+
+    blinded = skeptic.blinded_run(led or ledger.Ledger(), SMOKE_RUN, runs_dir)
+    bugs = config.load_yaml("bug_classes.yaml")
+    requests = [("toy", SMOKE_PROMPT, None, SMOKE_SCHEMA)]
+    for task in (review_tasks.BASELINE, review_tasks.CHECKLIST):
+        system, prompt, schema = review_tasks.build(task, blinded, bugs)
+        requests.append((f"review {task}", prompt, system, schema))
+    return requests
+
+
+def cmd_cloud_smoke(args: argparse.Namespace, runs_dir: Path = sandbox.RUNS_DIR, led: ledger.Ledger | None = None) -> int:
+    """The live check of a cloud role before any batch (outline section 2). `--dry` sends nothing and needs no key.
+
+    Live, it sends the toy prompt, the two review prompts of old run 1875ec26, then the baseline one again with the
+    cache bypassed: about 4 calls. Sending a blinded run needs the student's OK, so the live form also needs `--send`.
+    """
+    client = llm.LLM()
+    if args.role not in client.cfg["roles"] or client.cloud_entry(args.role) is None:
+        print(f"{args.role} is not a cloud role. Cloud roles: {', '.join(config.cloud_roles(client.cfg))}")
+        return 2
+    entry = client.cloud_entry(args.role)
+    provider, model, temperature = client.resolve(args.role)
+    options = client.options(args.role)
+    requests = _smoke_requests(client, args.role, runs_dir, led)
+    if args.dry:
+        print(f"Dry run: nothing is sent and no key is read. POST {entry['base_url'].rstrip('/')}/chat/completions "
+              f"({provider}, {model}).")
+        for label, prompt, system, schema in requests:
+            body = llm.build_request(entry, model, prompt, system, schema, temperature, client.settings["seed"], options)
+            print(f"\n--- {label}: prompt SHA-256 {hashlib.sha256(prompt.encode('utf-8')).hexdigest()}, wire schema "
+                  f"SHA-256 {llm._sha256_json(llm.wire_schema(schema))}")
+            print(json.dumps(body, indent=1))
+        return 0
+    if not args.send:
+        print("This sends a blinded run to the cloud and spends daily quota. It needs the student's OK: add --send "
+              "(or use --dry to see the requests without sending).")
+        return 2
+    ok, replies = True, {}
+    for label, prompt, system, schema in requests + [("repeat baseline", *requests[1][1:])]:
+        try:
+            result = client.call(args.role, prompt, schema, system=system, refresh=True, cache_write=label == "toy")
+            replies[label] = result.data
+            log = _last_call_record()
+            _line(True, label, f"{result.seconds:.1f} s, {result.attempts} attempt(s), parse_reply OK; server model "
+                  f"{log.get('server_model')}, tokens {log.get('prompt_tokens')}+{log.get('completion_tokens')} "
+                  f"(reasoning {log.get('reasoning_tokens')}), finish {log.get('finish_reason')}")
+        except llm.LLMError as exc:
+            ok = _line(False, label, f"{exc.kind}: {exc}")
+            if exc.kind in llm.STOP_KINDS:
+                break
+    if "review baseline" in replies and "repeat baseline" in replies:
+        same = replies["review baseline"] == replies["repeat baseline"]
+        print(f"Repeat equals first: {same}" + ("" if same else " (write 'temperature 0 not verifiable' in the lock)"))
+    print(f"\ncloud-smoke: {'all OK' if ok else 'problems found (see FAIL lines)'}. Every attempt is in "
+          f"{llm.CALL_LOG_PATH}.")
+    return 0 if ok else 1
+
+
+def _last_call_record() -> dict:
+    path = llm.CALL_LOG_PATH
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    return json.loads(lines[-1]) if lines else {}
 
 
 def cmd_science(args: argparse.Namespace) -> int:
@@ -481,6 +577,18 @@ def cmd_rescore(args: argparse.Namespace) -> int:
     if not mixer.batch_run_ids(table, args.batch):
         print(f"Batch {args.batch} has no sealed runs.")
         return 2
+    if args.sample is not None:
+        if skeptic.top_logprobs_of(client.cfg, args.reviewer) != 0:
+            print("--sample is the repeat pass for roles without token probabilities (top_logprobs: 0), e.g. skeptic_d.")
+            return 2
+        counts = repeat_pass(client, led, table, args.batch, args.reviewer, args.sample, args.seed)
+        for role, tally in counts.items():
+            print(f"{role}: {tally}")
+        if any(t.get("call_failed") for t in counts.values()):
+            print("Some calls failed or hit a limit and were not stored. Run the same command again (after the reset).")
+            return 1
+        print(f"Repeat pass of {args.batch} by {args.reviewer} finished: {mixer.rescore_path(args.batch, kind=REPEAT)}")
+        return 0
     counts = mixer.rescore_batch(client, led, table, args.batch, args.reviewer, fresh=args.fresh)
     for role, tally in counts.items():
         print(f"{role}: {tally}")
@@ -489,6 +597,46 @@ def cmd_rescore(args: argparse.Namespace) -> int:
         return 1
     print(f"Rescore of {args.batch} by {args.reviewer} finished. Results: python -m eval.compare_tasks --batch {args.batch}")
     return 0
+
+
+REPEAT = "repeat"  # data/rescore/<batch>.repeat.jsonl: the ceiling check's repeat pass
+
+
+def repeat_sample(table: sealed.SealedTable, led: ledger.Ledger, batch: str, n: int, seed: int) -> set[str]:
+    """A seeded draw of `n` run IDs from the batch's finished runs, by ID only: no run type is read."""
+    ids = sorted(mixer.batch_run_ids(table, batch) & {e.payload["run_id"] for e in led.entries(ledger.RAN)
+                                                       if e.payload.get("results_sha256")})
+    return set(random.Random(seed).sample(ids, min(n, len(ids))))
+
+
+def repeat_pass(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable, batch: str, reviewer: str, n: int,
+                seed: int, directory: Path = mixer.RESCORE_DIR, runs_dir: Path = sandbox.RUNS_DIR) -> dict[str, dict]:
+    """Ask the same `n` sampled runs again for each of the reviewer's roles, cache bypassed; append one record per run.
+
+    Reported only, deciding nothing (outline section 5). Safe to run again: finished records are skipped, and a stop
+    at the daily limit records nothing for the run that was not answered.
+    """
+    sample = repeat_sample(table, led, batch, n, seed)
+    path = mixer.rescore_path(batch, directory, REPEAT)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    finished: dict[str, set[str]] = {}
+    for record in mixer.read_rescores(batch, directory, REPEAT):
+        finished.setdefault(record["role"], set()).add(record["run_id"])
+    counts: dict[str, dict] = {}
+    for role in mixer.reviewer_roles(client.cfg, reviewer, led, sample):
+        tally = counts.setdefault(role, {})
+
+        def store(record: dict, tally=tally) -> None:
+            tally[record["outcome"]] = tally.get(record["outcome"], 0) + 1
+            if not record.get("retry"):
+                with path.open("a", encoding="utf-8") as f:
+                    f.write(json.dumps({**record, "sample_seed": seed, "sample_size": n}) + "\n")
+
+        skeptic.rescore(client, led, role, sample, runs_dir, finished.get(role, set()), store)
+        if tally.get("call_failed"):
+            break  # a limit or outage: the next role would hit it too
+    client.release()
+    return counts
 
 
 def cmd_ledger(args: argparse.Namespace) -> int:
@@ -567,7 +715,15 @@ def main(argv: list[str] | None = None) -> int:
     rescore_parser.add_argument("--reviewer", required=True, help="skeptic_a, skeptic_b or skeptic_c: all its task roles, one model")
     rescore_parser.add_argument("--fresh", action="store_true",
                                 help="ask again for runs whose reply differed, and keep the new reply's score")
+    rescore_parser.add_argument("--sample", type=int, help="repeat pass: this many seeded run IDs, cache bypassed "
+                                                           "(roles without token probabilities, e.g. skeptic_d)")
+    rescore_parser.add_argument("--seed", type=int, default=0, help="seed for --sample")
     rescore_parser.set_defaults(func=cmd_rescore)
+    smoke_parser = sub.add_parser("cloud-smoke", help="check one cloud role before any batch (--dry sends nothing)")
+    smoke_parser.add_argument("--role", required=True, help="a cloud role, e.g. skeptic_d")
+    smoke_parser.add_argument("--dry", action="store_true", help="print the exact request bodies; no key, no network")
+    smoke_parser.add_argument("--send", action="store_true", help="really send (needs the student's OK; ~4 calls)")
+    smoke_parser.set_defaults(func=cmd_cloud_smoke)
     args = parser.parse_args(argv)
     return args.func(args)
 

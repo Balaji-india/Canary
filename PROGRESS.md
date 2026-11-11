@@ -74,13 +74,121 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check on free APIs (GitHub Models is retired: confirm Groq + Gemini, then /api), before Mission 5.1
+**Current focus:** Cloud ceiling check: provider and analysis built; next the student creates the Groq key and reads the limits, then the live cloud-smoke (needs the OK), then the lock
 
-**Stopped at (2026-11-11):** thinking-only session: provider research, outline rewritten, `/api` build plan written
-(docs only, no code, no model run, no cloud call, no key created). The cloud ceiling check is still an outline
-(`docs/plans/cloud_ceiling_check_outline.md`), nothing of it is built. llama confirmation stays stopped (see
-Decisions); the v2 plan stays unlocked and is not run. Mission 5.1 is outlined only. No mission is part-way through;
-Mission 2.4 is the last mission complete. No pool-2 data exist.
+**Stopped at (2026-11-11, build session):** `/api` provider, `eval/ceiling.py` and `eval/ceiling_power.py` built and
+tested, all mocked (section below). **No cloud call made, no key exists, nothing locked, no batch run.** The outline
+is still unlocked; the lock waits for the key, the real limits and the live smoke test. llama confirmation stays
+stopped; Mission 5.1 is outlined only. No mission is part-way through; Mission 2.4 is the last mission complete. No
+pool-2 data exist.
+
+## Cloud provider and ceiling analysis built (2026-11-11, build session): no cloud call made
+Plans: `docs/plans/api_cloud_provider_build_plan.md`, `docs/plans/cloud_ceiling_check_outline.md`. No network call, no
+key, no lock, no batch. `data/cloud/` does not exist (no call log line was ever written).
+- **Provider (`canary/llm.py`):** `OpenAIStyleProvider`, standard-library `urllib`, one POST to
+  `<base_url>/chat/completions`, configured per provider in a new `providers:` block of `config/models.yaml`
+  (base URL, `key_env` = the key's variable NAME, model allow-list, schema mode, output-limit field, context size,
+  pacing, daily call and token budgets, `max_wait_s`, `timeout_s`). Roles `skeptic_d` (+`_checklist`, Groq) and
+  `skeptic_e` (+`_checklist`, Gemini), `top_logprobs: 0`; Azure entry commented (backup, untested).
+  - Request: `wire_schema` flattens the baseline's top-level `anyOf` (strict modes refuse it); `parse_reply` still checks
+    every reply against the original schema. `json_object` is the configured fallback. Never `logprobs`.
+  - Replies: `choices[0].message.content` only; reasoning fields ignored, `<think>`-style text cut; empty, cut-off
+    (`length`) or filtered replies are invalid replies (the reviewer's failure, retried with the reason).
+  - Status: 401/403/404 and redirects -> `access`; other 4xx -> `request_refused` (failed audit, not retried inside a
+    call, counts toward the 3-in-a-row stop); 5xx/timeouts -> server failure (retried as before); 429 -> waits a
+    `retry-after` up to `max_wait_s` once, else `rate_limited`. Redirects are never followed (urllib would resend the key).
+  - Daily budget: calls and tokens of the last 24 h, counted from the call log, checked before every request; stops
+    with "daily limit reached ... run the same command again after ...". `rate_limited`, `access` and `config` are stop
+    kinds: no retry, the queue asks nothing more of that model, and `audit_pending` stores **nothing** for unasked runs.
+  - Call log `data/cloud/calls.jsonl`: one line per attempt (time, provider, role, model, settings, prompt and wire
+    schema SHA-256, status, rate-limit headers, seconds, tokens incl. reasoning, server model, response ID, raw body).
+    Never the key or a request header; a key echoed by a provider is replaced by `[key]`.
+  - Cache key: cloud roles add provider, base URL, options and schema mode; every old key is byte-identical (tested).
+  - Context guard per provider (`context_tokens` minus the output limit, 3 characters per token).
+  - Family check: also refuses a Skeptic whose model NAME contains the Scientist's family (Groq's `qwen/...`).
+- **CLI:** `doctor` prints one line per cloud role ("key present" / "key missing (add GROQ_API_KEY to .env ...)", never
+  the key, a note not a failure); `llm-smoke` skips cloud roles; `cloud-smoke --role R --dry` prints the exact bodies
+  (toy prompt, baseline and checklist prompts of old run 1875ec26) with SHA-256s; the live form needs `--send` (the
+  student's OK). `rescore --batch B --reviewer skeptic_d --sample 20 --seed S` is the repeat pass (cache bypassed and
+  not written, `data/rescore/<batch>.repeat.jsonl`).
+- **`eval/ceiling.py`** (to be frozen by hash in the lock): the approved rule exactly (outline section 6), 97.5%
+  base-level bootstrap with 10,000 draws, outcomes SOLVABLE / HARD / INCONCLUSIVE (exclusive; tested on 3,000 random
+  interval sets), "works but strength unknown" sub-case, failed-twice runs counted against the reviewer, void cells
+  above 10%, refuses an unfinished arm with counts only, write-once per arm, arm R only after a non-SOLVABLE arm L and
+  on the same batches. Secondary (decides nothing): recall, specificity by control/sham, recall by tier, paired AUC vs
+  llama checklist, repeat pass, call-log summary. `BATCHES` must be set to the locked batch list before the lock.
+  - Development check on llama's task-dev-2 audits (`python -m eval.ceiling --dev skeptic_c_checklist`,
+    `eval/results/ceiling/dev_skeptic_c_checklist.json`): reproduces the logged 0/20 and 0/20 flags, J 0, every test
+    fails; on `skeptic_c` (never asked on task-dev-2) it refuses with counts only.
+- **Tests:** 101 new (`tests/test_cloud.py`, `test_cloud_audit.py`, `test_ceiling.py`, `test_ceiling_power.py`), all
+  mocked; an autouse fixture in `tests/conftest.py` blocks urllib and non-local sockets, points `.env` and the call
+  log at the test's folder and clears the key variables. Isolation: `canary.llm` reaches only `canary.config` (no
+  path to the sealed table, saboteur, controls, trust or mixer) and names none of them; a real audit through the cloud
+  provider sends exactly [system, blinded prompt], with no run ID, comment, run type word or catalog hint.
+- **pytest time:** the 59 s this morning was not reproducible (32.6 s at session start with an idle machine, 55 s once
+  right after many edits: load, not tests). `--durations` showed 8 tests at 0.6-2.4 s each (about 9.5 s together);
+  they are now `@pytest.mark.slow` (none deleted). Now: `pytest -q` **702 passed in 25.2 s and 24.7 s**; `pytest -m
+  slow` 82 passed in 39 s. `ledger verify` OK, 1712 entries, unchanged.
+- **Deviations from the build plan:** unknown roles and off-list models are a `config` stop kind; `request_refused` is
+  not retried inside a call (quota); a token budget was added beside the call budget; `schema_mode` and `timeout_s`
+  added; the repeat pass lives in `cli.py` (`mixer.py` is frozen); `cloud-smoke` needs `--send`; the batch simulation
+  is its own module `eval/ceiling_power.py` (reusing `power_sim`), so `power_sim.json` stays reproducible.
+  `config/models.yaml` changed (LF kept); the dead llama v1/v2 plans hashed it, so their hash no longer matches.
+
+### Batch size (`python -m eval.ceiling_power`): the approved 97.5% level cannot meet the criterion; 99% gives 120 runs
+Sources: `eval/results/ceiling/power_ceiling.json` (97.5%, full grid: 5 sizes x 8 true J x verdict ICC 0 / 0.2 / 0.5),
+`power_ceiling_level_99.json` and `power_ceiling_level_99.5.json` (`--quick`: ICC 0.2, J 0.40 and 0.70 only). 1,000
+simulated batches per cell (4,000 at J 0.40), 2,000 base draws, no LLM. Criterion applied at verdict ICC 0.2.
+
+| Runs (bases) | 97.5%: power at J 0.70 / 4-cell FP bound at J 0.40 | 99% | 99.5% |
+|---|---|---|---|
+| 40 (16) | 0.251 / 0.031 | 0.150 / 0.007 | 0.094 / 0.002 |
+| 80 (31) | 0.745 / 0.064 | 0.646 / 0.034 | 0.554 / 0.020 |
+| 120 (34) | 0.931 / 0.071 | **0.888 / 0.031** | 0.840 / 0.018 |
+| 160 (34) | 0.988 / 0.075 | 0.972 / 0.031 | 0.956 / 0.016 |
+| 200 (34) | 0.999 / 0.087 | 0.994 / 0.038 | 0.986 / 0.024 |
+
+- **At 97.5% no size qualifies:** power is there from 120 runs, but each cell's false-positive rate at a true J of
+  exactly 0.40 is about 2% instead of the nominal 1.25% (the base bootstrap with 16-34 bases is too narrow), so 4 cells
+  exceed 0.05 at every size from 80 up. The criterion says: change the interval level before the lock.
+- **Recommendation (Claude): 99% intervals, 120 runs = the 40 task-dev-2 runs + 80 fresh pool-2 runs.** Reason: the
+  smallest size meeting both parts at 99%, with more power than 99.5% (0.888 vs 0.840). Risk: verdicts clustering
+  more than ICC 0.2 (not simulated at 99%; at 97.5% ICC 0.5 cost about 5 points of power at 120 runs). What would change
+  it: the real Groq limit (cost), or the student preferring 99.5% (fewer false positives, less power). **Needs the
+  student's OK**; `eval/ceiling.py` still says 97.5% (`LEVEL`), and `BATCHES` must gain `ceiling-ext` before the lock.
+- Other rows of the 97.5% grid (decide nothing): at 120 runs a true J of 0.60 is SOLVABLE in about 0.58 of batches, and
+  a true J of 0.20 lands below the bar in about 0.52 of cells, so HARD (all 4 cells below) stays unlikely unless the
+  reviewers are near chance. Verdict ICC barely changed power at J 0.70 below 120 runs.
+
+### /forecast for the recommended batch (120 runs at 99%), from `power_ceiling_level_99.json`
+- **Laptop:** 18.6 min (pool-2 build of 18 bases by the Scientist plus 80 extension runs, at task-dev-2's measured
+  rates; no local audits). Treat as the low end, as earlier forecasts ran long: about 20-30 min.
+- **Calls per arm:** 284 (2 prompts x 120 runs + 40 repeat-pass calls + 4 smoke calls), plus invalid-reply retries.
+- **Arm L (Groq, budget 45 calls a day, placeholder):** 7 days of about 26 min each (35 s pacing). If the real budget
+  is lower (the token limit binds first), more days; at 30 a day it would be 10.
+- **Arm R (Gemini, budget 18 a day, worst case found):** 16 days of about 5 min; it runs only if arm L is not SOLVABLE.
+- **Range:** about 1-2 weeks of short daily sessions for arm L alone; about 3-4 weeks if arm R is needed too.
+
+### Your Groq key: exact steps (the student; nothing is sent until you also OK the live smoke test)
+The `.env` variable name is **`GROQ_API_KEY`** (Gemini, only if arm R runs: `GEMINI_API_KEY`).
+1. Open `https://console.groq.com` and sign in. **Do not add a payment method**: the free plan is the $0 cap.
+2. Open **API Keys**, click **Create API Key**, name it `canary`, and copy the key (shown once; it starts `gsk_`).
+3. In PowerShell, in the project folder:
+   ```powershell
+   cd "C:\Users\Balaji Keerthi\Downloads\canary"
+   Copy-Item .env.example .env
+   notepad .env
+   ```
+   Paste the key after `GROQ_API_KEY=` on its line (no spaces, no quotes), save, close. `.env` is in `.gitignore`.
+   Never paste the key into a chat (including this one), a commit, a screenshot or a PROGRESS note.
+4. Check, without any call: `.venv\Scripts\python.exe -m canary.cli doctor` must show
+   `Cloud skeptic_d: groq openai/gpt-oss-120b, key present, not called`.
+5. In the console, open the **Limits** page (organisation settings) and note the free-plan row for
+   `openai/gpt-oss-120b`: requests per minute and per day, tokens per minute and per day. Tell Claude the numbers
+   (never the key); they replace the placeholders in `config/models.yaml` and go into the lock. Check the billing page
+   shows no payment method.
+6. Then, only when you say "OK to send": `.venv\Scripts\python.exe -m canary.cli cloud-smoke --role skeptic_d --send`
+   (about 4 calls, sends old run 1875ec26 blinded). Look first with `--dry`.
 
 ## Provider research (2026-11-11): GitHub Models is retired; no free API gives usable token probabilities
 Sources and quotes: `docs/plans/cloud_ceiling_check_outline.md` section 2 (official pages read 2026-11-11 unless
@@ -110,17 +218,15 @@ marked secondary there).
 ## Open and proposed (2026-11-11)
 Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
 `docs/plans/mission_5_1_tripwires_outline.md`.
-- **(a) Provider: OPEN AGAIN, needs the student's decision.** Claude's recommendation: Groq for arm L and the Gemini
-  free tier for arm R ($0, no card on either account, two model families). Alternatives in outline section 2: Gemini
-  free tier only (slower: both arms share one daily quota), Azure for Students (closest to the `o4-mini` wish, may not
-  be allowed to deploy), paid OpenAI (breaks "no paid API for now"). `/api` does not wait for this: the provider
-  code is the same for all of them.
+- **(a) Provider: APPROVED by the student (2026-11-11, build session):** Groq `openai/gpt-oss-120b` for arm L; the
+  Gemini free tier for arm R only if arm L is not SOLVABLE; Azure for Students as arm R backup (commented entry in
+  `config/models.yaml`, untested). Also approved: the three small points below.
 - **(b) The "solvable" rule: APPROVED by the student (2026-11-11)**, with the batch sized by the outcome simulation.
   T1 J above 0, T2 AUC above 0.70, T3 beats the strongest of seven trivial features, on the lower end of 97.5%
   base-level intervals; SOLVABLE / HARD / INCONCLUSIVE as in outline section 6.
 - **(c) Standard-library HTTP provider: APPROVED by the student (2026-11-11).** Build plan:
   `docs/plans/api_cloud_provider_build_plan.md` (9 steps, no real call, no key needed).
-- **Small points proposed by Claude inside those approvals (object if you disagree):** the batch-size criterion
+- **Small points proposed by Claude, APPROVED by the student 2026-11-11 (build session):** the batch-size criterion
   (smallest of 40/80/120/160/200 runs with P(SOLVABLE) at least 0.80 at a true J of 0.70 and a false-positive rate of
   at most 0.05 at J 0.40); the repeat pass on a seeded sample of 20 runs per cell; a daily call budget below each
   provider's limit.
@@ -131,9 +237,21 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   with the blinded prompt. Claude Code never reviews runs itself, because it can see the sealed table, the bug
   catalog and the code (outline section 3).
 
+## Next actions (2026-11-11, after the build)
+1. **Student decides the interval level:** 99% with 120 runs (Claude's recommendation), 99.5% with 120, or another
+   (section "Batch size"). Then Claude sets `LEVEL` and `BATCHES` in `eval/ceiling.py` (before any cloud reply).
+2. **Student:** Groq key and limits (steps above); tell Claude the limits; Claude puts them in `config/models.yaml`
+   and re-runs `python -m eval.ceiling_power --quick --level <chosen>` if the budget changed.
+3. Pool 2 (`build-pool --out data/calibration/pool-2.json --avoid data/calibration/pool.json`) and the 80-run
+   extension batch `ceiling-ext` with no reviewer attached (laptop, the student's own window), then its length gate.
+   `calibrate` always audits with a local role today, so this needs a small `--no-audit` option first (not built).
+4. With the student's "OK to send": live `cloud-smoke --role skeptic_d --send`; then the lock
+   (`docs/plans/cloud_ceiling_check.md` + `.sha256`, with `eval/ceiling.py`'s hash, the wire-schema hashes, the
+   limits and the batch); then arm L in daily sessions.
+
 ## Model use (student, 2026-11-10)
 Until 2026-11-16: use Fable for planning, `/challenge` and statistics design. Use the usual model for routine building.
-Next session: the usual model (Opus) builds `/api` from `docs/plans/api_cloud_provider_build_plan.md`.
+The `/api` build, `eval/ceiling.py` and the batch simulation were done by Opus on 2026-11-11.
 - **v1 plan SUPERSEDED (student, 2026-11-09), never run: no `confirm-llama-1` or pool-2 data exist.** Its padding left
   helper size separating canaries (AUC 0.85 ignoring direction), so H3 had power near 0. Notice on top of
   `docs/plans/llama_checklist_confirmation.md` (kept, re-hashed with the notice; the locked text is in commit 6a9eaa9).
@@ -489,6 +607,11 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   still not locked).
 
 ## Decisions
+- **Provider approved by the student (2026-11-11, build session):** Groq `openai/gpt-oss-120b` (arm L), Gemini free
+  tier (arm R, only if arm L is not SOLVABLE), Azure for Students (arm R backup). Also approved: the batch-size
+  criterion, the 20-run repeat pass per cell, a daily call budget under each provider's limit, and (in the build
+  request) that a batch above 40 runs adds **fresh pool-2 runs** to task-dev-2 (the outline said pool 1 with a new
+  seed). Hard rules for the build: no real call, no key, never print/log/commit a key, mocked tests.
 - **Approved by the student (2026-11-11):** (b) the "solvable" rule, with the batch sized by the outcome simulation;
   (c) the standard-library HTTP provider; spending cap $0; every call logged; runs resumable within the free daily
   limits; AUC from the verdict where there are no token probabilities; the claim worded "for these models".

@@ -54,6 +54,7 @@ def runs(bug_flags, clean_flags):
     return bugs + clean
 
 
+@pytest.mark.slow  # 0.6-2.4 s (2026-11-11 durations); keeps the default run under 30 s
 def test_a_reviewer_that_flags_everything_fails_and_a_discriminating_one_passes(stores):
     table, led = stores
     seal_and_audit(table, led, "skeptic_a", runs([True] * 20, [True] * 20))
@@ -73,6 +74,7 @@ def test_a_reviewer_that_flags_everything_fails_and_a_discriminating_one_passes(
     assert base["delta_j_vs_baseline"] is None and grounded["line_verified_share"] == 1.0
 
 
+@pytest.mark.slow  # 0.6-2.4 s (2026-11-11 durations); keeps the default run under 30 s
 def test_the_pass_rule_is_the_lower_bound_above_zero_and_nothing_else(stores):
     table, led = stores
     # Observed J 0.6 - 0.4 = 0.2 on 20 + 20 runs: positive, but the interval reaches below 0, so it does not pass.

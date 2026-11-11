@@ -57,7 +57,7 @@ def test_current_focus_outranks_the_next_mission(tmp_path, monkeypatch):
     assert state.next_mission(tmp_path) == ("3.1", "Graveyard")
     monkeypatch.setattr(state.time, "time", lambda: 0.0)  # slot 0: the focus/mission tip, not a general tip
     monkeypatch.setattr(state, "git_dirty_count", lambda root: 0)
-    assert "cloud_ceiling_check_outline" in state.pick_tip(tmp_path, None)
+    assert "Groq key" in state.pick_tip(tmp_path, None)  # the tip for the ceiling check's current step
 
 
 def test_no_focus_line_falls_back_to_the_mission_tip(tmp_path, monkeypatch):

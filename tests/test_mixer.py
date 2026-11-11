@@ -228,6 +228,7 @@ def test_plan_can_be_saved_as_json_unchanged():
     assert json.loads(json.dumps(plan)) == copy.deepcopy(plan)
 
 
+@pytest.mark.slow  # 0.6-2.4 s (2026-11-11 durations); keeps the default run under 30 s
 def test_the_dry_gate_fails_unpadded_plans_and_passes_padded_ones():
     unpadded = mixer.dry_length_check(mixer.plan_batch("b", 30, POOL, 1, length_match=False))
     assert not unpadded["passes"] and unpadded["features"]["line_count"]["value"] > 0.6

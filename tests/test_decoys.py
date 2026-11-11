@@ -21,6 +21,7 @@ def shape(script):
     return len(blinded.splitlines()), sum(isinstance(n, ast.stmt) for n in ast.walk(ast.parse(blinded)))
 
 
+@pytest.mark.slow  # 0.6-2.4 s (2026-11-11 durations); keeps the default run under 30 s
 def test_every_decoy_has_its_bugs_line_and_statement_count():
     checked = 0
     for bug_id, tier in ALL_VARIANTS:  # one test, not 20: the suite has a 30 s limit

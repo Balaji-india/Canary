@@ -1,0 +1,95 @@
+{
+ "development": true,
+ "batches": [
+  "task-dev-2"
+ ],
+ "code_sha256": "5f57604f075e1c467d753a954ac6e5bdc4e1356e38fc4668a623db6c258bfb29",
+ "cells": {
+  "skeptic_c_checklist": {
+   "runs": 40,
+   "buggy": 20,
+   "clean": 20,
+   "bases": 16,
+   "flagged_buggy": 0,
+   "flagged_clean": 0,
+   "failed_counted_against": 0,
+   "failed_share": 0.0,
+   "youden_j": {
+    "value": 0.0,
+    "interval_975_base": [
+     0.0,
+     0.0
+    ]
+   },
+   "auc_verdict": {
+    "value": 0.5,
+    "interval_975_base": [
+     0.5,
+     0.5
+    ]
+   },
+   "gap_vs_strongest_feature": {
+    "value": -0.03125,
+    "interval_975_base": [
+     -0.33523273601398595,
+     -0.03884682293970221
+    ],
+    "strongest_observed": "effect_size"
+   },
+   "feature_auc": {
+    "line_count": 0.5,
+    "char_count": 0.5,
+    "statement_count": 0.5,
+    "helper_chars": 0.49875,
+    "effect_spread": 0.50375,
+    "effect_size": 0.46875,
+    "top_score": 0.47
+   },
+   "draws_used": 10000,
+   "tests": {
+    "T1": false,
+    "T2": false,
+    "T3": false,
+    "void": false,
+    "passes": false,
+    "below_bar": true
+   },
+   "crashed_runs_left_out": 0,
+   "secondary": {
+    "recall": {
+     "value": 0.0,
+     "of": 20
+    },
+    "specificity": {
+     "control": {
+      "value": 1.0,
+      "of": 10
+     },
+     "sham": {
+      "value": 1.0,
+      "of": 10
+     }
+    },
+    "recall_by_tier": {
+     "obvious": {
+      "value": 0.0,
+      "of": 10
+     },
+     "subtle": {
+      "value": 0.0,
+      "of": 10
+     }
+    }
+   },
+   "paired_vs_llama": null,
+   "repeat_pass": {
+    "runs": 0,
+    "reply_differs": 0,
+    "verdict_changed": 0
+   },
+   "models": [
+    "llama3.1:8b"
+   ]
+  }
+ }
+}

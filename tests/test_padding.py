@@ -25,6 +25,7 @@ def scripts():
     return found
 
 
+@pytest.mark.slow  # 0.6-2.4 s (2026-11-11 durations); keeps the default run under 30 s
 def test_every_variant_and_clean_run_reach_exactly_one_size():
     target = padding.batch_target([CONFIG])
     found = scripts()

@@ -53,15 +53,24 @@ def _with_tag(model: str) -> str:
     return model if ":" in model else f"{model}:latest"
 
 
+def cloud_roles(models_cfg: dict) -> list[str]:
+    """Roles (aliases included) whose model runs on a cloud provider from the `providers:` block, not on Ollama."""
+    roles, cloud = models_cfg["roles"], models_cfg.get("providers") or {}
+    default = models_cfg.get("provider")
+    return [r for r, cfg in roles.items() if roles[cfg.get("use_role", r)].get("provider", default) in cloud]
+
+
 def resolve_roles(models_cfg: dict, installed: set[str]) -> list[RoleChoice]:
     """Pick the preferred model for each role, else its fallback, else None.
 
-    Aliases (`use_role`) are skipped: they run on the model of the role they point to.
+    Aliases (`use_role`) are skipped: they run on the model of the role they point to. Cloud roles are skipped too:
+    they are not installed anywhere, and `llm.LLM.resolve` checks them against their provider's allow-list.
     """
     installed = {_with_tag(m) for m in installed}
     choices = []
+    cloud = set(cloud_roles(models_cfg))
     for role, cfg in models_cfg["roles"].items():
-        if "use_role" in cfg:
+        if "use_role" in cfg or role in cloud:
             continue
         candidates = [cfg["model"], cfg.get("fallback")]
         found = next((_with_tag(c) for c in candidates if c and _with_tag(c) in installed), None)
@@ -70,8 +79,20 @@ def resolve_roles(models_cfg: dict, installed: set[str]) -> list[RoleChoice]:
 
 
 def family_clashes(models_cfg: dict) -> list[str]:
-    """Return the Skeptic roles that share a model family with the Scientist (should be empty)."""
+    """Return the Skeptic roles that share a model family with the Scientist (should be empty).
+
+    The `family` label is checked, and so are the model names: a cloud catalogue can host the Scientist's family under
+    any label (Groq lists `qwen/qwen3.8-27b`), so a Skeptic whose model or fallback names that family is refused even
+    if its label says otherwise. Other families (gemma, phi, llama, gpt-oss, gemini) pass.
+    """
     roles = models_cfg["roles"]
-    scientist = roles["scientist"]["family"]
-    # Aliases (`use_role`) have no family of their own: they share the one of the role they point to.
-    return [r for r, cfg in roles.items() if r.startswith("skeptic") and "use_role" not in cfg and cfg["family"] == scientist]
+    scientist = roles["scientist"]["family"].lower()
+    clashes = []
+    for role, cfg in roles.items():
+        # Aliases (`use_role`) have no family of their own: they share the one of the role they point to.
+        if not role.startswith("skeptic") or "use_role" in cfg:
+            continue
+        names = [str(cfg.get("model") or "").lower(), str(cfg.get("fallback") or "").lower()]
+        if cfg["family"].lower() == scientist or any(scientist in name for name in names):
+            clashes.append(role)
+    return clashes

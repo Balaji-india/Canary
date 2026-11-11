@@ -149,6 +149,7 @@ def stores(tmp_path):
     return sealed.SealedTable(tmp_path / "sealed.db"), Ledger(tmp_path / "ledger.db")
 
 
+@pytest.mark.slow  # 0.6-2.4 s (2026-11-11 durations); keeps the default run under 30 s
 def test_sample_has_one_canary_per_cell_and_ten_of_each_clean_type(stores):
     table, led = stores
     seal_batch(table, led)
@@ -162,6 +163,7 @@ def test_sample_has_one_canary_per_cell_and_ten_of_each_clean_type(stores):
     assert sample == mixer.position_sample(table, led, "b", seed=3)
 
 
+@pytest.mark.slow  # 0.6-2.4 s (2026-11-11 durations); keeps the default run under 30 s
 def test_a_cell_with_only_a_crashed_run_is_reported_not_skipped(stores):
     table, led = stores
     cell = sorted(TRANSFORMS)[0]
