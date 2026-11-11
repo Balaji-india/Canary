@@ -44,7 +44,7 @@ providers:
     min_interval_s: 45        # at ~4.5k tokens a call: about 6k tokens/min, under 8,000; 1.3 requests/min, under 30
     max_calls_per_day: 900    # 90% of 1,000 requests/day (never binding: the token budget stops first)
     max_tokens_per_day: 180000  # 90% of 200,000 tokens/day, counted from the call log's reported usage
-    expected_tokens_per_call: 4500  # planning estimate (prompt ~3k + reasoning and reply); replace with the smoke test's measured usage
+    expected_tokens_per_call: 3000  # smoke test 2026-11-11 measured 2,301 and 2,300 per review call; +30% margin
     max_wait_s: 90            # a 429 with a longer retry-after stops the pass instead of waiting
     timeout_s: 300            # one request; a timeout still costs quota and is retried by the wrapper
   gemini:                     # arm R. Limits not published; 20 requests a day is the worst case found

@@ -74,7 +74,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check: design set (2 cells, 97.5%, 120 runs), Groq key in .env; waiting for the student's OK to send the live cloud-smoke, then pool 2 + ceiling-ext, then the lock
+**Current focus:** Cloud ceiling check: design set (2 cells, 97.5%, 120 runs), Groq key in .env; live cloud-smoke passed; next pool 2 + ceiling-ext (student's window), then the lock
 
 **Stopped at (2026-11-11, second build session):** design chosen by the student's rule (2 cells, 97.5%, 120 runs) and
 set in `eval/ceiling.py`; Groq limits in `config/models.yaml`; `calibrate --no-audit` built. The student's Groq key is in
@@ -197,6 +197,17 @@ simulated batches per cell (4,000 at J 0.40), 2,000 base draws, no LLM. Criterio
 - Other rows of the 97.5% grid (decide nothing): at 120 runs a true J of 0.60 is SOLVABLE in about 0.58 of batches, and
   a true J of 0.20 lands below the bar in about 0.52 of cells, so HARD (all 4 cells below) stays unlikely unless the
   reviewers are near chance. Verdict ICC barely changed power at J 0.70 below 120 runs.
+
+### Live smoke test (2026-11-11, the student's OK; 3 calls, `data/cloud/calls.jsonl`)
+| Call | Status | Tokens (prompt + output, reasoning) | Server latency | Temp 0 + strict schema | Parsed | Repeat |
+|---|---|---|---|---|---|---|
+| toy | 200 | 144 + 54 (26) | 1.1 s | accepted | yes | - |
+| review baseline (run 1875ec26) | 200 | 2,145 + 156 (73) | 1.2 s | accepted | yes | - |
+| repeat, cache bypassed | 200 | 2,145 + 155 (73) | 2.4 s | accepted | yes | same verdict and class, different evidence text |
+- `json_schema` strict mode accepted (no fallback needed); server model `openai/gpt-oss-120b` as asked; finish `stop`.
+- Not byte-identical at temperature 0: the lock records "temperature 0 not verifiable"; the repeat pass measures it.
+- `expected_tokens_per_call` 4,500 -> 3,000 (measured ~2,300 + 30%): **60 calls a day**, so arm L's 143 calls take
+  **3 days** (about 45 min each at 45 s pacing). The wall time per call in `cloud-smoke` (~45 s) is our pacing.
 
 ### Calendar with the real Groq limits (chosen design, from `design_study.json` -> `cost`)
 - **Groq budget (`config/models.yaml`, from the console limits the student read 2026-11-11):** 180,000 tokens a day (90%
