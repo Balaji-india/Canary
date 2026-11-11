@@ -76,12 +76,10 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 **Current focus:** Cloud ceiling check: design set (2 cells, 97.5%, 120 runs), Groq key in .env; live cloud-smoke passed; next pool 2 + ceiling-ext (student's window), then the lock
 
-**Stopped at (2026-11-11, second build session):** design chosen by the student's rule (2 cells, 97.5%, 120 runs) and
-set in `eval/ceiling.py`; Groq limits in `config/models.yaml`; `calibrate --no-audit` built. The student's Groq key is in
-`.env` (presence checked, never printed). **No cloud call made, nothing locked, no batch run, no pool 2.** Waiting for
-the student's "OK to send" for the live smoke test. llama confirmation stays
-stopped; Mission 5.1 is outlined only. No mission is part-way through; Mission 2.4 is the last mission complete. No
-pool-2 data exist.
+**Stopped at (2026-11-11, end of day):** ceiling check ready to lock except the extension batch. Built and committed:
+cloud provider, `eval/ceiling.py` (2 cells, 97.5%, 120 runs), batch simulation, `calibrate --no-audit`. Live Groq smoke
+test passed (3 calls, `bc0055c`). **Nothing locked, no pool 2, no batch call.** Tests: 709 in about 25 s, slow 82 pass.
+Mission 2.4 is the last mission complete; llama stopped; Mission 5.1 outlined only.
 
 ## Cloud provider and ceiling analysis built (2026-11-11, build session): no cloud call made
 Plans: `docs/plans/api_cloud_provider_build_plan.md`, `docs/plans/cloud_ceiling_check_outline.md`. No network call, no
@@ -288,20 +286,19 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   with the blinded prompt. Claude Code never reviews runs itself, because it can see the sealed table, the bug
   catalog and the code (outline section 3).
 
-## Next actions (2026-11-11, after the build)
-1. ~~Interval level~~ done: the student's rule chose 2 cells, 97.5%, 120 runs (set in `eval/ceiling.py`).
-2. ~~Groq key and limits~~ done (key in `.env`, limits in `config/models.yaml`).
-3. **Student's "OK to send":** look first with
-   `.venv\Scripts\python.exe -m canary.cli cloud-smoke --role skeptic_d --dry`, then (after the OK)
-   `... cloud-smoke --role skeptic_d --send` (3 calls: toy, baseline review of old run 1875ec26, repeat). Afterwards
-   `expected_tokens_per_call` takes the measured usage, and the calendar is recomputed.
-4. Pool 2 and the extension, in the student's own window (Ollama running, Edge closed):
-   `.venv\Scripts\python.exe -m canary.cli build-pool --out data/calibration/pool-2.json --avoid data/calibration/pool.json`, then
+## Next actions (next session)
+1. **`/toolkit` pool 2 + `ceiling-ext`, in the student's own window** (Ollama running, Edge closed, ~20-30 min):
+   `.venv\Scripts\python.exe -m canary.cli build-pool --out data/calibration/pool-2.json --avoid data/calibration/pool.json`
    `.venv\Scripts\python.exe -m canary.cli calibrate --runs 80 --batch ceiling-ext --pool data/calibration/pool-2.json --role skeptic_d --seed 1111 --no-audit`
-   (the length gate runs at the end; nothing is reviewed).
-5. Then the lock
-   (`docs/plans/cloud_ceiling_check.md` + `.sha256`, with `eval/ceiling.py`'s hash, the wire-schema hashes, the
-   limits and the batch); then arm L in daily sessions.
+   Stop if the length gate fails.
+2. **Lock** `docs/plans/cloud_ceiling_check.md` + `.sha256` (LF): rule, design, `eval/ceiling.py` and wire-schema
+   hashes, Groq limits and budget, smoke result ("temperature 0 not verifiable"), the 120-run batch.
+3. **Arm L day 1:** `.venv\Scripts\python.exe -m canary.cli reaudit --batch task-dev-2 --role skeptic_d` (60 calls/day
+   budget; stops cleanly; the same command continues next day, then `--batch ceiling-ext`). About 3 days in all.
+
+Next missions after the ceiling check: 5.1 tripwires (design awaits approval), 3.1 graveyard, 3.2 calibration.
+Known issues: cloud replies are not repeatable word for word at temperature 0 (verdict held on the smoke run);
+Gemini's real limits unknown (only needed for arm R).
 
 ## Model use (student, 2026-11-10)
 Until 2026-11-16: use Fable for planning, `/challenge` and statistics design. Use the usual model for routine building.
@@ -657,8 +654,7 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 - `task-dev-2` (v2 step 1) finished 2026-11-10 in the student's own window: 40 runs in 357 s (length gate passed on
   the run folders), 40 audits in 602 s, 0 failed; cut-off written once (`eval/results/task_dev_2/llama_checklist_cutoff.json`).
 - `confirm-llama-2` will not run (llama stopped, 2026-11-10); no pool-2 data exist; the v2 plan stays unlocked.
-- No cloud call has been made and no API key exists; the ceiling check is an outline only (rewritten 2026-11-11,
-  still not locked).
+- Cloud: only the 3-call Groq smoke test (2026-11-11). No batch audit, no lock, no pool 2.
 
 ## Decisions
 - **Ceiling design fixed by the student's rule (2026-11-11, second session):** the rule (qualify under verdict ICC 0.1,
