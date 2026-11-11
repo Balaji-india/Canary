@@ -74,34 +74,56 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check on a free API (research GitHub Models, finalize the outline, then /api), before Mission 5.1
+**Current focus:** Cloud ceiling check on free APIs (GitHub Models is retired: confirm Groq + Gemini, then /api), before Mission 5.1
 
-**Stopped at (2026-11-10):** llama confirmation stopped by the student's decision (see Decisions); the v2 plan stays
-unlocked and is not run. The cloud ceiling check is outlined only (`docs/plans/cloud_ceiling_check_outline.md`,
-revised after a `/challenge` review in a thinking-only session: docs only, no code, no model run, no cloud call),
-nothing of it is built. Mission 5.1 is outlined only. No mission is part-way through; Mission 2.4 is the last mission
-complete. No pool-2 data exist.
+**Stopped at (2026-11-11):** thinking-only session: provider research, outline rewritten, `/api` build plan written
+(docs only, no code, no model run, no cloud call, no key created). The cloud ceiling check is still an outline
+(`docs/plans/cloud_ceiling_check_outline.md`), nothing of it is built. llama confirmation stays stopped (see
+Decisions); the v2 plan stays unlocked and is not run. Mission 5.1 is outlined only. No mission is part-way through;
+Mission 2.4 is the last mission complete. No pool-2 data exist.
 
-## Proposed, pending the student's approval (2026-11-10, thinking-only session)
-Nothing below is decided or built. Details, trade-off tables and the review log: `docs/plans/cloud_ceiling_check_outline.md`
-(sections 2, 6, 8 and 12) and `docs/plans/mission_5_1_tripwires_outline.md`.
-- **(a) Provider and model: CHANGED by the student (2026-11-10), see Decisions: no paid API for now; GitHub Models
-  (free), Gemini free tier as backup.** The OpenAI proposal below is kept as the paid fallback only. Which free model,
-  whether it returns token probabilities and accepts temperature 0, its rate limits and its data terms are **not
-  researched yet**; outline section 2 still shows the old proposal until the next session rewrites it.
-  Old proposal: OpenAI, two arms on one key. Arm L: reasoning off,
-  temperature 0, token probabilities, scored like llama (80 calls). Arm R: the strongest model with reasoning on,
-  verdict only, run only if arm L is not SOLVABLE; without it "HARD" may not be declared. The exact dated model is
-  picked by a smoke test with fixed pass criteria. Where a cell has no token probabilities, the AUC is computed
-  from the code's decision as a 0/1 score, which equals (recall + specificity) / 2.
-- **(b) The "solvable" rule: proposed, pending my approval.** Per cell (arm x prompt, at most 4), on the lower end of
-  97.5% base-level intervals: T1 J above 0 (the verdict works; Rogan-Gladen's condition), T2 AUC above 0.70 (a fixed
-  line, replacing llama's 0.643), T3 AUC above the strongest of seven named trivial features. SOLVABLE: one cell
-  passes all three. HARD: arm R was run and every cell's AUC upper bound is below 0.70. Otherwise INCONCLUSIVE, with
-  a planned follow-up on a fresh pool-2 batch. An outcome table from simulation is required before the lock; Claude's
-  rough guess is that a true AUC of 0.60-0.80 ends INCONCLUSIVE at 40 runs.
-- **(c) New code: proposed, pending my approval.** A standard-library HTTP provider with a configurable base URL (no
-  new dependency), not the `openai` package.
+## Provider research (2026-11-11): GitHub Models is retired; no free API gives usable token probabilities
+Sources and quotes: `docs/plans/cloud_ceiling_check_outline.md` section 2 (official pages read 2026-11-11 unless
+marked secondary there).
+- **GitHub Models was retired on 2026-07-30** (playground, catalog, inference API and bring-your-own-key, for every
+  customer; GitHub's own docs and changelog). The provider chosen on 2026-11-11 cannot be used: there is no token to
+  create, no `gpt-4.1` or `o4-mini` there, no limits and no terms.
+- **Gemini API free tier (the named backup):** free text models `gemini-3.8-flash` (strongest), `gemini-3.6-flash`,
+  `gemini-3.5-flash-lite`; Gemini 4 is not free. Reasoning cannot be switched off. Token probabilities are treated as
+  not available (deprecated on 3.x per Google's reference, read secondhand). Limits are not published (shown only in
+  AI Studio; one blog read 20 requests a day for 3.8 Flash). Free-tier content is used to improve Google's products
+  and may be read by human reviewers; users must be 18 or older.
+- **Groq free plan:** `openai/gpt-oss-120b` (OpenAI's open-weight reasoning model) on an OpenAI-style endpoint;
+  `logprobs` answers 400; temperature 0 becomes 1e-8; limits read as 30 requests a minute, 1,000 a day, 8,000 tokens
+  a minute, 200,000 tokens a day (to confirm in the console); prompts not retained by default.
+- Also read: OpenRouter free models (50 calls a day), Azure for Students ($100 credit, no card; free tier lists
+  `o4-mini`, `gpt-4.1-mini`, `gpt-5-mini`; whether a student subscription may deploy them is not stated).
+- **Consequences written into the outline:** every cell is scored from the verdict (AUC = (1 + J) / 2, so T2 reads
+  "J above 0.40"); the arms are two model families at two effort levels (arm L: Groq `openai/gpt-oss-120b`, effort
+  low, first; arm R: `gemini-3.8-flash`, thinking high, only if arm L is not SOLVABLE); a daily-limit stop is not a
+  failed audit; no partial analysis between days; claims are worded "for these models", and HARD leads to the
+  paid-fallback decision, not to "unsolvable".
+- **Planning guess for the batch size (Claude's normal approximation, not a result; the simulation replaces it):**
+  about 80 runs for 80% power at a true J of 0.70, about 200 at 0.60. At about 45 calls a day on Groq, arm L with 80
+  runs takes about 5 daily sessions; arm R on Gemini at 20 calls a day about 10.
+
+## Open and proposed (2026-11-11)
+Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
+`docs/plans/mission_5_1_tripwires_outline.md`.
+- **(a) Provider: OPEN AGAIN, needs the student's decision.** Claude's recommendation: Groq for arm L and the Gemini
+  free tier for arm R ($0, no card on either account, two model families). Alternatives in outline section 2: Gemini
+  free tier only (slower: both arms share one daily quota), Azure for Students (closest to the `o4-mini` wish, may not
+  be allowed to deploy), paid OpenAI (breaks "no paid API for now"). `/api` does not wait for this: the provider
+  code is the same for all of them.
+- **(b) The "solvable" rule: APPROVED by the student (2026-11-11)**, with the batch sized by the outcome simulation.
+  T1 J above 0, T2 AUC above 0.70, T3 beats the strongest of seven trivial features, on the lower end of 97.5%
+  base-level intervals; SOLVABLE / HARD / INCONCLUSIVE as in outline section 6.
+- **(c) Standard-library HTTP provider: APPROVED by the student (2026-11-11).** Build plan:
+  `docs/plans/api_cloud_provider_build_plan.md` (9 steps, no real call, no key needed).
+- **Small points proposed by Claude inside those approvals (object if you disagree):** the batch-size criterion
+  (smallest of 40/80/120/160/200 runs with P(SOLVABLE) at least 0.80 at a true J of 0.70 and a false-positive rate of
+  at most 0.05 at J 0.40); the repeat pass on a seeded sample of 20 runs per cell; a daily call budget below each
+  provider's limit.
 - **Mission 5.1 design: proposed, pending my approval.** Replay each run with a probe that records what data reaches
   the split, every fit and the metric, and check properties of a correct experiment, instead of DESIGN section 6's
   syntax-tree patterns. Split into 5.1a and 5.1b.
@@ -111,7 +133,7 @@ Nothing below is decided or built. Details, trade-off tables and the review log:
 
 ## Model use (student, 2026-11-10)
 Until 2026-11-16: use Fable for planning, `/challenge` and statistics design. Use the usual model for routine building.
-Next session: Fable researches GitHub Models and finalizes the ceiling outline and the build plan; then Opus builds `/api`.
+Next session: the usual model (Opus) builds `/api` from `docs/plans/api_cloud_provider_build_plan.md`.
 - **v1 plan SUPERSEDED (student, 2026-11-09), never run: no `confirm-llama-1` or pool-2 data exist.** Its padding left
   helper size separating canaries (AUC 0.85 ignoring direction), so H3 had power near 0. Notice on top of
   `docs/plans/llama_checklist_confirmation.md` (kept, re-hashed with the notice; the locked text is in commit 6a9eaa9).
@@ -463,9 +485,16 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 - `task-dev-2` (v2 step 1) finished 2026-11-10 in the student's own window: 40 runs in 357 s (length gate passed on
   the run folders), 40 audits in 602 s, 0 failed; cut-off written once (`eval/results/task_dev_2/llama_checklist_cutoff.json`).
 - `confirm-llama-2` will not run (llama stopped, 2026-11-10); no pool-2 data exist; the v2 plan stays unlocked.
-- No cloud call has been made; the ceiling check is an outline only (revised 2026-11-10, still not locked).
+- No cloud call has been made and no API key exists; the ceiling check is an outline only (rewritten 2026-11-11,
+  still not locked).
 
 ## Decisions
+- **Approved by the student (2026-11-11):** (b) the "solvable" rule, with the batch sized by the outcome simulation;
+  (c) the standard-library HTTP provider; spending cap $0; every call logged; runs resumable within the free daily
+  limits; AUC from the verdict where there are no token probabilities; the claim worded "for these models".
+- **Provider chosen by the student (2026-11-11): GitHub Models (free). It cannot be carried out:** GitHub Models was
+  retired on 2026-07-30 (found the same day, see "Provider research"). The provider decision is open again; the
+  outline is written for Claude's recommended replacement (Groq + Gemini free tier), which is **not** approved yet.
 - **Ceiling check uses a free API first; no paid API for now (student, 2026-11-10).** Reviewer: GitHub Models (free);
   backup: the Gemini free tier. Pay for a model only if the free result is INCONCLUSIVE or HARD **and** a newer paid
   model would change the conclusion. This replaces proposal (a) (OpenAI, paid) in
@@ -661,13 +690,16 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
-- **Cloud provider facts in the ceiling outline are secondhand** (forum threads and third-party pages, 2026-11-10):
-  which OpenAI models return token probabilities, whether temperature 0 is honoured, prices and shutdown dates. The
-  smoke test and the official pages decide at the lock; `gpt-4.1` is reported to shut down 2027-01-14.
-  **GitHub Models and the Gemini free tier are not researched at all yet.** Open points for the free route: a free
-  tier may not offer the strongest models or token probabilities, daily rate limits may spread 80 calls over more
-  than one day, and free tiers can have looser data terms than paid ones.
-- **`pytest -q` is at or over the 30 s target** (30.2-35 s on 2026-11-10, 607 tests; slower while other work runs).
+- **Cloud provider facts that are still unverified (2026-11-11):** Gemini's free daily limit (not published; read it
+  in AI Studio), which Groq tab the limits table read belongs to (confirm in the console), Gemini's token
+  probabilities (reported deprecated, secondhand), which Gemini field is "silently ignored" on 3.6 Flash and newer
+  (possibly temperature), and whether either endpoint accepts the review schemas. The live smoke test and the
+  consoles settle these before the lock. Mistral's free plan was not researched (its page gave a 404).
+- **The free route cannot give a P(flag) score**, so the cloud AUC is verdict-based and is not the same kind of
+  number as llama's 0.643 (which used token probabilities). The paired comparison in the outline says so.
+- **Free tiers are one tier below the paid frontier.** A HARD result holds for the two named models only.
+- **`pytest -q` is at or over the 30 s target** (30.2-35 s on 2026-11-10, 607 tests; slower while other work runs;
+  one run on 2026-11-11 took 59 s for 609 passed with no code change, not re-timed).
   Next step: mark a few more slow tests or lower draws further.
 - **Base-level intervals over few bases run slightly narrow:** at 100 runs on 18 bases the bootstrap spread was 0.054
   against a true 0.058 (`eval/power_sim.py` check, 2026-11-10). Read borderline lower bounds with care.
@@ -739,13 +771,18 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
 
 ## Next actions
-1. **Cloud ceiling check on a free API** (outline: `docs/plans/cloud_ceiling_check_outline.md`). Next session (Fable):
-   `/research` GitHub Models (which strong non-Qwen models, token probabilities, temperature 0, rate limits for about
-   80-160 calls, data terms, endpoint shape) and the Gemini free tier as backup; rewrite outline section 2, the smoke
-   test and the cost section; get the student's OK on (b) and (c); write the build plan. Then (Opus) `/api`: provider +
-   mocked tests. Then `eval/ceiling.py` and the simulated outcome table, the locked pre-registration, a token in
-   `.env`, the smoke test, and the runs: the 40 task-dev-2 runs, baseline and checklist prompts, called only through
-   `llm.py`. Pay only if the free result is INCONCLUSIVE or HARD and a newer paid model would change the conclusion.
+1. **Cloud ceiling check on free APIs** (outline: `docs/plans/cloud_ceiling_check_outline.md`).
+   a. **Student:** confirm the provider (recommended: Groq for arm L, Gemini free tier for arm R) or pick an
+      alternative from outline section 2.
+   b. **(Opus) `/api`** from `docs/plans/api_cloud_provider_build_plan.md`: the OpenAI-style provider, pacing and
+      daily budget, call log, `cloud-smoke`, mocked tests. No real call and no key in that session. Does not wait
+      for (a).
+   c. `eval/ceiling.py` (verdict-based, frozen) and the `eval/power_sim.py` extension: the outcome table and the batch
+      size; an extension batch on the laptop if the size is above 40.
+   d. **Student:** create the two keys without a payment method, read the free limits in both consoles (outline
+      section 9); then the live smoke test (needs the OK to send one blinded old run), the lock, and arm L in short
+      daily sessions through `llm.py` only. Pay only if the free result is INCONCLUSIVE or HARD and a newer paid model
+      would change the conclusion.
 2. **Only if the ceiling check says SOLVABLE: efficiency search** for the cheapest model that still clears the bar:
    local non-Qwen code models that fit 6 GB VRAM and smaller cloud models. Each candidate is tested on its own fresh,
    never-seen batch, pre-registered and locked, with the same rules and the same bar; nothing is chosen on a batch
