@@ -5,6 +5,10 @@
 > 0.61 at true AUC 0.60 / 0.64 / 0.70, and about 400 runs would be needed at 0.64
 > (`eval/results/confirm_llama_2/power_sim.json`). No pool-2 or `confirm-llama-2` data exist. Kept as written below
 > for the record; the decision is in PROGRESS.md (Decisions).
+>
+> **Note (2026-11-11): the `config/models.yaml` hash this plan would record no longer matches, as expected.** The
+> file gained the cloud ceiling check's roles and providers (`/api`). This plan is dead (never locked or run), so
+> nothing depends on that hash.
 
 **Status: DRAFT, not locked.** Written 2026-11-09, before `task-dev-2`, pool-2 or `confirm-llama-2` exist. It
 supersedes `llama_checklist_confirmation.md` (v1, never run; the reason is in its notice). Two steps happen before the

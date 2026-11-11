@@ -1,0 +1,478 @@
+{
+ "rows": [
+  {
+   "design": "4-cell",
+   "cells": 4,
+   "level": 0.975,
+   "runs": 120,
+   "calls_per_arm": 284,
+   "qualifies": false,
+   "by_icc": {
+    "0.1": {
+     "power": 0.936,
+     "fp_bound": 0.074,
+     "fp_bound_mc_se": 0.008522382296048446
+    },
+    "0.2": {
+     "power": 0.942,
+     "fp_bound": 0.076,
+     "fp_bound_mc_se": 0.008634581634335272
+    },
+    "0.4": {
+     "power": 0.92,
+     "fp_bound": 0.069,
+     "fp_bound_mc_se": 0.00823466757070375
+    }
+   }
+  },
+  {
+   "design": "4-cell",
+   "cells": 4,
+   "level": 0.975,
+   "runs": 160,
+   "calls_per_arm": 364,
+   "qualifies": false,
+   "by_icc": {
+    "0.1": {
+     "power": 0.99,
+     "fp_bound": 0.077,
+     "fp_bound_mc_se": 0.008690094936190284
+    },
+    "0.2": {
+     "power": 0.991,
+     "fp_bound": 0.099,
+     "fp_bound_mc_se": 0.009825973234239956
+    },
+    "0.4": {
+     "power": 0.984,
+     "fp_bound": 0.072,
+     "fp_bound_mc_se": 0.008408567059850328
+    }
+   }
+  },
+  {
+   "design": "4-cell",
+   "cells": 4,
+   "level": 0.99,
+   "runs": 120,
+   "calls_per_arm": 284,
+   "qualifies": true,
+   "by_icc": {
+    "0.1": {
+     "power": 0.895,
+     "fp_bound": 0.036,
+     "fp_bound_mc_se": 0.005972938975077512
+    },
+    "0.2": {
+     "power": 0.889,
+     "fp_bound": 0.042,
+     "fp_bound_mc_se": 0.006446627025041856
+    },
+    "0.4": {
+     "power": 0.848,
+     "fp_bound": 0.032,
+     "fp_bound_mc_se": 0.005634181395730883
+    }
+   }
+  },
+  {
+   "design": "4-cell",
+   "cells": 4,
+   "level": 0.99,
+   "runs": 160,
+   "calls_per_arm": 364,
+   "qualifies": false,
+   "by_icc": {
+    "0.1": {
+     "power": 0.98,
+     "fp_bound": 0.037,
+     "fp_bound_mc_se": 0.006054564393909771
+    },
+    "0.2": {
+     "power": 0.984,
+     "fp_bound": 0.054,
+     "fp_bound_mc_se": 0.0072986985141188015
+    },
+    "0.4": {
+     "power": 0.96,
+     "fp_bound": 0.041,
+     "fp_bound_mc_se": 0.0063702237009386105
+    }
+   }
+  },
+  {
+   "design": "4-cell",
+   "cells": 4,
+   "level": 0.995,
+   "runs": 120,
+   "calls_per_arm": 284,
+   "qualifies": false,
+   "by_icc": {
+    "0.1": {
+     "power": 0.847,
+     "fp_bound": 0.024,
+     "fp_bound_mc_se": 0.004884260435316692
+    },
+    "0.2": {
+     "power": 0.851,
+     "fp_bound": 0.021,
+     "fp_bound_mc_se": 0.004570530603770201
+    },
+    "0.4": {
+     "power": 0.794,
+     "fp_bound": 0.017,
+     "fp_bound_mc_se": 0.004114334697129051
+    }
+   }
+  },
+  {
+   "design": "4-cell",
+   "cells": 4,
+   "level": 0.995,
+   "runs": 160,
+   "calls_per_arm": 364,
+   "qualifies": true,
+   "by_icc": {
+    "0.1": {
+     "power": 0.971,
+     "fp_bound": 0.021,
+     "fp_bound_mc_se": 0.004570530603770201
+    },
+    "0.2": {
+     "power": 0.965,
+     "fp_bound": 0.029,
+     "fp_bound_mc_se": 0.005365608073648317
+    },
+    "0.4": {
+     "power": 0.94,
+     "fp_bound": 0.031,
+     "fp_bound_mc_se": 0.005546147311422588
+    }
+   }
+  },
+  {
+   "design": "2-cell",
+   "cells": 2,
+   "level": 0.975,
+   "runs": 120,
+   "calls_per_arm": 143,
+   "qualifies": true,
+   "by_icc": {
+    "0.1": {
+     "power": 0.936,
+     "fp_bound": 0.037,
+     "fp_bound_mc_se": 0.004261191148024223
+    },
+    "0.2": {
+     "power": 0.942,
+     "fp_bound": 0.038,
+     "fp_bound_mc_se": 0.004317290817167636
+    },
+    "0.4": {
+     "power": 0.92,
+     "fp_bound": 0.0345,
+     "fp_bound_mc_se": 0.004117333785351875
+    }
+   }
+  },
+  {
+   "design": "2-cell",
+   "cells": 2,
+   "level": 0.975,
+   "runs": 160,
+   "calls_per_arm": 183,
+   "qualifies": true,
+   "by_icc": {
+    "0.1": {
+     "power": 0.99,
+     "fp_bound": 0.0385,
+     "fp_bound_mc_se": 0.004345047468095142
+    },
+    "0.2": {
+     "power": 0.991,
+     "fp_bound": 0.0495,
+     "fp_bound_mc_se": 0.004912986617119978
+    },
+    "0.4": {
+     "power": 0.984,
+     "fp_bound": 0.036,
+     "fp_bound_mc_se": 0.004204283529925164
+    }
+   }
+  },
+  {
+   "design": "2-cell",
+   "cells": 2,
+   "level": 0.99,
+   "runs": 120,
+   "calls_per_arm": 143,
+   "qualifies": true,
+   "by_icc": {
+    "0.1": {
+     "power": 0.895,
+     "fp_bound": 0.018,
+     "fp_bound_mc_se": 0.002986469487538756
+    },
+    "0.2": {
+     "power": 0.889,
+     "fp_bound": 0.021,
+     "fp_bound_mc_se": 0.003223313512520928
+    },
+    "0.4": {
+     "power": 0.848,
+     "fp_bound": 0.016,
+     "fp_bound_mc_se": 0.0028170906978654416
+    }
+   }
+  },
+  {
+   "design": "2-cell",
+   "cells": 2,
+   "level": 0.99,
+   "runs": 160,
+   "calls_per_arm": 183,
+   "qualifies": true,
+   "by_icc": {
+    "0.1": {
+     "power": 0.98,
+     "fp_bound": 0.0185,
+     "fp_bound_mc_se": 0.0030272821969548856
+    },
+    "0.2": {
+     "power": 0.984,
+     "fp_bound": 0.027,
+     "fp_bound_mc_se": 0.0036493492570594008
+    },
+    "0.4": {
+     "power": 0.96,
+     "fp_bound": 0.0205,
+     "fp_bound_mc_se": 0.0031851118504693052
+    }
+   }
+  },
+  {
+   "design": "2-cell",
+   "cells": 2,
+   "level": 0.995,
+   "runs": 120,
+   "calls_per_arm": 143,
+   "qualifies": false,
+   "by_icc": {
+    "0.1": {
+     "power": 0.847,
+     "fp_bound": 0.012,
+     "fp_bound_mc_se": 0.002442130217658346
+    },
+    "0.2": {
+     "power": 0.851,
+     "fp_bound": 0.0105,
+     "fp_bound_mc_se": 0.0022852653018851006
+    },
+    "0.4": {
+     "power": 0.794,
+     "fp_bound": 0.0085,
+     "fp_bound_mc_se": 0.0020571673485645257
+    }
+   }
+  },
+  {
+   "design": "2-cell",
+   "cells": 2,
+   "level": 0.995,
+   "runs": 160,
+   "calls_per_arm": 183,
+   "qualifies": true,
+   "by_icc": {
+    "0.1": {
+     "power": 0.971,
+     "fp_bound": 0.0105,
+     "fp_bound_mc_se": 0.0022852653018851006
+    },
+    "0.2": {
+     "power": 0.965,
+     "fp_bound": 0.0145,
+     "fp_bound_mc_se": 0.0026828040368241583
+    },
+    "0.4": {
+     "power": 0.94,
+     "fp_bound": 0.0155,
+     "fp_bound_mc_se": 0.002773073655711294
+    }
+   }
+  }
+ ],
+ "per_design_picks": [
+  {
+   "design": "4-cell",
+   "cells": 4,
+   "level": 0.99,
+   "runs": 120,
+   "calls_per_arm": 284,
+   "qualifies": true,
+   "by_icc": {
+    "0.1": {
+     "power": 0.895,
+     "fp_bound": 0.036,
+     "fp_bound_mc_se": 0.005972938975077512
+    },
+    "0.2": {
+     "power": 0.889,
+     "fp_bound": 0.042,
+     "fp_bound_mc_se": 0.006446627025041856
+    },
+    "0.4": {
+     "power": 0.848,
+     "fp_bound": 0.032,
+     "fp_bound_mc_se": 0.005634181395730883
+    }
+   }
+  },
+  {
+   "design": "2-cell",
+   "cells": 2,
+   "level": 0.975,
+   "runs": 120,
+   "calls_per_arm": 143,
+   "qualifies": true,
+   "by_icc": {
+    "0.1": {
+     "power": 0.936,
+     "fp_bound": 0.037,
+     "fp_bound_mc_se": 0.004261191148024223
+    },
+    "0.2": {
+     "power": 0.942,
+     "fp_bound": 0.038,
+     "fp_bound_mc_se": 0.004317290817167636
+    },
+    "0.4": {
+     "power": 0.92,
+     "fp_bound": 0.0345,
+     "fp_bound_mc_se": 0.004117333785351875
+    }
+   }
+  }
+ ],
+ "choice": {
+  "design": "2-cell",
+  "cells": 2,
+  "level": 0.975,
+  "runs": 120,
+  "calls_per_arm": 143,
+  "qualifies": true,
+  "by_icc": {
+   "0.1": {
+    "power": 0.936,
+    "fp_bound": 0.037,
+    "fp_bound_mc_se": 0.004261191148024223
+   },
+   "0.2": {
+    "power": 0.942,
+    "fp_bound": 0.038,
+    "fp_bound_mc_se": 0.004317290817167636
+   },
+   "0.4": {
+    "power": 0.92,
+    "fp_bound": 0.0345,
+    "fp_bound_mc_se": 0.004117333785351875
+   }
+  }
+ },
+ "rule": "qualifies under every ICC (power >= 0.80 at J 0.70, cells x p <= 0.05 at J 0.40); per design the least strict qualifying level at its smallest size; then the fewest calls per arm",
+ "cost": {
+  "runs": 120,
+  "prompts_per_arm": 1,
+  "task_dev_2_runs": 40,
+  "fresh_pool_2_runs": 80,
+  "pool_2_build_bases": 18,
+  "laptop_minutes": 18.6,
+  "calls_per_arm": 143,
+  "arms": {
+   "L": {
+    "provider": "groq",
+    "calls_per_day": 40,
+    "calls": 143,
+    "days": 4,
+    "minutes_per_daily_session": 30.0
+   },
+   "R": {
+    "provider": "gemini",
+    "calls_per_day": 18,
+    "calls": 143,
+    "days": 8,
+    "minutes_per_daily_session": 4.5
+   }
+  },
+  "note": "laptop: pool-2 build by the Scientist plus the extension runs, no local audits (the reviewer is in the cloud); calls: prompts x runs + the repeat pass (20 per cell) + the smoke test; invalid-reply retries would add calls; tokens per call are an estimate until the smoke test"
+ },
+ "costs_of_picks": [
+  {
+   "runs": 120,
+   "prompts_per_arm": 2,
+   "task_dev_2_runs": 40,
+   "fresh_pool_2_runs": 80,
+   "pool_2_build_bases": 18,
+   "laptop_minutes": 18.6,
+   "calls_per_arm": 284,
+   "arms": {
+    "L": {
+     "provider": "groq",
+     "calls_per_day": 40,
+     "calls": 284,
+     "days": 8,
+     "minutes_per_daily_session": 30.0
+    },
+    "R": {
+     "provider": "gemini",
+     "calls_per_day": 18,
+     "calls": 284,
+     "days": 16,
+     "minutes_per_daily_session": 4.5
+    }
+   },
+   "note": "laptop: pool-2 build by the Scientist plus the extension runs, no local audits (the reviewer is in the cloud); calls: prompts x runs + the repeat pass (20 per cell) + the smoke test; invalid-reply retries would add calls; tokens per call are an estimate until the smoke test"
+  },
+  {
+   "runs": 120,
+   "prompts_per_arm": 1,
+   "task_dev_2_runs": 40,
+   "fresh_pool_2_runs": 80,
+   "pool_2_build_bases": 18,
+   "laptop_minutes": 18.6,
+   "calls_per_arm": 143,
+   "arms": {
+    "L": {
+     "provider": "groq",
+     "calls_per_day": 40,
+     "calls": 143,
+     "days": 4,
+     "minutes_per_daily_session": 30.0
+    },
+    "R": {
+     "provider": "gemini",
+     "calls_per_day": 18,
+     "calls": 143,
+     "days": 8,
+     "minutes_per_daily_session": 4.5
+    }
+   },
+   "note": "laptop: pool-2 build by the Scientist plus the extension runs, no local audits (the reviewer is in the cloud); calls: prompts x runs + the repeat pass (20 per cell) + the smoke test; invalid-reply retries would add calls; tokens per call are an estimate until the smoke test"
+  }
+ ],
+ "times": {
+  "batch": "task-dev-2",
+  "runs": 40,
+  "run_seconds_per_run": 8.925,
+  "audit_seconds_per_run": 15.05,
+  "pool_seconds_per_base": 22.470588235294116,
+  "pool_1_bases_logged": 18
+ },
+ "sims": 1000,
+ "fp_sims": 4000,
+ "draws": 2000,
+ "level_files": [
+  "C:\\Users\\Balaji Keerthi\\Downloads\\canary\\eval\\results\\ceiling\\design_level_97.5.json",
+  "C:\\Users\\Balaji Keerthi\\Downloads\\canary\\eval\\results\\ceiling\\design_level_99.json",
+  "C:\\Users\\Balaji Keerthi\\Downloads\\canary\\eval\\results\\ceiling\\design_level_99.5.json"
+ ]
+}

@@ -13,6 +13,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import yaml
@@ -199,23 +200,26 @@ SMOKE_RUN = "1875ec26"  # an old real run that is in no batch (outline section 2
 
 def _smoke_requests(client: llm.LLM, role: str, runs_dir: Path = sandbox.RUNS_DIR,
                     led: ledger.Ledger | None = None) -> list[tuple[str, str, str | None, dict]]:
-    """(label, prompt, system, schema) for the toy prompt and the review prompts of both tasks on the smoke run."""
+    """(label, prompt, system, schema) for the toy prompt and the role's own review prompt on the smoke run.
+
+    Only the task the role will run is sent (the ceiling check's 2-cell design uses the baseline prompt only).
+    """
     from canary import review_tasks
 
     blinded = skeptic.blinded_run(led or ledger.Ledger(), SMOKE_RUN, runs_dir)
     bugs = config.load_yaml("bug_classes.yaml")
     requests = [("toy", SMOKE_PROMPT, None, SMOKE_SCHEMA)]
-    for task in (review_tasks.BASELINE, review_tasks.CHECKLIST):
-        system, prompt, schema = review_tasks.build(task, blinded, bugs)
-        requests.append((f"review {task}", prompt, system, schema))
+    task = skeptic.task_of(client.cfg, role)
+    system, prompt, schema = review_tasks.build(task, blinded, bugs)
+    requests.append((f"review {task}", prompt, system, schema))
     return requests
 
 
 def cmd_cloud_smoke(args: argparse.Namespace, runs_dir: Path = sandbox.RUNS_DIR, led: ledger.Ledger | None = None) -> int:
     """The live check of a cloud role before any batch (outline section 2). `--dry` sends nothing and needs no key.
 
-    Live, it sends the toy prompt, the two review prompts of old run 1875ec26, then the baseline one again with the
-    cache bypassed: about 4 calls. Sending a blinded run needs the student's OK, so the live form also needs `--send`.
+    Live, it sends the toy prompt, the role's review prompt of old run 1875ec26, then that one again with the cache
+    bypassed: 3 calls. Sending a blinded run needs the student's OK, so the live form also needs `--send`.
     """
     client = llm.LLM()
     if args.role not in client.cfg["roles"] or client.cloud_entry(args.role) is None:
@@ -239,7 +243,8 @@ def cmd_cloud_smoke(args: argparse.Namespace, runs_dir: Path = sandbox.RUNS_DIR,
               "(or use --dry to see the requests without sending).")
         return 2
     ok, replies = True, {}
-    for label, prompt, system, schema in requests + [("repeat baseline", *requests[1][1:])]:
+    review = requests[1][0]
+    for label, prompt, system, schema in requests + [("repeat", *requests[1][1:])]:
         try:
             result = client.call(args.role, prompt, schema, system=system, refresh=True, cache_write=label == "toy")
             replies[label] = result.data
@@ -251,8 +256,8 @@ def cmd_cloud_smoke(args: argparse.Namespace, runs_dir: Path = sandbox.RUNS_DIR,
             ok = _line(False, label, f"{exc.kind}: {exc}")
             if exc.kind in llm.STOP_KINDS:
                 break
-    if "review baseline" in replies and "repeat baseline" in replies:
-        same = replies["review baseline"] == replies["repeat baseline"]
+    if review in replies and "repeat" in replies:
+        same = replies[review] == replies["repeat"]
         print(f"Repeat equals first: {same}" + ("" if same else " (write 'temperature 0 not verifiable' in the lock)"))
     print(f"\ncloud-smoke: {'all OK' if ok else 'problems found (see FAIL lines)'}. Every attempt is in "
           f"{llm.CALL_LOG_PATH}.")
@@ -456,6 +461,44 @@ def cmd_trust(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_without_audit(client: llm.LLM, plan: dict, led: ledger.Ledger, table: sealed.SealedTable,
+                      runs_dir: Path = sandbox.RUNS_DIR, twin_dir: Path = controls.TWINS_DIR,
+                      plans_dir: Path = sealed.PLANS_DIR, log_path: Path | None = None) -> dict:
+    """Run every unfinished slot of a batch and its length gate, and review nothing (`calibrate --no-audit`).
+
+    Why: the ceiling check's extension batch is reviewed later by a cloud role (`reaudit`), in daily sessions, so no
+    local model may audit it first. This is `mixer.run_batch` without its last step (mixer.py is frozen, so the steps
+    are composed here from its public functions). Safe to call again: finished slots are skipped.
+    """
+    log_path = log_path or runs_dir / "campaign.log"
+    batch = plan["batch"]
+    finished = mixer.finished_slots(batch, led, table)
+    waiting = [s for s in plan["slots"] if s["slot"] not in finished]
+    timings = plans_dir / f"{batch}.timing.jsonl"
+    timings.parent.mkdir(parents=True, exist_ok=True)
+    mixer._log(log_path, f"batch {batch}: {len(plan['slots'])} slots, {len(waiting)} to run (no audit)")
+    skipped = 0
+    for number, slot in enumerate(waiting, 1):
+        started = time.perf_counter()
+        ran = mixer.execute_slot(slot, plan, led, table, runs_dir, twin_dir)
+        seconds = time.perf_counter() - started
+        skipped += not ran
+        with timings.open("a", encoding="utf-8") as handle:  # names the type, so it stays beside the plan, off the log
+            handle.write(json.dumps({"stage": "run", "slot": slot["slot"], "run_type": slot["run_type"],
+                                     "bug_id": slot["bug_id"], "tier": slot["tier"], "ran": ran,
+                                     "seconds": round(seconds, 2)}) + "\n")
+        mixer._log(log_path, f"batch {batch}: run {number}/{len(waiting)} {'done' if ran else 'SKIPPED, no base fits'} "
+                             f"in {seconds:.1f} s")
+    check = None
+    if plan.get("length_match"):
+        check = mixer.batch_length_check(client, led, table, batch, plan.get("role", skeptic.DEFAULT_ROLE), runs_dir)
+        (plans_dir / f"{batch}.length_check.json").write_text(json.dumps(check, indent=1), encoding="utf-8")
+        mixer._log(log_path, f"batch {batch}: length gate {'passed' if check['passes'] else 'FAILED'} "
+                             f"({mixer.gate_text(check)})")
+    mixer._log(log_path, f"batch {batch}: runs finished, nothing audited (--no-audit)")
+    return {"ran": len(waiting) - skipped, "skipped": skipped, "length_check": check}
+
+
 def cmd_calibrate(args: argparse.Namespace) -> int:
     """Run a batch of canaries, controls and shams only, then have the Skeptic review them. Safe to resume."""
     settings = config.load_yaml("campaign.yaml")["calibrate"]
@@ -490,8 +533,24 @@ def cmd_calibrate(args: argparse.Namespace) -> int:
             print(f"Cannot plan this batch: {exc}")
             return 1
         plan["pool"] = str(pool_path)
+        if args.no_audit:
+            plan["no_audit"] = True  # kept in the plan, so a --resume never audits this batch by accident
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(plan, indent=1), encoding="utf-8")
+    if args.no_audit or plan.get("no_audit"):
+        if args.no_audit != bool(plan.get("no_audit")):
+            print(f"Batch {args.batch} was planned {'without' if plan.get('no_audit') else 'with'} audits; resume it "
+                  f"the same way ({'with' if plan.get('no_audit') else 'without'} --no-audit).")
+            return 2
+        outcome = run_without_audit(client, plan, led, table)
+        check = outcome["length_check"]
+        print(f"Batch {args.batch}: {outcome['ran']} runs done, {outcome['skipped']} skipped, nothing audited.")
+        if check is not None:
+            print(f"Length gate {'PASSED' if check['passes'] else 'FAILED'}: {mixer.gate_text(check)}.")
+            if not check["passes"]:
+                return 1
+        print(f"Review it later with: python -m canary.cli reaudit --batch {args.batch} --role <role>")
+        return 0
     report = mixer.run_batch(client, plan, led, table)
     if report.stopped:
         print(f"Stopped: {report.stopped} Fix that, then run: python -m canary.cli calibrate --batch {args.batch} --resume")
@@ -690,6 +749,8 @@ def main(argv: list[str] | None = None) -> int:
     calibrate_parser.add_argument("--resume", action="store_true", help="continue a batch after an interruption")
     calibrate_parser.add_argument("--pool", help="pool file of bases (default data/calibration/pool.json)")
     calibrate_parser.add_argument("--role", default=skeptic.DEFAULT_ROLE, help="the reviewer role that audits the batch")
+    calibrate_parser.add_argument("--no-audit", action="store_true",
+                                  help="run the slots and the length gate only; review later with reaudit (ceiling-ext)")
     calibrate_parser.set_defaults(func=cmd_calibrate)
     pool_parser = sub.add_parser("build-pool", help="ask the Scientist for a new pool of bases over the fixed grid")
     pool_parser.add_argument("--out", required=True, help="new pool file, e.g. data/calibration/pool-2.json")
@@ -722,7 +783,7 @@ def main(argv: list[str] | None = None) -> int:
     smoke_parser = sub.add_parser("cloud-smoke", help="check one cloud role before any batch (--dry sends nothing)")
     smoke_parser.add_argument("--role", required=True, help="a cloud role, e.g. skeptic_d")
     smoke_parser.add_argument("--dry", action="store_true", help="print the exact request bodies; no key, no network")
-    smoke_parser.add_argument("--send", action="store_true", help="really send (needs the student's OK; ~4 calls)")
+    smoke_parser.add_argument("--send", action="store_true", help="really send (needs the student's OK; 3 calls)")
     smoke_parser.set_defaults(func=cmd_cloud_smoke)
     args = parser.parse_args(argv)
     return args.func(args)

@@ -41,13 +41,21 @@ def fake_tests(passes=False, below=False, t1=False, t2=False, void=False):
     return {"T1": t1, "T2": t2, "T3": passes, "void": void, "passes": passes, "below_bar": below}
 
 
-def test_hard_needs_arm_r_all_four_cells_none_void_and_every_upper_bound_below():
+def test_hard_needs_arm_r_every_cell_none_void_and_every_upper_bound_below():
     below = {f"c{i}": fake_tests(below=True) for i in range(4)}
-    assert ceiling.outcome(below, arm_r_run=True)["outcome"] == ceiling.HARD
-    assert ceiling.outcome(below, arm_r_run=False)["outcome"] == ceiling.INCONCLUSIVE
-    assert ceiling.outcome(dict(list(below.items())[:3]), arm_r_run=True)["outcome"] == ceiling.INCONCLUSIVE
-    assert ceiling.outcome({**below, "c3": fake_tests(below=True, void=True)}, True)["outcome"] == ceiling.INCONCLUSIVE
-    assert ceiling.outcome({**below, "c3": fake_tests(below=False)}, True)["outcome"] == ceiling.INCONCLUSIVE
+    assert ceiling.outcome(below, arm_r_run=True, cells_expected=4)["outcome"] == ceiling.HARD
+    assert ceiling.outcome(below, arm_r_run=False, cells_expected=4)["outcome"] == ceiling.INCONCLUSIVE
+    assert ceiling.outcome(dict(list(below.items())[:3]), True, 4)["outcome"] == ceiling.INCONCLUSIVE
+    assert ceiling.outcome({**below, "c3": fake_tests(below=True, void=True)}, True, 4)["outcome"] == ceiling.INCONCLUSIVE
+    assert ceiling.outcome({**below, "c3": fake_tests(below=False)}, True, 4)["outcome"] == ceiling.INCONCLUSIVE
+
+
+def test_the_locked_design_is_two_baseline_cells_at_97_5_on_120_runs():
+    assert ceiling.ARMS == {"L": ("skeptic_d",), "R": ("skeptic_e",)} and ceiling.CELLS == 2
+    assert ceiling.BATCHES == ("task-dev-2", "ceiling-ext") and ceiling.LEVEL == 0.975
+    two = {"L": fake_tests(below=True), "R": fake_tests(below=True)}
+    assert ceiling.outcome(two, arm_r_run=True)["outcome"] == ceiling.HARD  # 2 cells are the whole study now
+    assert ceiling.outcome({"L": fake_tests(below=True)}, arm_r_run=True)["outcome"] == ceiling.INCONCLUSIVE
 
 
 def test_one_passing_cell_is_solvable_and_the_subcase_is_named():

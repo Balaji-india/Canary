@@ -87,6 +87,36 @@ def test_cost_counts_calls_days_and_laptop_time_from_the_config():
     assert (c["task_dev_2_runs"], c["fresh_pool_2_runs"]) == (40, 40)
     assert c["calls_per_arm"] == 2 * 80 + 2 * 20 + 4
     assert c["laptop_minutes"] == pytest.approx((18 * 30 + 40 * 6) / 60, abs=0.05)
-    groq = models["providers"]["groq"]["max_calls_per_day"]
-    assert c["arms"]["L"]["days"] == -(-c["calls_per_arm"] // groq)
+    groq = models["providers"]["groq"]
+    per_day = min(groq["max_calls_per_day"], groq["max_tokens_per_day"] // groq["expected_tokens_per_call"])
+    assert c["arms"]["L"]["calls_per_day"] == per_day and c["arms"]["L"]["days"] == -(-c["calls_per_arm"] // per_day)
+    assert cp.cost(120, models, times, 18, prompts=1)["calls_per_arm"] == 120 + 20 + 3  # the 2-cell design
     assert cp.cost(40, models, times, 18)["laptop_minutes"] == 0 and cp.cost(None, models, times, 18) is None
+
+
+def study_grid(power: dict, fp: dict) -> dict:
+    """{level: grid} with the same numbers under every ICC: power[(level, size)], fp[(level, size)] per cell."""
+    return {level: {f"{icc:.1f}": {str(size): {"0.70": {"p_solvable_cell": power[(level, size)]},
+                                             "0.40": {"p_solvable_cell": fp[(level, size)], "mc_se_solvable": 0.0}}
+                                  for size in cp.STUDY_SIZES} for icc in cp.STUDY_ICCS}
+            for level in cp.STUDY_LEVELS}
+
+
+def test_the_design_rule_takes_each_designs_least_strict_level_then_the_fewest_calls():
+    keys = [(level, size) for level in cp.STUDY_LEVELS for size in cp.STUDY_SIZES]
+    power = {k: 0.9 for k in keys}
+    fp = {k: 0.02 for k in keys}  # 4 x 0.02 = 0.08 fails the 4-cell design; 2 x 0.02 = 0.04 passes the 2-cell one
+    fp.update({(0.99, 120): 0.01, (0.99, 160): 0.01, (0.995, 120): 0.005, (0.995, 160): 0.005})
+    study = cp.choose_design(study_grid(power, fp))
+    picks = {p["design"]: (p["level"], p["runs"]) for p in study["per_design_picks"]}
+    assert picks == {"4-cell": (0.99, 120), "2-cell": (0.975, 120)}
+    assert (study["choice"]["design"], study["choice"]["calls_per_arm"]) == ("2-cell", 143)
+
+
+def test_a_design_must_qualify_under_every_icc():
+    keys = [(level, size) for level in cp.STUDY_LEVELS for size in cp.STUDY_SIZES]
+    grid = study_grid({k: 0.9 for k in keys}, {k: 0.001 for k in keys})
+    for level in cp.STUDY_LEVELS:
+        for size in cp.STUDY_SIZES:
+            grid[level]["0.4"][str(size)]["0.70"]["p_solvable_cell"] = 0.79  # one ICC short of power
+    assert cp.choose_design(grid)["choice"] is None

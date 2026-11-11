@@ -1,0 +1,214 @@
+{
+ "sizes": [
+  120,
+  160
+ ],
+ "j_grid": [
+  0.4,
+  0.7
+ ],
+ "verdict_iccs": [
+  0.1,
+  0.2,
+  0.4
+ ],
+ "sims": 1000,
+ "fp_sims": 4000,
+ "draws": 2000,
+ "feature_bank": 250,
+ "level": 0.99,
+ "features": {
+  "effect_spread": {
+   "auc": 0.520625,
+   "icc": 0.6938307327418135
+  },
+  "effect_size": {
+   "auc": 0.54075,
+   "icc": 0.7461017062407246
+  },
+  "top_score": {
+   "auc": 0.5912916666666667,
+   "icc": 0.5389282237133396
+  }
+ },
+ "layouts": {
+  "120": {
+   "runs": 120,
+   "buggy_runs": 60,
+   "bases": 34
+  },
+  "160": {
+   "runs": 160,
+   "buggy_runs": 80,
+   "bases": 34
+  }
+ },
+ "grid": {
+  "0.1": {
+   "120": {
+    "0.40": {
+     "p_solvable_cell": 0.009,
+     "p_below_bar_cell": 0.00525,
+     "p_works_strength_unknown_cell": 0.96325,
+     "sims": 4000,
+     "mc_se_solvable": 0.001493234743769378,
+     "study_independent_cells": {
+      "SOLVABLE": 0.03551690943899999,
+      "HARD": 7.596914062500002e-10,
+      "INCONCLUSIVE": 0.9644830898013086
+     }
+    },
+    "0.70": {
+     "p_solvable_cell": 0.895,
+     "p_below_bar_cell": 0.0,
+     "p_works_strength_unknown_cell": 0.065,
+     "sims": 1000,
+     "mc_se_solvable": 0.009694070352540258,
+     "study_independent_cells": {
+      "SOLVABLE": 0.999878449375,
+      "HARD": 0.0,
+      "INCONCLUSIVE": 0.00012155062499999992
+     }
+    }
+   },
+   "160": {
+    "0.40": {
+     "p_solvable_cell": 0.00925,
+     "p_below_bar_cell": 0.006,
+     "p_works_strength_unknown_cell": 0.98675,
+     "sims": 4000,
+     "mc_se_solvable": 0.0015136410984774428,
+     "study_independent_cells": {
+      "SOLVABLE": 0.036489783491558514,
+      "HARD": 1.296e-09,
+      "INCONCLUSIVE": 0.9635102152124415
+     }
+    },
+    "0.70": {
+     "p_solvable_cell": 0.98,
+     "p_below_bar_cell": 0.0,
+     "p_works_strength_unknown_cell": 0.015,
+     "sims": 1000,
+     "mc_se_solvable": 0.0044271887242357325,
+     "study_independent_cells": {
+      "SOLVABLE": 0.99999984,
+      "HARD": 0.0,
+      "INCONCLUSIVE": 1.6000000000000056e-07
+     }
+    }
+   }
+  },
+  "0.2": {
+   "120": {
+    "0.40": {
+     "p_solvable_cell": 0.0105,
+     "p_below_bar_cell": 0.00675,
+     "p_works_strength_unknown_cell": 0.95875,
+     "sims": 4000,
+     "mc_se_solvable": 0.001611656756260464,
+     "study_independent_cells": {
+      "SOLVABLE": 0.04134311834493731,
+      "HARD": 2.07594140625e-09,
+      "INCONCLUSIVE": 0.9586568795791213
+     }
+    },
+    "0.70": {
+     "p_solvable_cell": 0.889,
+     "p_below_bar_cell": 0.0,
+     "p_works_strength_unknown_cell": 0.059,
+     "sims": 1000,
+     "mc_se_solvable": 0.00993373041711924,
+     "study_independent_cells": {
+      "SOLVABLE": 0.999848192959,
+      "HARD": 0.0,
+      "INCONCLUSIVE": 0.00015180704099999992
+     }
+    }
+   },
+   "160": {
+    "0.40": {
+     "p_solvable_cell": 0.0135,
+     "p_below_bar_cell": 0.00525,
+     "p_works_strength_unknown_cell": 0.98325,
+     "sims": 4000,
+     "mc_se_solvable": 0.0018246746285297004,
+     "study_independent_cells": {
+      "SOLVABLE": 0.05291630828493732,
+      "HARD": 7.596914062500002e-10,
+      "INCONCLUSIVE": 0.9470836909553713
+     }
+    },
+    "0.70": {
+     "p_solvable_cell": 0.984,
+     "p_below_bar_cell": 0.0,
+     "p_works_strength_unknown_cell": 0.015,
+     "sims": 1000,
+     "mc_se_solvable": 0.00396787096564392,
+     "study_independent_cells": {
+      "SOLVABLE": 0.999999934464,
+      "HARD": 0.0,
+      "INCONCLUSIVE": 6.553600000000024e-08
+     }
+    }
+   }
+  },
+  "0.4": {
+   "120": {
+    "0.40": {
+     "p_solvable_cell": 0.008,
+     "p_below_bar_cell": 0.00375,
+     "p_works_strength_unknown_cell": 0.961,
+     "sims": 4000,
+     "mc_se_solvable": 0.0014085453489327208,
+     "study_independent_cells": {
+      "SOLVABLE": 0.031618043904000026,
+      "HARD": 1.9775390624999997e-10,
+      "INCONCLUSIVE": 0.968381955898246
+     }
+    },
+    "0.70": {
+     "p_solvable_cell": 0.848,
+     "p_below_bar_cell": 0.0,
+     "p_works_strength_unknown_cell": 0.119,
+     "sims": 1000,
+     "mc_se_solvable": 0.011353237423748348,
+     "study_independent_cells": {
+      "SOLVABLE": 0.999466205184,
+      "HARD": 0.0,
+      "INCONCLUSIVE": 0.0005337948160000003
+     }
+    }
+   },
+   "160": {
+    "0.40": {
+     "p_solvable_cell": 0.01025,
+     "p_below_bar_cell": 0.0055,
+     "p_works_strength_unknown_cell": 0.98725,
+     "sims": 4000,
+     "mc_se_solvable": 0.0015925559252346526,
+     "study_independent_cells": {
+      "SOLVABLE": 0.040373921524371026,
+      "HARD": 9.150624999999998e-10,
+      "INCONCLUSIVE": 0.9596260775605665
+     }
+    },
+    "0.70": {
+     "p_solvable_cell": 0.96,
+     "p_below_bar_cell": 0.0,
+     "p_works_strength_unknown_cell": 0.033,
+     "sims": 1000,
+     "mc_se_solvable": 0.00619677335393187,
+     "study_independent_cells": {
+      "SOLVABLE": 0.99999744,
+      "HARD": 0.0,
+      "INCONCLUSIVE": 2.560000000000009e-06
+     }
+    }
+   }
+  }
+ },
+ "ceiling_code_sha256": "3d756d9c2a88e55775f212b0656bf28750f270a286f09ac2b476363959849474",
+ "assumptions": "(all assumptions, written into the result file):\n- Layout: task-dev-2 as planned (pool 1, seed 1110, 40 runs) plus, for larger sizes, an extension of fresh runs\n  planned by the same mixer on a stand-in for pool 2 (pool 1's bases copied under new labels, i.e. an equally varied\n  new pool; the real pool 2 does not exist yet). Bases of the two pools are separate clusters.\n- Verdicts: recall (1 + J) / 2 and false-alarm rate (1 - J) / 2, the split with the widest intervals for a given J.\n  Verdicts cluster by base through a latent normal with intra-base correlation `verdict ICC` (0, 0.2, 0.5; llama's\n  score had 0.012, a cloud model's is unknown). No failed audits.\n- Trivial features: line and character count are padded constant; statement count and helper characters are the\n  dry plan's real values; effect spread, effect size and best arm's score are latent normals with the true AUCs of\n  dry_proof.json and base ICCs estimated from task-dev-1 and task-dev-2. Features are independent of the verdicts.\n- Analysis exactly as eval/ceiling.py: base-level percentile bootstrap at 97.5%, T1/T2/T3, `ceiling.cell_tests`.\n  Simulation shortcuts: 2,000 bootstrap draws instead of 10,000; all simulated batches of one size share the same\n  base-draw indices and a bank of feature realisations (common random numbers), which leaves each batch's interval\n  correct and makes the grid cheaper. T3 is computed only where T1 and T2 pass (it cannot matter otherwise).\n- Study-level outcomes treat the 4 cells as independent with the same true J (the arms are different models; their\n  prompts share runs, so this is an approximation). Cells that agree more than chance make the study's P(SOLVABLE)\n  here an upper bound and its P(HARD) a lower bound. The false-positive check uses the Bonferroni bound 4 x p, which\n  holds under any dependence.",
+ "criterion_text": "Batch-size criterion(Claude's proposal, approved by the student 2026-11-11): the smallest size at which one cell is\nSOLVABLE with probability at least 0.80 at a true J of 0.70 (AUC 0.85), while the rule's false-positive rate over\n4 cells is at most 0.05 at a true J of exactly 0.40 (AUC 0.70). It is applied at verdict ICC 0.2, fixed before this\nsimulation ran (0.2 is power_sim's sensitivity value; 0 and 0.5 are reported beside it). If no size up to 200 meets\nit, 200 is used and the power reached is stated; if the false-positive part fails at every size, the interval level\nchanges before the lock, never the bars after it.",
+ "level_simulated": 0.99
+}
