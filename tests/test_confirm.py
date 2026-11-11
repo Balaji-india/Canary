@@ -61,6 +61,7 @@ def batch(tmp_path, bug_scores, clean_scores, bases=6, helper=lambda buggy: 21):
     return table, led, runs
 
 
+@pytest.mark.slow  # 0.6-2.4 s (2026-11-11 durations); keeps the default run under 30 s
 def test_a_separating_score_is_confirmed_and_a_flat_one_is_not(tmp_path):
     table, led, runs = batch(tmp_path / "a", [0.8, 0.7, 0.9, 0.6, 0.85, 0.75], [0.2, 0.3, 0.1, 0.4, 0.25, 0.35])
     result = confirm.build(table, led, "c", 0.5, ["B01"], 200, runs, tmp_path / "rescore")

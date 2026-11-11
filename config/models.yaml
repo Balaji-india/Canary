@@ -18,6 +18,60 @@ roles:
   skeptic_b_checklist: {use_role: skeptic_b, task: checklist}
   skeptic_c_grounded:  {use_role: skeptic_c, task: grounded}
   skeptic_c_checklist: {use_role: skeptic_c, task: checklist}
+  # Cloud ceiling check (docs/plans/cloud_ceiling_check_outline.md). Arm L runs first; arm R only if no arm-L cell is
+  # SOLVABLE. No fallback model on purpose. top_logprobs 0: no free API gives usable token probabilities, so these roles
+  # are scored from the verdict and never ask for them. Approved by the student 2026-11-11.
+  skeptic_d: {provider: groq, model: "openai/gpt-oss-120b", temperature: 0.0, family: gpt-oss, top_logprobs: 0,
+              options: {reasoning_effort: low, max_output_tokens: 4000}}
+  skeptic_d_checklist: {use_role: skeptic_d, task: checklist}
+  skeptic_e: {provider: gemini, model: "gemini-3.8-flash", temperature: 0.0, family: gemini, top_logprobs: 0,
+              options: {reasoning_effort: high, max_output_tokens: 8000}}
+  skeptic_e_checklist: {use_role: skeptic_e, task: checklist}
+# Cloud endpoints (canary/llm.py OpenAIStyleProvider); Ollama needs no entry. key_env is the NAME of the key in .env,
+# never the key. `models` is an allow-list: any other model is refused before a request (the $0 guard against typos).
+# PLACEHOLDER LIMITS: the budgets below are set under the limits read on the providers' pages on 2026-11-11 and must be
+# replaced by the numbers the student reads in each console on key day (outline section 9), before the lock.
+providers:
+  groq:                       # arm L. Free plan read as 30 req/min, 1,000 req/day, 8,000 tokens/min, 200,000 tokens/day
+    kind: openai_style
+    base_url: "https://api.groq.com/openai/v1"
+    key_env: GROQ_API_KEY
+    models: ["openai/gpt-oss-120b"]
+    schema_mode: json_schema  # json_schema | json_object (fallback if the smoke test shows the schema is refused)
+    max_tokens_field: max_completion_tokens
+    context_tokens: 131072
+    min_interval_s: 35        # about 2 calls a minute at ~4k tokens each stays under 8,000 tokens a minute
+    max_calls_per_day: 45     # our budget, below the provider's daily limit (the token limit binds first)
+    max_tokens_per_day: 180000  # our budget, below 200,000; counted from the call log's reported usage
+    max_wait_s: 90            # a 429 with a longer retry-after stops the pass instead of waiting
+    timeout_s: 300            # one request; a timeout still costs quota and is retried by the wrapper
+  gemini:                     # arm R. Limits not published; 20 requests a day is the worst case found
+    kind: openai_style
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+    key_env: GEMINI_API_KEY
+    models: ["gemini-3.8-flash"]
+    schema_mode: json_schema
+    max_tokens_field: max_tokens
+    context_tokens: 1048576
+    min_interval_s: 15        # 5 requests a minute at worst
+    max_calls_per_day: 18
+    max_wait_s: 90
+    timeout_s: 300
+  # Arm R backup (student, 2026-11-11), only if Gemini cannot be used: Azure for Students. Untested. To enable, fill
+  # the resource name and the deployment name (Azure's v1 endpoint takes the deployment as the model), add the key
+  # to .env, and add a role like skeptic_e with provider azure and family openai.
+  # azure:
+  #   kind: openai_style
+  #   base_url: "https://<resource>.openai.azure.com/openai/v1"
+  #   key_env: AZURE_OPENAI_API_KEY
+  #   auth_header: api-key    # Azure sends the key in an api-key header, not as a Bearer token
+  #   models: ["<deployment of o4-mini>"]
+  #   schema_mode: json_schema
+  #   max_tokens_field: max_completion_tokens
+  #   context_tokens: 200000
+  #   min_interval_s: 5
+  #   max_calls_per_day: 200
+  #   max_wait_s: 90
 embeddings: "sentence-transformers/all-MiniLM-L6-v2"
 vram_gb: 6                  # one model loaded at a time; batch audits per model
 llm:

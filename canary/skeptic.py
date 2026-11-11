@@ -32,6 +32,26 @@ def task_of(models_cfg: dict, role: str) -> str:
     return task
 
 
+def _role_top_logprobs(models_cfg: dict, role: str) -> int | None:
+    """The role's own `top_logprobs` (or the one on the role its alias points to), None if neither sets it."""
+    roles = models_cfg["roles"]
+    for cfg in (roles[role], roles[roles[role].get("use_role", role)]):
+        if "top_logprobs" in cfg:
+            return int(cfg["top_logprobs"])
+    return None
+
+
+def top_logprobs_of(models_cfg: dict, role: str) -> int:
+    """How many token probabilities a role's reviews ask for: the role's setting, else the global
+    `llm.review_top_logprobs`. Cloud roles set 0, because their providers give none."""
+    own = _role_top_logprobs(models_cfg, role)
+    return own if own is not None else int(models_cfg["llm"].get("review_top_logprobs", 0))
+
+
+# Failures that count toward the "N in a row" stop: the endpoint may be down, or refuse every request alike.
+_STREAK_KINDS = (llm.KIND_TIMEOUT_OR_SERVER, llm.KIND_REQUEST_REFUSED)
+
+
 @dataclass(frozen=True)
 class AuditJob:
     hypothesis_id: str
@@ -96,6 +116,15 @@ def _prepare(entry: ledger.Entry, lock: dict, runs_dir: Path) -> AuditJob:
     return AuditJob(entry.hypothesis_id, entry.payload["run_id"], blinded)
 
 
+def blinded_run(led: ledger.Ledger, run_id: str, runs_dir: Path = sandbox.RUNS_DIR) -> blinding.BlindedRun:
+    """The blinded view of one finished run, by full ID or unique prefix (`cloud-smoke` uses old run 1875ec26)."""
+    ran = [e for e in led.entries(ledger.RAN) if str(e.payload.get("run_id", "")).startswith(run_id)]
+    if len(ran) != 1:
+        raise ValueError(f"run {run_id}: {len(ran)} finished runs match, need exactly 1")
+    locks = [e for e in led.entries(ledger.PREREGISTERED) if e.hypothesis_id == ran[0].hypothesis_id]
+    return _prepare(ran[0], locks[0].payload, runs_dir).blinded
+
+
 def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.RUNS_DIR,
                   role: str = DEFAULT_ROLE, on_progress: Callable[[int, int, dict], None] | None = None,
                   chunk_size: int = DEFAULT_CHUNK, stop_after: int = DEFAULT_STOP_AFTER,
@@ -109,15 +138,21 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
 
     A failed run has no results, so there is no finding to review: it goes straight to the graveyard with its cause.
     A failed review is stored too, because a failure that left no trace could hide a reviewer that fails more often on
-    buggy code. After `stop_after` server failures in a row the pass stops: that is an outage, not a reviewer's answer.
+    buggy code. After `stop_after` server failures (or refused requests) in a row the pass stops: that is an outage or
+    a systematic refusal, not a reviewer's answer.
+
+    A daily limit, an access problem or a config problem (`llm.STOP_KINDS`) writes nothing to the ledger and ends the
+    pass after the current chunk. Why: a quota stop depends on how many calls were made, not on the run, so it says
+    nothing about the reviewer, and a trace in the ledger would later count as a failed audit against it. The runs not
+    asked simply stay waiting, and the same command continues with them after the reset.
     """
     report = AuditReport()
     bugs = config.load_yaml("bug_classes.yaml")
     bug_ids = sorted(bugs)
     task = task_of(client.cfg, role)
     # Token probabilities give each audit a score for AUC. Off unless models.yaml asks, so tests and old paths keep
-    # their cached replies (a call with probabilities always asks the model).
-    top_logprobs = client.cfg["llm"].get("review_top_logprobs", 0)
+    # their cached replies (a call with probabilities always asks the model). Cloud roles set 0 on the role.
+    top_logprobs = top_logprobs_of(client.cfg, role)
     jobs = []
     for entry, lock in _waiting(led, role):
         if run_ids is not None and entry.payload["run_id"] not in run_ids:
@@ -134,6 +169,7 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
 
     server_failures = 0
     done = 0
+    stop_reason = None
     for start in range(0, len(jobs), chunk_size):
         chunk = jobs[start:start + chunk_size]
         queue = llm.ModelQueue(client)
@@ -149,6 +185,9 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
             orders.append({"class_order": order} if order else {})
             queue.add(role, prompt, schema, system=system, top_logprobs=top_logprobs)
         for job, prompt, order, result in zip(chunk, prompts_sent, orders, queue.run()):
+            if result.error and result.error_kind in llm.STOP_KINDS:
+                stop_reason = stop_reason or result.error  # nothing stored: the run was not asked, or not answered
+                continue
             done += 1
             if result.error:
                 failure = {"run_id": job.run_id, "role": role, "model": result.model, "kind": result.error_kind,
@@ -156,7 +195,7 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
                 led.append(job.hypothesis_id, ledger.AUDIT_FAILED, failure)
                 report.failures.append({"hypothesis_id": job.hypothesis_id, **failure})
                 report.errors.append(f"{job.hypothesis_id}: {result.error}")
-                server_failures = server_failures + 1 if result.error_kind == llm.KIND_TIMEOUT_OR_SERVER else 0
+                server_failures = server_failures + 1 if result.error_kind in _STREAK_KINDS else 0
                 item = failure
             else:
                 server_failures = 0
@@ -175,8 +214,13 @@ def audit_pending(client: llm.LLM, led: ledger.Ledger, runs_dir: Path = sandbox.
                 item = payload
             if on_progress:
                 on_progress(done, len(jobs), item)
+        if stop_reason:
+            report.stopped = f"stopped without storing anything for the runs not yet reviewed: {stop_reason}"
+            break
         if server_failures >= stop_after:
-            report.stopped = f"{server_failures} server failures in a row: is Ollama running?"
+            where = "is the API reachable, and does it accept the request?" if client.cloud_entry(role) else \
+                "is Ollama running?"
+            report.stopped = f"{server_failures} server failures in a row: {where}"
             break
     return report
 
@@ -195,11 +239,17 @@ def rescore(client: llm.LLM, led: ledger.Ledger, role: str, run_ids: set[str], r
     AUC rests on the runs where the model happened to repeat itself, which may be its most certain ones; a fresh score
     for every run removes that selection. It is a score of the new reply, not of the stored verdict, and is reported
     as such.
+
+    A role with `top_logprobs: 0` (cloud roles) has no probabilities to give, so this becomes the **repeat pass**: the
+    same question asked again with the cache bypassed (and not written), recording whether the reply and the verdict
+    changed, with `score` None. Without the bypass the cache would hand back the stored reply and every run would look
+    perfectly repeatable. A daily-limit or access stop ends the pass with nothing recorded for the run.
     """
     task = task_of(client.cfg, role)
     bugs = config.load_yaml("bug_classes.yaml")
     bug_ids = sorted(bugs)
-    top_logprobs = client.cfg["llm"].get("review_top_logprobs") or review_tasks.TOP_LOGPROBS
+    repeat_only = _role_top_logprobs(client.cfg, role) == 0
+    top_logprobs = 0 if repeat_only else (client.cfg["llm"].get("review_top_logprobs") or review_tasks.TOP_LOGPROBS)
     done = done or set()
     locks, ran, first = {}, {}, {}
     for entry in led.entries():
@@ -224,20 +274,22 @@ def rescore(client: llm.LLM, led: ledger.Ledger, role: str, run_ids: set[str], r
                 record = {**base, "outcome": "prompt_changed"}
             else:
                 try:
+                    # Repeat pass: refresh=True so the cache cannot hand back the stored reply.
                     result = client.call(role, prompt, schema, system=system, top_logprobs=top_logprobs,
-                                         cache_write=False)
+                                         cache_write=False, refresh=repeat_only)
                 except llm.LLMError as exc:
-                    server_failures = server_failures + 1 if exc.kind == llm.KIND_TIMEOUT_OR_SERVER else 0
+                    server_failures = server_failures + 1 if exc.kind in _STREAK_KINDS else 0
                     if on_record:
                         on_record({**base, "outcome": "call_failed", "kind": exc.kind, "retry": True})
-                    if server_failures >= stop_after:
+                    if server_failures >= stop_after or exc.kind in llm.STOP_KINDS:
                         break
                     continue  # not stored, so a resume tries it again
                 server_failures = 0
                 matched = result.data == audit.payload["audit"]
+                scored = (matched or always_score) and not repeat_only
                 record = {**base, "outcome": "matched" if matched else "reply_differs", "model": result.model,
                           "attempts": result.attempts, "seconds": round(result.seconds, 3),
-                          "score": review_tasks.score(task, result.logprobs, bug_ids) if matched or always_score else None}
+                          "score": review_tasks.score(task, result.logprobs, bug_ids) if scored else None}
                 if not matched:
                     # Diagnostics only: did the repeat change the verdict, or only the wording? It decides nothing.
                     stored = audit.payload.get("decision") or audit.payload["audit"]

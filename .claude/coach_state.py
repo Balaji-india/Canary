@@ -30,7 +30,7 @@ MISSION_TIPS = [
 
 # Work between missions (a "**Current focus:** ..." line in PROGRESS.md) outranks the first unticked mission.
 FOCUS_TIPS = [
-    ("cloud ceiling", "/challenge docs/plans/cloud_ceiling_check_outline.md, then approve it and /api"),
+    ("cloud ceiling", "create the Groq key (PROGRESS.md steps), then OK the live cloud-smoke; /forecast the batch"),
     ("efficiency search", "/compare the candidate models; each one gets its own fresh, locked batch"),
 ]
 
