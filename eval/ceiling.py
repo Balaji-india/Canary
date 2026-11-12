@@ -10,7 +10,8 @@ baseline prompt only (the checklist cells were dropped), on **120 runs** (the 40
 in `ceiling-ext`), at the **97.5%** level: the least strict level at which power at a true J of 0.70 is at least 0.80
 and the 2-cell false-positive bound at J 0.40 is at most 0.05 under verdict ICC 0.1, 0.2 and 0.4, with the fewest calls.
 The rule, per **cell** (one arm with one prompt), each test on the lower end of a 97.5% two-sided base-level percentile
-interval (bases resampled because clones of a base are not independent):
+interval (bases resampled because clones of a base are not independent; a base is the comparison it makes, so two
+bases that differ only in a model hyperparameter are one cluster: `cluster_labels`, the student's rule of 2026-11-12):
 - T1, the verdict works: Youden's J > 0 (recall + specificity > 1, where Rogan-Gladen is defined).
 - T2, strong enough: AUC > 0.70. No cloud cell has token probabilities, so the score is the code's verdict as 0/1, and
   its AUC is exactly (1 + J) / 2 (ties count half): T2 reads "J above 0.40", and T1 follows from it.
@@ -25,11 +26,14 @@ against the reviewer (a canary as passed, a clean run as flagged); a cell with m
 void. A run with one failure record (not retried yet) or no record at all means the arm is unfinished: nothing is
 computed, only counts are printed (no looking at partial results). A daily-limit stop leaves no record, so such runs
 simply count as not asked yet.
+Sensitivity, deciding nothing: the same tests with the bootstrap over focus-level clusters (dataset | metric | model),
+because pool 2 was asked on pool 1's grid; a different outcome there is reported beside the outcome.
 No LLM is called here; every number comes from the ledger, the sealed table, the run files and the call log.
 """
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 from datetime import datetime, timezone
@@ -38,6 +42,7 @@ from pathlib import Path
 import numpy as np
 
 from canary import ledger, llm, mixer, sandbox, sealed
+from canary.config import ROOT
 from eval import compare_tasks
 
 ARMS = {"L": ("skeptic_d",), "R": ("skeptic_e",)}  # the 2-cell design: baseline prompt only (design_study.json)
@@ -160,27 +165,59 @@ def analyse_cell(rows: list[dict], draws: int = DRAWS, seed: int = SEED) -> dict
 
 # ---------- data: which runs, and what each role said ----------
 
-def base_label(batch: str, source: str | None, run_id: str, plans_dir: Path = sealed.PLANS_DIR) -> str:
-    """The base a run was cloned from, named by its pool: `<pool file>|pool:<index>`.
+def comparison_key(locked: dict) -> str:
+    """What a base compares: dataset, metric, test size, and each arm's model and preprocessing.
 
-    Why: a run's `source` is only `pool:<index>`, and every pool counts from 0, so pool-1 base 0 and pool-2 base 0 would
-    otherwise be one base in the bootstrap (task-dev-2 is on pool 1, ceiling-ext on pool 2). A batch without a stored
-    plan is named by itself.
+    Model hyperparameters, seeds and the hypothesis wording are left out on purpose, so two bases that differ only in
+    a hyperparameter (near-twins) get the same key.
+    """
+    def arm(config: dict) -> dict:
+        return {"model": config["model"], "preprocessing": list(config.get("preprocessing") or [])}
+    return json.dumps({"dataset": locked["dataset"], "metric": locked["metric"], "test_size": locked["test_size"],
+                       "control": arm(locked["control_config"]), "treatment": arm(locked["treatment_config"])},
+                      sort_keys=True)
+
+
+@functools.lru_cache(maxsize=None)
+def _pool_bases(path: str) -> list[dict]:
+    file = Path(path)
+    if not file.exists():
+        raise ValueError(f"pool file {file} is missing: the clusters of its runs cannot be told")
+    return json.loads(file.read_text(encoding="utf-8"))["bases"]
+
+
+def cluster_labels(batch: str, source: str | None, run_id: str, plans_dir: Path = sealed.PLANS_DIR,
+                   root: Path = ROOT) -> tuple[str, str]:
+    """(base-level cluster, focus-level cluster) of a run: the units the bootstraps resample.
+
+    Base level (decides): the comparison its base makes (`comparison_key`), read from the pool file the batch's plan
+    names. Why not the run's `source`: it is only `pool:<index>` and every pool counts from 0, so pool-1 base 0 and
+    pool-2 base 0 would be one cluster by accident. Why not one cluster per base: a pool-2 base that differs from a
+    pool-1 base only in a hyperparameter is a near-twin, and the student's rule (2026-11-12) is that near-twins are
+    ONE cluster in every base-level bootstrap.
+    Focus level (sensitivity only): the base's grid cell, dataset | metric | model. Pool 2 was asked on the same grid
+    as pool 1, so every pool-2 base shares its focus with a pool-1 base.
+    A plan that names a pool file which is missing raises: the frozen analysis never guesses a cluster. A batch with
+    no stored plan or no pool (old batches, tests) keeps one cluster per source, named by the batch.
     """
     if not source:
-        return run_id
+        return run_id, run_id
     plan = mixer.plan_path(batch, plans_dir)
     pool = json.loads(plan.read_text(encoding="utf-8")).get("pool") if plan.exists() else None
-    label = pool.replace("\\", "/") if pool else f"batch:{batch}"  # the plan stores a Windows path
-    return f"{label}|{source}"
+    if not pool or not source.startswith("pool:"):
+        return f"batch:{batch}|{source}", f"batch:{batch}|{source}"
+    path = Path(pool.replace("\\", "/"))  # the plan stores a Windows path, relative to the project folder
+    base = _pool_bases(str(path if path.is_absolute() else root / path))[int(source.split(":", 1)[1])]
+    focus = base["focus"]
+    return comparison_key(base["prereg"]), f"{focus['dataset']}|{focus['metric']}|{focus['model']}"
 
 
 def cell_rows(table: sealed.SealedTable, led: ledger.Ledger, batches: tuple[str, ...], role: str,
-              runs_dir: Path = sandbox.RUNS_DIR, plans_dir: Path = sealed.PLANS_DIR) -> dict:
+              runs_dir: Path = sandbox.RUNS_DIR, plans_dir: Path = sealed.PLANS_DIR, root: Path = ROOT) -> dict:
     """Every finished calibration run of the batches with the role's final answer, or the counts that block analysis.
 
-    Returns {"rows": [...], "waiting": n, "failed_once": n, "crashed": n}. Only the first audit counts. Bases are
-    labelled by pool (`base_label`), so the two pools' bases stay apart.
+    Returns {"rows": [...], "waiting": n, "failed_once": n, "crashed": n}. Only the first audit counts. Each row
+    carries its base-level cluster (`base`) and its focus-level cluster (`focus`), from `cluster_labels`.
     """
     entries = led.entries()
     finished = {e.payload["run_id"] for e in entries if e.status == ledger.RAN and e.payload.get("results_sha256")}
@@ -210,7 +247,8 @@ def cell_rows(table: sealed.SealedTable, led: ledger.Ledger, batches: tuple[str,
             failed_once += truth.run_id in failures
             waiting += truth.run_id not in failures
             continue
-        rows.append({"run_id": truth.run_id, "base": base_label(truth.details["batch"], truth.source, truth.run_id, plans_dir), "buggy": buggy, "flagged": flagged,
+        base, focus = cluster_labels(truth.details["batch"], truth.source, truth.run_id, plans_dir, root)
+        rows.append({"run_id": truth.run_id, "base": base, "focus": focus, "buggy": buggy, "flagged": flagged,
                      "failed": failed, "run_type": truth.run_type, "tier": truth.tier,
                      "features": compare_tasks.run_features(truth.run_id, runs_dir) or {}})
     return {"rows": rows, "waiting": waiting, "failed_once": failed_once, "crashed": crashed}
@@ -236,6 +274,17 @@ def secondary(rows: list[dict]) -> dict:
             "specificity": {t: rate([r for r in rows if r["run_type"] == t], False) for t in CLEAN_TYPES},
             "recall_by_tier": {tier: rate([r for r in canaries if r["tier"] == tier], True)
                                for tier in sorted({r["tier"] for r in canaries if r["tier"]})}}
+
+
+def focus_sensitivity(rows: list[dict], draws: int = DRAWS, seed: int = SEED) -> dict:
+    """The same cell with the bootstrap resampling focus-level clusters (dataset | metric | model). Deciding nothing.
+
+    Why: both pools were asked on one grid, so runs of the two pools on the same focus may not be independent. If the
+    three tests come out differently here, the report must say so beside the outcome (plan section 5).
+    """
+    cell = analyse_cell([{**r, "base": r["focus"]} for r in rows], draws, seed)
+    return {"clusters": cell["bases"], "youden_j": cell["youden_j"], "auc_verdict": cell["auc_verdict"],
+            "gap_vs_strongest_feature": cell["gap_vs_strongest_feature"], "tests": cell["tests"]}
 
 
 def paired_vs_llama(rows: list[dict], llama: dict[str, tuple[bool, float | None]], draws: int = DRAWS,
@@ -286,8 +335,8 @@ def code_sha256() -> str:
 
 def analyse_roles(table, led, roles: tuple[str, ...], batches: tuple[str, ...], draws: int = DRAWS,
                   runs_dir: Path = sandbox.RUNS_DIR, rescore_dir: Path = mixer.RESCORE_DIR,
-                  plans_dir: Path = sealed.PLANS_DIR) -> dict[str, dict]:
-    collected = {role: cell_rows(table, led, batches, role, runs_dir, plans_dir) for role in roles}
+                  plans_dir: Path = sealed.PLANS_DIR, root: Path = ROOT) -> dict[str, dict]:
+    collected = {role: cell_rows(table, led, batches, role, runs_dir, plans_dir, root) for role in roles}
     check_finished(collected)  # before any metric exists
     llama = {}
     if LLAMA_BATCH in batches:
@@ -299,6 +348,7 @@ def analyse_roles(table, led, roles: tuple[str, ...], batches: tuple[str, ...], 
             raise ArmNotFinished(f"{role}: no runs to analyse in {batches}")
         cell = analyse_cell(c["rows"], draws)
         cell.update(crashed_runs_left_out=c["crashed"], secondary=secondary(c["rows"]),
+                    focus_level=focus_sensitivity(c["rows"], draws),
                     paired_vs_llama=paired_vs_llama(c["rows"], llama, draws) if role != LLAMA_ROLE else None,
                     repeat_pass=repeat_summary(batches, role, rescore_dir),
                     models=sorted({e.payload["model"] for e in led.entries(ledger.AUDITED)
@@ -328,10 +378,15 @@ def run_arm(arm: str, table, led, batches: tuple[str, ...] = BATCHES, out_dir: P
     roles = ARMS[arm]
     cells = analyse_roles(table, led, roles, batches, draws, **paths)
     all_cells = {**earlier, **cells}
+    primary = outcome({n: c["tests"] for n, c in all_cells.items()}, arm_r_run=arm == "R")
+    by_focus = outcome({n: c["focus_level"]["tests"] for n, c in all_cells.items()}, arm_r_run=arm == "R")
     result = {"arm": arm, "roles": list(roles), "batches": list(batches), "generated_at": datetime.now(timezone.utc).isoformat(),
               "level": LEVEL, "draws": draws, "bars": {"J": J_BAR, "AUC": AUC_BAR, "gap": GAP_BAR, "void_share": VOID_SHARE},
               "features": list(FEATURES), "code_sha256": code_sha256(), "cells": cells,
-              "outcome": outcome({n: c["tests"] for n, c in all_cells.items()}, arm_r_run=arm == "R"),
+              "outcome": primary,
+              "sensitivity_focus_level": {"outcome": by_focus, "agrees": by_focus["outcome"] == primary["outcome"],
+                                          "note": "bootstrap over dataset|metric|model clusters; decides nothing, but a "
+                                                  "disagreement is reported beside the outcome"},
               "call_log": call_log_summary(roles), "claim": "for these models, at these settings, on Canary's canaries"}
     out_dir.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=1), encoding="utf-8")
@@ -349,6 +404,11 @@ def print_cells(cells: dict[str, dict]) -> None:
               f"(strongest observed: {g['strongest_observed']})")
         print(f"  T1 {t['T1']}  T2 {t['T2']}  T3 {t['T3']}  void {t['void']}  passes {t['passes']}  "
               f"below 0.70 {t['below_bar']}")
+        f = c["focus_level"]
+        print(f"  sensitivity, {f['clusters']} focus-level clusters: J [{f['youden_j']['interval_975_base'][0]:+.3f}, "
+              f"{f['youden_j']['interval_975_base'][1]:+.3f}]  AUC [{f['auc_verdict']['interval_975_base'][0]:.3f}, "
+              f"{f['auc_verdict']['interval_975_base'][1]:.3f}]  passes {f['tests']['passes']}  "
+              f"below 0.70 {f['tests']['below_bar']}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -380,6 +440,9 @@ def main(argv: list[str] | None = None) -> int:
     o = result["outcome"]
     print(f"\nOutcome after arm {args.arm}: {o['outcome']}" + (f" ({o['subcase']})" if o["subcase"] else "") +
           f", cells {o['cells']}. Claim: {result['claim']}.")
+    sens = result["sensitivity_focus_level"]
+    print(f"Sensitivity (focus-level clusters, decides nothing): {sens['outcome']['outcome']}, "
+          f"{'agrees' if sens['agrees'] else 'DIFFERS: report both'}.")
     print(f"Wrote {OUT_DIR / f'arm_{args.arm}.json'}")
     return 0
 

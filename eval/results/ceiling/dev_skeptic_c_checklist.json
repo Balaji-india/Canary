@@ -3,7 +3,7 @@
  "batches": [
   "task-dev-2"
  ],
- "code_sha256": "ea447ecf54ad5566e88344dd8ba2692e51409121b4e098453e4d981da3afe3ba",
+ "code_sha256": "894abf2de16dca53874f25f88e85a9463537ec8d69a15ed24cfc06bad9782085",
  "cells": {
   "skeptic_c_checklist": {
    "runs": 40,
@@ -31,8 +31,8 @@
    "gap_vs_strongest_feature": {
     "value": -0.03125,
     "interval_975_base": [
-     -0.33523273601398595,
-     -0.03884682293970221
+     -0.3385097211438924,
+     -0.0389016018306636
     ],
     "strongest_observed": "effect_size"
    },
@@ -79,6 +79,39 @@
       "value": 0.0,
       "of": 10
      }
+    }
+   },
+   "focus_level": {
+    "clusters": 16,
+    "youden_j": {
+     "value": 0.0,
+     "interval_975_base": [
+      0.0,
+      0.0
+     ]
+    },
+    "auc_verdict": {
+     "value": 0.5,
+     "interval_975_base": [
+      0.5,
+      0.5
+     ]
+    },
+    "gap_vs_strongest_feature": {
+     "value": -0.03125,
+     "interval_975_base": [
+      -0.3355575396825397,
+      -0.037499164438502604
+     ],
+     "strongest_observed": "effect_size"
+    },
+    "tests": {
+     "T1": false,
+     "T2": false,
+     "T3": false,
+     "void": false,
+     "passes": false,
+     "below_bar": true
     }
    },
    "paired_vs_llama": null,
