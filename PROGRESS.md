@@ -74,11 +74,13 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check LOCKED (2026-11-12); next: arm L day 1 in the student's window (`reaudit --batch task-dev-2 --role skeptic_d`), 3 sessions
+**Current focus:** Cloud ceiling check, arm L: day 1 of 3 done (67 of 120 answered); day 2 from 2026-11-13 13:11 UTC (6:41 PM IST)
 
-**Stopped at (2026-11-12, second session):** `docs/plans/cloud_ceiling_check.md` is **locked** (`.sha256`
-88cb6078...). No batch run has been sent to the cloud. Tests: 718 passed in 29.7 s (at the limit). Mission 2.4 is the
-last mission complete; Mission 5.1 outlined only.
+**Stopped at (2026-11-12, third session):** arm L day 1 finished in the student's window. `eval.ceiling_lock --check`
+afterwards: 67 answered, 53 not asked yet, 0 failed twice, 0 failed once, 0 crashed; call log 70 attempts (3 smoke +
+67), server model `openai/gpt-oss-120b` only; "Lock check: OK, every hash matches". Stopped by the daily limit, as
+planned. No reply was read and nothing was analysed (the plan allows no partial analysis). Tests: 718 passed in
+29.7 s (at the limit). Mission 2.4 is the last mission complete; Mission 5.1 outlined only.
 
 ## Ceiling plan challenged and locked (2026-11-12, second session): no cloud call made
 - **Student's decisions:** A. repeat pass = 20 ceiling-ext runs, seed 1112, first audit stands. B. the near-twin
@@ -334,12 +336,15 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-1. **Arm L day 1 (student's window):** `.venv\Scripts\python.exe -m eval.ceiling_lock --check` (must end "Lock check:
-   OK"), then `.venv\Scripts\python.exe -m canary.cli reaudit --batch task-dev-2 --role skeptic_d` (40 calls, about 30
-   min), then the same with `--batch ceiling-ext` until it stops at the daily limit (about 25 more calls).
-2. **Days 2-3:** `--check`, then `reaudit --batch ceiling-ext --role skeptic_d` until 80 answered; failed-once runs
-   once more; repeat pass (`rescore --batch ceiling-ext --reviewer skeptic_d --sample 20 --seed 1112`).
-3. **Then, once:** `.venv\Scripts\python.exe -m eval.ceiling --arm L`, and `/evaluate`.
+1. **Fri 2026-11-13, daytime:** Fable designs Mission 5.1 (tripwires) for the student's approval; then Opus starts
+   building it. Touch none of the ceiling plan's frozen files (section 3) while arm L is open; run the lock check after.
+2. **Fri, after 13:11 UTC (6:41 PM IST), student's window, arm L day 2:** `.venv\Scripts\python.exe -m
+   eval.ceiling_lock --check` (must end "Lock check: OK"), then `.venv\Scripts\python.exe -m canary.cli reaudit --batch
+   ceiling-ext --role skeptic_d` (53 calls, about 40 min; should end "80 stored, 0 failed"), then the check again
+   (120 answered, 0 not asked yet).
+3. **Sat 2026-11-14, not before the time Friday's session started (rolling 24 h budget):** the check, then the repeat
+   pass (`.venv\Scripts\python.exe -m canary.cli rescore --batch ceiling-ext --reviewer skeptic_d --sample 20 --seed
+   1112`), then once `.venv\Scripts\python.exe -m eval.ceiling --arm L`; Fable reads the result (`/evaluate`).
 
 Next missions after the ceiling check: 5.1 tripwires (design awaits approval), 3.1 graveyard, 3.2 calibration.
 Known issues: cloud replies are not repeatable word for word at temperature 0 (verdict held on the smoke run);
@@ -699,7 +704,9 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 - `task-dev-2` (v2 step 1) finished 2026-11-10 in the student's own window: 40 runs in 357 s (length gate passed on
   the run folders), 40 audits in 602 s, 0 failed; cut-off written once (`eval/results/task_dev_2/llama_checklist_cutoff.json`).
 - `confirm-llama-2` will not run (llama stopped, 2026-11-10); no pool-2 data exist; the v2 plan stays unlocked.
-- Cloud: only the 3-call Groq smoke test (2026-11-11). No batch audit, no lock, no pool 2.
+- Cloud: 3-call Groq smoke test (2026-11-11). **Arm L (`skeptic_d`) is open:** day 1 done 2026-11-12, 67 of 120
+  answered (task-dev-2 40 of 40, ceiling-ext 27 of 80), 0 failed; resume from 2026-11-13 13:11 UTC with
+  `reaudit --batch ceiling-ext --role skeptic_d`. No partial analysis while it is open.
 
 ## Decisions
 - **Ceiling design fixed by the student's rule (2026-11-11, second session):** the rule (qualify under verdict ICC 0.1,
