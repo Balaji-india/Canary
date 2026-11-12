@@ -74,11 +74,39 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check: 120 runs ready (task-dev-2 + ceiling-ext), plan prepared with every hash; waiting for the student's decisions A/B and the OK to lock
+**Current focus:** Cloud ceiling check LOCKED (2026-11-12); next: arm L day 1 in the student's window (`reaudit --batch task-dev-2 --role skeptic_d`), 3 sessions
 
-**Stopped at (2026-11-12):** `docs/plans/cloud_ceiling_check.md` prepared, **not locked** (no `.sha256`). No batch run
-has been sent to the cloud. Tests: 710 passed (34 s this session under load; no single test above 0.7 s). Mission 2.4 is
-the last mission complete; Mission 5.1 outlined only.
+**Stopped at (2026-11-12, second session):** `docs/plans/cloud_ceiling_check.md` is **locked** (`.sha256`
+88cb6078...). No batch run has been sent to the cloud. Tests: 718 passed in 29.7 s (at the limit). Mission 2.4 is the
+last mission complete; Mission 5.1 outlined only.
+
+## Ceiling plan challenged and locked (2026-11-12, second session): no cloud call made
+- **Student's decisions:** A. repeat pass = 20 ceiling-ext runs, seed 1112, first audit stands. B. the near-twin
+  base's runs are kept, and it and its pool-1 twin are one cluster in every base-level bootstrap.
+- **Decision B in code:** a cluster is the comparison a base makes (`ceiling.comparison_key`: dataset, metric, test
+  size, each arm's model and preprocessing; hyperparameters, seeds and wording ignored), read from the pool files.
+  Real runs: 33 bases -> 32 clusters; only the twin pair merges (2 + 6 runs). A missing pool file stops the analysis.
+- **`/challenge` findings fixed before the lock (plan section 10 has the table):**
+  - Pool 2 was asked on pool 1's grid, so every pool-2 base shares dataset, metric and model with a pool-1 base.
+    Added a focus-level sensitivity analysis (18 clusters; `ceiling.focus_sensitivity`, `sensitivity_focus_level` in
+    `arm_<X>.json`): decides nothing, but a different outcome must be reported beside the result. (Yesterday's
+    accidental `pool:<index>` merge was this same focus-level grouping.)
+  - A not-SOLVABLE result is confounded with the baseline-only "strict reviewer" prompt and low reasoning effort:
+    claim limits rewritten; any follow-up needs a new pool 3.
+  - New `eval/ceiling_lock.py` (`--write-manifest`, `--check`, `--lock`): rebuilds the 120-run manifest from disk
+    (byte-identical to yesterday's), re-hashes the plan's 24 frozen files, prints counts and server models, never
+    verdicts. It is step 0 of every session.
+  - Plan text now matches the code: failed runs are re-asked on each continuation; the log shows per-run verdicts
+    (not watched; no rule depends on replies); budget is about 65 calls per rolling 24 h; design simulated 34
+    clusters, real 32 (disclosed, not re-simulated).
+- **Checked, sound:** no ID or give-away word in the 120 prompts; trivial features AUC 0.500-0.526 on the 120;
+  order of asking mixed by type (20/40, 10/20, 30/60 buggy); cache holds none of the prompts; 120 runs wait for
+  `skeptic_d`.
+- **Tests:** 8 new (5 clusters in `tests/test_ceiling.py`, 4 in `tests/test_ceiling_lock.py`, one old test replaced).
+  `ledger verify` OK, 1952 entries. llama's dev check unchanged (0/20, 0/20, J 0).
+- **For the student to weigh before day 1 (an amendment is cheap while no reply exists):** (1) keep base-level
+  clusters as the deciding unit, or make focus-level decide (stricter, less power, design not simulated for it);
+  (2) baseline prompt only stays, per the design rule.
 
 ## Pool 2, ceiling-ext and the lock draft (2026-11-12): no cloud call made
 - **Student's window:** `build-pool --avoid` -> pool 2: 17 bases kept, 1 dropped, 0 shared with pool 1. `calibrate
@@ -306,10 +334,12 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-1. **Student:** answer decisions A and B in `docs/plans/cloud_ceiling_check.md` section 10, then say "OK to lock".
-2. **Lock:** Claude re-checks every hash in section 3, writes `cloud_ceiling_check.md.sha256` (LF bytes), commits.
-3. **Arm L day 1:** `.venv\Scripts\python.exe -m canary.cli reaudit --batch task-dev-2 --role skeptic_d` (60 calls/day
-   budget, about 45 min; stops cleanly; the same command continues next day, then `--batch ceiling-ext`). 3 days in all.
+1. **Arm L day 1 (student's window):** `.venv\Scripts\python.exe -m eval.ceiling_lock --check` (must end "Lock check:
+   OK"), then `.venv\Scripts\python.exe -m canary.cli reaudit --batch task-dev-2 --role skeptic_d` (40 calls, about 30
+   min), then the same with `--batch ceiling-ext` until it stops at the daily limit (about 25 more calls).
+2. **Days 2-3:** `--check`, then `reaudit --batch ceiling-ext --role skeptic_d` until 80 answered; failed-once runs
+   once more; repeat pass (`rescore --batch ceiling-ext --reviewer skeptic_d --sample 20 --seed 1112`).
+3. **Then, once:** `.venv\Scripts\python.exe -m eval.ceiling --arm L`, and `/evaluate`.
 
 Next missions after the ceiling check: 5.1 tripwires (design awaits approval), 3.1 graveyard, 3.2 calibration.
 Known issues: cloud replies are not repeatable word for word at temperature 0 (verdict held on the smoke run);

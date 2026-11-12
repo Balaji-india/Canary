@@ -29,3 +29,4 @@ canary/cli.py -text
 eval/results/ceiling/design_study.json -text
 eval/results/ceiling/design_level_97.5.json -text
 eval/results/ceiling/lock_manifest.json -text
+eval/ceiling_lock.py -text
