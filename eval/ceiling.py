@@ -160,11 +160,27 @@ def analyse_cell(rows: list[dict], draws: int = DRAWS, seed: int = SEED) -> dict
 
 # ---------- data: which runs, and what each role said ----------
 
+def base_label(batch: str, source: str | None, run_id: str, plans_dir: Path = sealed.PLANS_DIR) -> str:
+    """The base a run was cloned from, named by its pool: `<pool file>|pool:<index>`.
+
+    Why: a run's `source` is only `pool:<index>`, and every pool counts from 0, so pool-1 base 0 and pool-2 base 0 would
+    otherwise be one base in the bootstrap (task-dev-2 is on pool 1, ceiling-ext on pool 2). A batch without a stored
+    plan is named by itself.
+    """
+    if not source:
+        return run_id
+    plan = mixer.plan_path(batch, plans_dir)
+    pool = json.loads(plan.read_text(encoding="utf-8")).get("pool") if plan.exists() else None
+    label = pool.replace("\\", "/") if pool else f"batch:{batch}"  # the plan stores a Windows path
+    return f"{label}|{source}"
+
+
 def cell_rows(table: sealed.SealedTable, led: ledger.Ledger, batches: tuple[str, ...], role: str,
-              runs_dir: Path = sandbox.RUNS_DIR) -> dict:
+              runs_dir: Path = sandbox.RUNS_DIR, plans_dir: Path = sealed.PLANS_DIR) -> dict:
     """Every finished calibration run of the batches with the role's final answer, or the counts that block analysis.
 
-    Returns {"rows": [...], "waiting": n, "failed_once": n, "crashed": n}. Only the first audit counts.
+    Returns {"rows": [...], "waiting": n, "failed_once": n, "crashed": n}. Only the first audit counts. Bases are
+    labelled by pool (`base_label`), so the two pools' bases stay apart.
     """
     entries = led.entries()
     finished = {e.payload["run_id"] for e in entries if e.status == ledger.RAN and e.payload.get("results_sha256")}
@@ -194,7 +210,7 @@ def cell_rows(table: sealed.SealedTable, led: ledger.Ledger, batches: tuple[str,
             failed_once += truth.run_id in failures
             waiting += truth.run_id not in failures
             continue
-        rows.append({"run_id": truth.run_id, "base": truth.source or truth.run_id, "buggy": buggy, "flagged": flagged,
+        rows.append({"run_id": truth.run_id, "base": base_label(truth.details["batch"], truth.source, truth.run_id, plans_dir), "buggy": buggy, "flagged": flagged,
                      "failed": failed, "run_type": truth.run_type, "tier": truth.tier,
                      "features": compare_tasks.run_features(truth.run_id, runs_dir) or {}})
     return {"rows": rows, "waiting": waiting, "failed_once": failed_once, "crashed": crashed}
@@ -269,8 +285,9 @@ def code_sha256() -> str:
 # ---------- the command ----------
 
 def analyse_roles(table, led, roles: tuple[str, ...], batches: tuple[str, ...], draws: int = DRAWS,
-                  runs_dir: Path = sandbox.RUNS_DIR, rescore_dir: Path = mixer.RESCORE_DIR) -> dict[str, dict]:
-    collected = {role: cell_rows(table, led, batches, role, runs_dir) for role in roles}
+                  runs_dir: Path = sandbox.RUNS_DIR, rescore_dir: Path = mixer.RESCORE_DIR,
+                  plans_dir: Path = sealed.PLANS_DIR) -> dict[str, dict]:
+    collected = {role: cell_rows(table, led, batches, role, runs_dir, plans_dir) for role in roles}
     check_finished(collected)  # before any metric exists
     llama = {}
     if LLAMA_BATCH in batches:
