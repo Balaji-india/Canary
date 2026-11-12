@@ -74,12 +74,31 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check: design set (2 cells, 97.5%, 120 runs), Groq key in .env; live cloud-smoke passed; next pool 2 + ceiling-ext (student's window), then the lock
+**Current focus:** Cloud ceiling check: 120 runs ready (task-dev-2 + ceiling-ext), plan prepared with every hash; waiting for the student's decisions A/B and the OK to lock
 
-**Stopped at (2026-11-11, end of day):** ceiling check ready to lock except the extension batch. Built and committed:
-cloud provider, `eval/ceiling.py` (2 cells, 97.5%, 120 runs), batch simulation, `calibrate --no-audit`. Live Groq smoke
-test passed (3 calls, `bc0055c`). **Nothing locked, no pool 2, no batch call.** Tests: 709 in about 25 s, slow 82 pass.
-Mission 2.4 is the last mission complete; llama stopped; Mission 5.1 outlined only.
+**Stopped at (2026-11-12):** `docs/plans/cloud_ceiling_check.md` prepared, **not locked** (no `.sha256`). No batch run
+has been sent to the cloud. Tests: 710 passed (34 s this session under load; no single test above 0.7 s). Mission 2.4 is
+the last mission complete; Mission 5.1 outlined only.
+
+## Pool 2, ceiling-ext and the lock draft (2026-11-12): no cloud call made
+- **Student's window:** `build-pool --avoid` -> pool 2: 17 bases kept, 1 dropped, 0 shared with pool 1. `calibrate
+  --runs 80 --batch ceiling-ext --pool data/calibration/pool-2.json --role skeptic_d --seed 1111 --no-audit` -> 80 runs
+  done, 0 skipped, nothing audited, length gate PASSED.
+- **Verified by Claude (counts only, no reply read):** task-dev-2 40 + ceiling-ext 80 = 120 runs in the ledger, one
+  per slot, 0 crashed; balanced 20/20 and 40/40. 0 `skeptic_d` audits or failures anywhere. 0 shared experiment keys
+  and no ceiling-ext run from a pool-1 base. One **near-twin**: a pool-2 base with pool-1's exact hypothesis wording,
+  differing only in `min_samples_leaf` (decision B in the plan). Call log still 3 lines. `ledger verify` OK, 1952
+  entries (1712 + 240 for 80 runs).
+- **Bug fixed before any cloud reply:** `eval/ceiling.py` keyed bases by `source` = `pool:<index>`, which both pools
+  share, so the bootstrap would have merged pool-1 and pool-2 bases (18 clusters instead of 33). Now
+  `ceiling.base_label` = `<pool file>|pool:<index>`; new test; llama's dev check unchanged (0/20, 0/20, J 0).
+- **Lock draft:** `docs/plans/cloud_ceiling_check.md` with SHA-256 of 12 code/config files, design files, pools,
+  sealed plans (hashes only), call log, wire schema (= the smoke test's), and `eval/results/ceiling/lock_manifest.json`
+  (120 runs: run ID, results hash, exact prompt hash; no run types; all fit Groq's context, largest 8,457 chars).
+  Frozen files added to `.gitattributes` as `-text`; `llm.py`, `skeptic.py`, `prompts.py` and two design JSONs were
+  CRLF in the working copy only and were rewritten as LF (no content change in git).
+- **Open for the student:** A. repeat pass = 20 runs of ceiling-ext, seed 1112 (proposed); B. keep the near-twin
+  base (proposed). Then "OK to lock".
 
 ## Cloud provider and ceiling analysis built (2026-11-11, build session): no cloud call made
 Plans: `docs/plans/api_cloud_provider_build_plan.md`, `docs/plans/cloud_ceiling_check_outline.md`. No network call, no
@@ -287,14 +306,10 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-1. **`/toolkit` pool 2 + `ceiling-ext`, in the student's own window** (Ollama running, Edge closed, ~20-30 min):
-   `.venv\Scripts\python.exe -m canary.cli build-pool --out data/calibration/pool-2.json --avoid data/calibration/pool.json`
-   `.venv\Scripts\python.exe -m canary.cli calibrate --runs 80 --batch ceiling-ext --pool data/calibration/pool-2.json --role skeptic_d --seed 1111 --no-audit`
-   Stop if the length gate fails.
-2. **Lock** `docs/plans/cloud_ceiling_check.md` + `.sha256` (LF): rule, design, `eval/ceiling.py` and wire-schema
-   hashes, Groq limits and budget, smoke result ("temperature 0 not verifiable"), the 120-run batch.
+1. **Student:** answer decisions A and B in `docs/plans/cloud_ceiling_check.md` section 10, then say "OK to lock".
+2. **Lock:** Claude re-checks every hash in section 3, writes `cloud_ceiling_check.md.sha256` (LF bytes), commits.
 3. **Arm L day 1:** `.venv\Scripts\python.exe -m canary.cli reaudit --batch task-dev-2 --role skeptic_d` (60 calls/day
-   budget; stops cleanly; the same command continues next day, then `--batch ceiling-ext`). About 3 days in all.
+   budget, about 45 min; stops cleanly; the same command continues next day, then `--batch ceiling-ext`). 3 days in all.
 
 Next missions after the ceiling check: 5.1 tripwires (design awaits approval), 3.1 graveyard, 3.2 calibration.
 Known issues: cloud replies are not repeatable word for word at temperature 0 (verdict held on the smoke run);

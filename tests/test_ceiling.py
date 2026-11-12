@@ -191,7 +191,7 @@ def test_runs_that_failed_twice_count_against_the_reviewer(tmp_path):
     assert (rows["r0"]["flagged"], rows["r0"]["failed"]) == (False, True)  # a canary counted as passed
     assert (rows["r1"]["flagged"], rows["r1"]["failed"]) == (True, True)   # a clean run counted as flagged
     assert rows["r2"]["flagged"] and not rows["r3"]["flagged"]
-    assert rows["r0"]["features"]["line_count"] > 0 and rows["r0"]["base"] == "base0"
+    assert rows["r0"]["features"]["line_count"] > 0 and rows["r0"]["base"] == "batch:b|base0"
 
 
 def test_only_the_first_audit_counts_and_other_roles_and_batches_are_ignored(tmp_path):
@@ -231,3 +231,21 @@ def test_arm_r_may_not_use_other_batches_than_arm_l(tmp_path):
                                                 "outcome": {"outcome": ceiling.INCONCLUSIVE}}))
     with pytest.raises(RuntimeError, match="mix two sets of runs"):
         ceiling.run_arm("R", None, None, ("task-dev-2", "ceiling-ext"), out, DRAWS)
+
+
+def test_the_same_pool_index_in_two_pools_is_two_bases(tmp_path):
+    """task-dev-2 (pool 1) and ceiling-ext (pool 2) both have a `pool:0`; the bootstrap must not merge them."""
+    led, table, runs = Ledger(tmp_path / "ledger.db"), sealed.SealedTable(tmp_path / "sealed.db"), tmp_path / "runs"
+    plans = tmp_path / "plans"
+    plans.mkdir()
+    for batch_name, pool in (("b1", r"data\calibration\pool.json"), ("b2", "data/calibration/pool-2.json")):
+        (plans / f"{batch_name}.json").write_text(json.dumps({"batch": batch_name, "pool": pool}), encoding="utf-8")
+    for i, batch_name in enumerate(("b1", "b1", "b2", "b2")):
+        add_ran_run(led, runs, f"h{i}", f"r{i}", script=f"x = {i}\n")
+        bug = ("B01", "obvious") if i % 2 == 0 else (None, None)
+        table.seal(f"r{i}", sealed.CANARY_MEASURE if i % 2 == 0 else sealed.CONTROL, *bug, source="pool:0",
+                   details={"batch": batch_name})
+        audit(led, i, "flag")
+    rows = ceiling.cell_rows(table, led, ("b1", "b2"), "skeptic_d", runs, plans)["rows"]
+    assert sorted({r["base"] for r in rows}) == ["data/calibration/pool-2.json|pool:0",
+                                                  "data/calibration/pool.json|pool:0"]

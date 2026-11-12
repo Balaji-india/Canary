@@ -18,3 +18,14 @@ canary/saboteur/decoys.py -text
 canary/controls.py -text
 eval/cutoff.py -text
 eval/results/task_dev_2/llama_checklist_cutoff.json -text
+# Frozen by the cloud ceiling check plan (docs/plans/cloud_ceiling_check.md, section 3), 2026-11-12. Hashed as LF bytes.
+eval/ceiling.py -text
+eval/ceiling_power.py -text
+canary/llm.py -text
+canary/blinding.py -text
+canary/skeptic.py -text
+canary/prompts.py -text
+canary/cli.py -text
+eval/results/ceiling/design_study.json -text
+eval/results/ceiling/design_level_97.5.json -text
+eval/results/ceiling/lock_manifest.json -text
