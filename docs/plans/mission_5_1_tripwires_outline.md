@@ -1,5 +1,8 @@
 # Outline: Mission 5.1 tripwires (NOT built; waiting for the student's OK)
 
+**Superseded 2026-11-13 by `mission_5_1_tripwires.md`** (design, self-review and build plan). Kept as the record of
+the first proposal; where the two differ, the new file wins.
+
 Written 2026-11-10 in a thinking-only session. High level on purpose: signatures and tests are settled in the mission.
 Everything here is **proposed by Claude, pending the student's approval**.
 
