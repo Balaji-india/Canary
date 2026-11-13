@@ -75,7 +75,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check, arm L: day 1 of 3 done (67 of 120 answered); day 2 from 2026-11-13 13:11 UTC (6:41 PM IST)
+**Current focus:** Cloud ceiling check, arm L: main pass done (120 of 120); repeat pass 13 of 20; analysis 2026-11-14
 
 **Stopped at (2026-11-13, design session, Fable):** Mission 5.1 designed, challenged and planned in
 `docs/plans/mission_5_1_tripwires.md`; nothing built, no code or test file changed, so the tests were not re-run
@@ -83,6 +83,15 @@ Claude updates this at the end of every mission. If a mission stops early, write
 log and every `skeptic_d` audit or result were not read, and no frozen file was edited. Arm L is as day 1 left it
 (2026-11-12: 67 answered, 53 not asked yet, 0 failed, "Lock check: OK"); day 2 is the student's window tonight.
 Mission 2.4 is the last mission complete.
+
+## Arm L status (2026-11-13, evening, student's window)
+- **Main pass complete:** 120 of 120 answered, 0 failed, "Lock check: OK", server model `openai/gpt-oss-120b` only
+  (student's report).
+- **Repeat pass not finished:** `data/rescore/ceiling-ext.repeat.jsonl` holds 13 records of 20 (line count only,
+  contents not read). Window 2's "frees up from <time> UTC" was not passed on; read it there before re-running.
+- **Tomorrow (2026-11-14), after that time:** re-run the same `rescore ... --sample 20 --seed 1112` command
+  (finished records are skipped) until 20 are recorded; `eval.ceiling_lock --check`; `eval.ceiling --arm L` once;
+  then Fable reads `arm_L.json` (`/evaluate`). No reply read and nothing analysed before that.
 
 ## Mission 5.1 decisions (2026-11-13): APPROVED by the student, not built
 - Decisions 1, 2, 3, 4, 6, 7, 8 as recommended; `DESIGN.md` sections 4 and 10 now say mutants are validated by twin
