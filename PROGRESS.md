@@ -75,7 +75,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check, arm L: main pass done (120 of 120); repeat pass 13 of 20; analysis 2026-11-14
+**Current focus:** Cloud ceiling check, arm L: main pass done (120 of 120); repeat pass 14 of 20; finish and analysis Sat 2026-11-14 after 7:15 PM IST
 
 **Stopped at (2026-11-13, design session, Fable):** Mission 5.1 designed, challenged and planned in
 `docs/plans/mission_5_1_tripwires.md`; nothing built, no code or test file changed, so the tests were not re-run
@@ -87,9 +87,10 @@ Mission 2.4 is the last mission complete.
 ## Arm L status (2026-11-13, evening, student's window)
 - **Main pass complete:** 120 of 120 answered, 0 failed, "Lock check: OK", server model `openai/gpt-oss-120b` only
   (student's report).
-- **Repeat pass not finished:** `data/rescore/ceiling-ext.repeat.jsonl` holds 13 records of 20 (line count only,
-  contents not read). Window 2's "frees up from <time> UTC" was not passed on; read it there before re-running.
-- **Tomorrow (2026-11-14), after that time:** re-run the same `rescore ... --sample 20 --seed 1112` command
+- **Stopped at: repeat pass 14 of 20 recorded** (student's report from window 2: 4 matched, 10 reply_differs;
+  1 call_failed at the daily limit, not stored; 5 not asked). Reported only, deciding nothing (plan section 7,
+  step 4); "reply_differs" is the outcome name the code prints, read in the analysis, not here.
+- **Sat 2026-11-14, after 7:15 PM IST (13:45 UTC):** re-run the same `rescore ... --sample 20 --seed 1112` command
   (finished records are skipped) until 20 are recorded; `eval.ceiling_lock --check`; `eval.ceiling --arm L` once;
   then Fable reads `arm_L.json` (`/evaluate`). No reply read and nothing analysed before that.
 
@@ -396,23 +397,12 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-1. **Fri 2026-11-13, after 13:11 UTC (6:41 PM IST), student's window, arm L day 2:** `.venv\Scripts\python.exe -m
-   eval.ceiling_lock --check` (must end "Lock check: OK"), then `.venv\Scripts\python.exe -m canary.cli reaudit --batch
-   ceiling-ext --role skeptic_d` (53 calls, about 40 min; should end "80 stored, 0 failed"), then the check again
-   (120 answered, 0 not asked yet). Note the clock time the session ends.
-2. **Opus: Mission 5.1 sitting A** (decisions approved 2026-11-13; plan steps 0-2: room in the test suite, the probe
-   with its transparency test, pair arithmetic). New files only; lock check after the session.
-3. **Sat 2026-11-14, not before the clock time Friday's session ended (rolling 24 h budget), student's window.**
-   From the locked plan, section 7, in this order, reading no reply:
+1. **Sat 2026-11-14, after 7:15 PM IST (13:45 UTC), student's window: finish the repeat pass and run the analysis.**
+   Main pass done (120 answered, 0 failed); repeat pass 14 of 20. In this order, reading no reply:
 
    ```powershell
    cd "C:\Users\Balaji Keerthi\Downloads\canary"
-   # Step 0: must end "Lock check: OK", name only openai/gpt-oss-120b, and show 120 answered, 0 not asked yet.
-   .venv\Scripts\python.exe -m eval.ceiling_lock --check
-   # Step 3, ONLY if the check shows runs "failed once": that batch's command exactly once more, then the check again.
-   #   .venv\Scripts\python.exe -m canary.cli reaudit --batch task-dev-2 --role skeptic_d
-   #   .venv\Scripts\python.exe -m canary.cli reaudit --batch ceiling-ext --role skeptic_d
-   # Step 4: the repeat pass (20 runs by seed, cache bypassed, nothing stored in the ledger; the first audit stands).
+   # Step 4, continued: the remaining 6 (finished records are skipped). Re-run until it no longer reports a limit.
    .venv\Scripts\python.exe -m canary.cli rescore --batch ceiling-ext --reviewer skeptic_d --sample 20 --seed 1112
    # Step 0 again, before the analysis.
    .venv\Scripts\python.exe -m eval.ceiling_lock --check
@@ -423,9 +413,13 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
    If the repeat pass says "Some calls failed or hit a limit", run the same `rescore` command again after the budget
    is back (finished records are skipped). Stop and write it here, with no workaround, if a check does not end
    "Lock check: OK", if another server model appears, or on an `access`, `config` or `request_refused` stop (plan
-   section 8). Then Fable reads `arm_L.json` (`/evaluate`).
+   section 8).
+2. **Fable reads `arm_L.json` (`/evaluate`)**: SOLVABLE / HARD / INCONCLUSIVE, the focus-level sensitivity, the repeat
+   pass; arm R only if arm L is not SOLVABLE.
+3. **Opus: Mission 5.1 sitting A** (decisions approved 2026-11-13; plan steps 0-2: room in the test suite, the probe
+   with its transparency test, pair arithmetic). New files only; lock check after the session.
 
-Next missions after the ceiling check: 5.1 tripwires (design awaits approval), 3.1 graveyard, 3.2 calibration.
+Next missions after the ceiling check: 5.1 tripwires (approved, not built), 3.1 graveyard, 3.2 calibration.
 Known issues: cloud replies are not repeatable word for word at temperature 0 (verdict held on the smoke run);
 Gemini's real limits unknown (only needed for arm R).
 
