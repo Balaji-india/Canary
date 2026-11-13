@@ -307,3 +307,185 @@ statistics code; every figure in this file is marked as an expectation.
 The three fixes worth doing first: (1) the temporary-copy replay with the byte-identity test (finding 3), because a
 mistake there damages the open ceiling arm; (2) the probe transparency test before any check is written (finding 6);
 (3) the three labels and the 6.2 oracle change (findings 1 and 2), because they decide what may be claimed.
+
+## 10. Build order for Opus (each step: what, tests, done when)
+
+### Rules for every build session
+- Read sections 1 to 9 first. Build **new files only**: `canary/probe.py`, `canary/replay.py`, `canary/tripwires.py`,
+  `eval/tripwires_dev.py`, `eval/tripwires_test.py` and their tests. Edit no file frozen by the ceiling plan
+  (section 2.5) and no file frozen by the older plans (`controls.py`, `padding.py`, `saboteur/decoys.py`).
+- Do not read `data/runs/campaign.log`, `data/cloud/calls.jsonl` or any `skeptic_d` audit or result. Load no audit
+  of any role. Never run anything on `ceiling-ext`.
+- Never write inside `data/runs/`. Never write to the ledger.
+- The three source files import nothing from `saboteur`, `sealed`, `controls`, `mixer`, `trust`, `padding`,
+  `ledger`. **Tests may** import the saboteur, decoys and padding: tests are on the scoring side.
+- Checks are pure functions of (trace, config, dataset, results). Test them on small hand-written traces (fast).
+  Every test that executes a script is marked `slow`. The default suite stays under 30 s.
+- **Never make a test pass by weakening an invariant, adding a threshold, or naming a variable, function or
+  constant from the template or the saboteur.** If a "done when" cannot be met, stop and write where in `PROGRESS.md`.
+- End of every session: `pytest -q`, `pytest -m slow -k "probe or tripwire"`, `python -m eval.ceiling_lock --check`
+  (must end "Lock check: OK"), `python -m canary.cli ledger verify`, `PROGRESS.md`, commit `Mission 5.1: step N ...`.
+
+Forecasts below are from `PROGRESS.md` (task-dev-2: 40 runs in 357 s including twins; rq1-full: 180 runs in about
+40 min). A replay is one script run without a twin: about 3 to 9 s.
+
+### Sitting A (about 2 hours): room, probe, pair arithmetic
+**Step 0. Make room in the test suite.**
+- Do: `pytest -q --durations=30` twice; mark the slowest as `slow` or speed them up until the default run is at most
+  26 s on two timings in a row. No frozen file changes (tests are not frozen).
+- Done when: `pytest -q` passes twice in at most 26 s and `pytest -m slow` passes.
+
+**Step 1. Probe and replay, proven transparent before any check exists.**
+- Do: `canary/probe.py` (standalone, section 2.2): wrap the entry points, keep script-level calls only, write
+  `trace.json`. Wrappers must keep conditional attributes: `hasattr(model, "predict_proba")` must answer as it does
+  without the probe (`Pipeline`, `GridSearchCV` and `SVC` expose it through a descriptor). `canary/replay.py`:
+  `replay(run_dir)` copies `experiment.py` and `dataset.csv.gz` to a temporary folder, runs the probe there through
+  `sandbox.run_script` (same timeout), returns status, the replayed results, the trace and seconds, and removes the
+  folder. `python -m canary.replay <run_dir>` prints the status, "numbers identical: yes/no" and event counts.
+- Tests (slow): (a) transparency: all 7 models x 4 metrics (ROC AUC on two-class data only), 2 seeds: replayed
+  numbers equal a plain sandbox run's exactly; (b) the run folder is byte-identical before and after (SHA-256 of
+  every file); (c) the temporary folder is gone; (d) per seed the trace holds one split and, per arm, one
+  preprocessing fit, one test transform, one model fit, the prediction call and one metric call, and nothing from
+  inside the pipeline; (e) on the B04 obvious decoy (a grid search on training rows) exactly one script-level fit is
+  recorded for the search and no internal metric call; (f) a script that crashes or times out gives a recorded
+  status, not an exception.
+- **Go / no-go:** if any model and metric cannot be made to give identical numbers under the probe in this sitting,
+  stop and report. The fallback to discuss is observing calls with `sys.setprofile` instead of patching.
+- Done when: `pytest -m slow tests/test_probe.py -q` passes, and `python -m canary.replay <folder of a fresh
+  run-config config/examples/baseline.yaml run>` prints "numbers identical: yes".
+
+**Step 2. Fingerprints, pairs and stages.**
+- Do: in `probe.py`, `row_fingerprints` (numbers as float64, other values as text, index ignored; for data frames
+  the columns are taken in name order). In `tripwires.py`, the context built from a trace: per seed, the training and
+  test (row, label) multisets, pushed forward through every row-preserving call; and `relate(pairs)` answering
+  `test`, `test_subset`, `train`, `train_subset`, `needs_test_rows` (with the count) or `unknown`.
+- Tests (fast, hand-computed): an int column and its float copy hash the same; NaN is stable; identical rows with
+  different labels; a joint reorder is `test`; a label roll is not; dropped rows give `test_subset` with the count;
+  two raw rows that become identical after a transform are still counted twice; training rows plus test rows give
+  `needs_test_rows` with the test count; natural duplicates across train and test do not.
+- Done when: the fast tests pass and `pytest -q` is under 30 s.
+
+### Sitting B (about 2 hours): the first six checks and the guards (Mission 5.1a)
+**Step 3. S1, S2, K0, K1, K2, K5, and `run_tripwires`.**
+- Do: the checks of section 3 as pure functions, each with its invariant in the docstring, each returning `ok`,
+  `fired` or `unverifiable` with a one-sentence evidence text that contains counts. `run_tripwires(run_dir,
+  replay=True)` returns the record of section 2.4 (it does not write it). `python -m canary.tripwires <run_dir>`
+  prints the record.
+- Tests (fast): for each check one `ok`, one `fired` and, where it applies, one `unverifiable` hand-written trace,
+  with the evidence counts asserted.
+- Tests (slow, 2 seeds, three configs: `blood-transfusion-service-center` for natural duplicates and imbalance, one
+  multi-class dataset, `breast_cancer` with a scaler): both tiers of B01, B02, B03, B07, B08, B10 give `fired` on
+  the check section 4 names, with the class named and no `unverifiable`; the clean script, a sham, a padded clean
+  script and all 20 decoys give `ok` on every built check; running twice gives the same record.
+- Done when: `pytest -m slow tests/test_tripwires.py -q` passes and `python -m canary.tripwires <run folder>` prints
+  a verdict with every check's status.
+
+**Step 4. Guards.**
+- Tests (fast unless noted, `tests/test_tripwire_guards.py`): import allow-lists (`probe.py` imports nothing from
+  `canary`; `replay.py` and `tripwires.py` only `config`, `codegen`, `datasets`, `sandbox`, `probe`, `replay`); no
+  import chain from them reaches `sealed`, `controls`, `mixer`, `trust`, `padding`, `ledger` or `saboteur` (reuse
+  `reachable_modules` from `tests/test_skeptic.py`); their source never says `sealed.db`, `run_types`, `run_type`,
+  `sealed_plans` or `twins`; every identifier and text constant that a transform, a decoy or the padding adds to a
+  rendered script (found by the test from the syntax trees) is absent from their source; (slow) a full
+  `run_tripwires` beside a filled sealed table, a twins folder and a sealed plan opens no database and leaves the
+  run folder byte-identical.
+- Done when: the guard tests pass and the lock check still says OK.
+
+### Sitting C (about 2 hours): the remaining checks, the advisory number, the development table (Mission 5.1b)
+**Step 5. K3, K4, K6, L1, and the verdict.**
+- Do: the four checks; the verdict (`flag` if any counted check is `fired` or `unverifiable`); the named class from
+  the first fired check along the chain with section 3's sub-diagnosis. K6 recomputes the registered metric with
+  scikit-learn from the metric name and the dataset's classes, not from the template's `score`. L1's ratio is the
+  3:1 of `DESIGN.md` section 6, defined in `tripwires.py`.
+- Tests (fast): hand-written traces; K6 against hand-computed binary F1, macro F1, balanced accuracy and ROC AUC on
+  tiny arrays; L1 silent at exactly 3:1 and firing just above; L1's constant equals the catalog's (the test imports
+  both).
+- Tests (slow, same three configs): both tiers of B04, B05 and B06 fire as section 4 says; B06 obvious fires L1
+  only; B09 canaries pass (expected, documented in the test); all 20 decoys, shams and padded scripts still give
+  `ok` on **every** check.
+- Done when: the slow suite passes with all checks on.
+
+**Step 6. Advisory A1.**
+- Do: per seed, the best score a constant prediction can reach on that seed's test labels for the registered metric;
+  record `advisory.no_skill_margin` = control mean minus that. It never changes the verdict. A2 is not built unless
+  the student asks (section 12).
+- Tests (fast): hand-computed values for the four metrics.
+- Done when: the record carries the number and the verdict tests are unchanged.
+
+**Step 7. Development runner and scoring.**
+- Do: `eval/tripwires_dev.py --batch <name>`, accepting only `rq1-full`, `task-dev-1`, `task-dev-2`. It lists the
+  batch's run IDs from the sealed table, calls `run_tripwires` with the folder path only, stores each record in
+  `data/tripwires/v1/`, resumes by skipping stored records of the same version, logs progress to
+  `data/tripwires/dev.log`, and loads no audit. Then it joins the records to the truth and prints and saves
+  (`eval/results/tripwires/dev_<batch>.json`): recall per class split into fired and unverifiable with Beta 90%
+  intervals; recall by tier and by harmful, harmless and unmeasured; right-class naming; specificity on controls, on
+  shams and by decoy class; J; base-level intervals with the ceiling analysis's cluster rule; the gold-twin
+  reference row (section 7.3); how many replays reproduced the stored numbers; seconds per run; every miss and
+  every false alarm by run ID with the check details; the no-op canaries; the AUC of A1 for B09 canaries against
+  clean runs.
+- Tests (fast, synthetic records and a temporary sealed table): every printed number against a hand-computed one;
+  other batch names are refused; the fired and unverifiable split; the reference row.
+- Done when: `python -m eval.tripwires_dev --batch task-dev-2` prints the table and writes the JSON (40 replays,
+  forecast 2 to 6 minutes, in the background with the log).
+
+### Sitting D (about 2 hours plus run time): development loop, lock, the test, wiring
+**Step 8. Development loop.**
+- Do: run the three development batches (rq1-full: 180 replays, forecast 9 to 27 minutes, background, resumable).
+  Targets: zero `unverifiable`; every replay reproduces the stored numbers; zero false alarms on clean runs; every
+  miss explained (a no-op canary, B09, or a bug to fix). A false alarm is investigated: a probe bug is fixed; a real
+  broken link in a "clean" run is reported to the student, never tuned away.
+- Done when: the three development JSON files exist and `PROGRESS.md` shows their tables (copied from the JSON by
+  the script's own output, no hand-typed numbers) and the list of explained misses.
+
+**Step 9. Lock the test (Fable writes it, the student says OK).**
+- Do: `docs/plans/tripwire_test.md` + `.sha256` with the SHA-256 of `probe.py`, `replay.py`, `tripwires.py` and
+  `eval/tripwires_test.py`, the two test batches, and the bars proposed in section 12. `eval/tripwires_test.py`
+  refuses to run unless the hashes match, and refuses a second run of a batch. The four files go into
+  `.gitattributes` as `-text`.
+- Done when: the lock check of that plan passes and the student has said OK.
+
+**Step 10. The test, once (student's window, after `eval.ceiling --arm L` has run).**
+- Do: lock check; `.venv\Scripts\python.exe -m canary.cli calibrate --runs 200 --batch tripwire-test-1 --pool
+  data/calibration/pool-2.json --seed 1114 --no-audit` (no reviewer is called; confirm the flags with `calibrate
+  -h` first); `.venv\Scripts\python.exe -m eval.tripwires_test --batch tripwire-test-1`; then `--batch ceiling-ext`;
+  lock check; `ledger verify`. Forecast: 30 to 45 minutes of runs plus 10 to 30 minutes of replays.
+  `tripwire-test-1` must not be used to choose anything about an LLM reviewer later.
+- Done when: both test JSON files exist and `PROGRESS.md` reports them under the label "known shapes, fresh bases".
+
+**Step 11. Wiring (only when the ceiling arms are closed and `canary/cli.py` is no longer frozen).**
+- Do: `canary.cli tripwires` as a thin alias; tripwire records written to the ledger under the role `tripwire_v1`
+  so `trust` and the gate can read them; `DESIGN.md` section 6 rewritten and the oracle sentence in sections 4 and
+  10 changed (section 7.3); `coach_state.py` tips; README status.
+- Tests: the ledger join gives the same numbers as the test JSON.
+- Done when: `python -m canary.cli trust --role tripwire_v1 --batch tripwire-test-1` prints the same recall and
+  specificity as the test JSON.
+
+## 11. "Done when" for Mission 5.1 as a whole
+The mission is ticked after step 10, when all of these hold:
+1. `python -m eval.tripwires_dev --batch task-dev-2` prints recall per class (fired and unverifiable apart),
+   specificity by control, sham and decoy class, J with base-level intervals, and the reference row.
+2. `pytest -q` passes in under 30 s; `pytest -m slow -k "probe or tripwire"` passes, including the guards and
+   "all 20 decoys, shams and padded scripts are silent on every check".
+3. The frozen version has run **once** on `tripwire-test-1` under its lock, and
+   `eval/results/tripwires/test_tripwire-test-1.json` exists.
+4. `python -m eval.ceiling_lock --check` ends "Lock check: OK" and `ledger verify` passes: nothing of the ceiling
+   check was touched.
+5. `PROGRESS.md` reports the tables with their labels, says "held-out shapes: not measured (Mission 6.2)", and
+   lists B09 as not covered.
+
+Step 11 is a follow-up that must be done before Mission 4.1 uses tripwires.
+
+## 12. Decisions for the student (recommendation first)
+1. **The design:** replay with a probe, chain of custody, fail closed. Recommended: approve.
+2. **`unverifiable` counts as a flag** (and is always shown apart from `fired`). Recommended: yes.
+3. **B09:** no tripwire; record A1 only. Option: also build A2 (one extra run per run at library defaults) to see on
+   development data whether a baseline signal exists at all. Recommended: A1 only for now.
+4. **B06 obvious** reported as a rule outside the headline recall. Recommended: yes.
+5. **Test batch size:** 200 runs (12 canaries per class; forecast about an hour in your window) or 360 runs (20 per
+   class; about two hours). Recommended: 200.
+6. **Bars for the locked test (step 9):** specificity on controls and shams, Beta 90% lower bound at least 0.95;
+   pooled `fired` recall on the chain classes (all canaries except B06 obvious and B09), lower bound at least 0.90.
+   A miss of either bar is reported as a failed test; a fix is a new version on a new batch. Recommended: these.
+7. **Held-out shapes:** wait for Mission 6.2 with the two conditions of section 7.3 (recommended), or also write
+   about ten new bug variants by hand now, without looking at `tripwires.py`, as an early small check.
+8. **`DESIGN.md` change:** mutants are validated by a behavioural oracle only, never by a tripwire. Recommended: yes.
