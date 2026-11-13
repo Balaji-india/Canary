@@ -63,8 +63,12 @@ in the transformed code.
 | B09 | Weak baseline | control model given crippled hyperparameters |
 | B10 | Easy test subset | hard or minority examples silently dropped from the test set |
 
-LLM-generated mutants (Mission 6) add new variants; each must be validated by an oracle (a tripwire firing, or a
-behavioural test such as a metric shift on a fixed seed) before entering the mutant library.
+LLM-generated mutants (Mission 6) add new variants; each must be validated by a **behavioural oracle only** (its
+numbers differ from its clean twin on fixed seeds) before entering the mutant library, **never by a tripwire
+firing**: a library selected by the tripwires would hold only tripwire-detectable bugs and could not measure them
+(student, 2026-11-13; `docs/plans/mission_5_1_tripwires.md` section 7.3). The tripwire version is hash-locked
+before the first mutant is generated. Benign rewrites (numbers equal to the twin's) are kept too, for held-out
+specificity.
 
 ## 5. Blinding (`blinding.py`)
 
@@ -121,7 +125,8 @@ tightens τ to 0.05 and makes the campaign agent spend its next runs on canaries
 
 - **Probing:** Thompson sampling over (class, tier) arms with `Beta(1 + misses, 1 + catches)`; picks the arm
   with the highest sampled miss rate. Probe canaries never feed the recall estimates in section 7.
-- **Mutants:** the Scientist model writes a new variant of a class; it is kept only if the oracle confirms the bug.
+- **Mutants:** the Scientist model writes a new variant of a class; it is kept only if the behavioural oracle
+  (difference from its clean twin) confirms the bug, never because a tripwire fired (section 4).
 - **Blind-spot map:** a heatmap of miss rate by class × tier × reviewer model.
 - **Self-hardening:** for the worst blind spot, an LLM drafts one checklist line for the Skeptic prompt. It is
   evaluated on **held-out** canaries (mutants not used to write it) and on controls/shams. Keep the hint only if
