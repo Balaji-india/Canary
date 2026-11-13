@@ -1,4 +1,6 @@
-# Mission 5.1 tripwires: design and build plan (NOT built; needs the student's OK)
+# Mission 5.1 tripwires: design and build plan (APPROVED by the student 2026-11-13; NOT built)
+
+Decisions recorded in section 12. Decision 5 changed from the recommendation: the test batch is 360 runs.
 
 Written 2026-11-13 by Fable in a thinking-only session. It replaces `mission_5_1_tripwires_outline.md` (2026-11-10).
 Nothing here is built. Everything is **proposed by Claude, pending the student's approval** (section 12 lists the
@@ -198,7 +200,7 @@ script would need a rule for each of these; this is the main reason to replay in
 - **Test, frozen first:** `tripwires.py`, `probe.py`, `replay.py` and the test script are hashed in a short locked
   plan (`docs/plans/tripwire_test.md` + `.sha256`) before any test run. Then, once:
   - **`tripwire-test-1` (primary):** a fresh no-audit batch on pool 2 with a new seed. Tripwires need no LLM, so it
-    can be large: 200 runs give 120 canaries (12 per class), 360 runs give 20 per class.
+    can be large: 360 runs (decision 5) give 200 canaries (20 per class) and 160 clean runs.
   - **`ceiling-ext` (secondary):** the 80 runs the cloud reviewer is being measured on, so Mission 5.4 can compare
     tripwires, LLM and union on the same runs. Only after `eval.ceiling --arm L` has run.
 - A change to the tripwires after the test is a new version, tested on a batch it has not seen (the working rule of
@@ -445,10 +447,10 @@ Forecasts below are from `PROGRESS.md` (task-dev-2: 40 runs in 357 s including t
 - Done when: the lock check of that plan passes and the student has said OK.
 
 **Step 10. The test, once (student's window, after `eval.ceiling --arm L` has run).**
-- Do: lock check; `.venv\Scripts\python.exe -m canary.cli calibrate --runs 200 --batch tripwire-test-1 --pool
+- Do: lock check; `.venv\Scripts\python.exe -m canary.cli calibrate --runs 360 --batch tripwire-test-1 --pool
   data/calibration/pool-2.json --seed 1114 --no-audit` (no reviewer is called; confirm the flags with `calibrate
   -h` first); `.venv\Scripts\python.exe -m eval.tripwires_test --batch tripwire-test-1`; then `--batch ceiling-ext`;
-  lock check; `ledger verify`. Forecast: 30 to 45 minutes of runs plus 10 to 30 minutes of replays.
+  lock check; `ledger verify`. Forecast: about 2 hours in all (360 runs with twins, then 360 + 80 replays).
   `tripwire-test-1` must not be used to choose anything about an LLM reviewer later.
 - Done when: both test JSON files exist and `PROGRESS.md` reports them under the label "known shapes, fresh bases".
 
@@ -489,3 +491,15 @@ Step 11 is a follow-up that must be done before Mission 4.1 uses tripwires.
 7. **Held-out shapes:** wait for Mission 6.2 with the two conditions of section 7.3 (recommended), or also write
    about ten new bug variants by hand now, without looking at `tripwires.py`, as an early small check.
 8. **`DESIGN.md` change:** mutants are validated by a behavioural oracle only, never by a tripwire. Recommended: yes.
+
+### Student's answers (2026-11-13)
+- **1, 2, 3, 4, 6, 7, 8: approved as recommended.** Decision 8 is applied in `DESIGN.md` sections 4 and 10.
+- **5: 360 runs** (not 200). Reason (student), checked with `trust.Posterior` (Beta(1 + passes, 1 + false alarms),
+  5th percentile): with 200 runs the mixer gives 120 canaries and 80 clean runs, and one false alarm puts the
+  specificity lower bound at 0.9428, below the 0.95 bar (0 false alarms: 0.9637). With 360 runs: 200 canaries
+  (10 per variant, 20 per class) and 160 clean runs; lower bound 0.9816 / 0.9709 / 0.9614 / 0.9525 / 0.9441 at
+  0 / 1 / 2 / 3 / 4 false alarms, so up to 3 false alarms still clear the bar.
+- **Pool:** `tripwire-test-1` stays on pool 2; no pool 3 is needed. "Fresh" means unseen by tripwire development,
+  which uses pool-1 batches only (section 7.2), and the tripwires have no tuned threshold. Pool 2 being used up
+  (ceiling plan section 9) applies to LLM-reviewer follow-ups, which this batch may never be used for (step 10).
+  Limit, stated: 17 bases, so base-level intervals rest on at most 17 clusters.

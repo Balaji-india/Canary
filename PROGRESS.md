@@ -84,7 +84,16 @@ log and every `skeptic_d` audit or result were not read, and no frozen file was 
 (2026-11-12: 67 answered, 53 not asked yet, 0 failed, "Lock check: OK"); day 2 is the student's window tonight.
 Mission 2.4 is the last mission complete.
 
-## Mission 5.1 design (2026-11-13): not built, awaits the student's OK
+## Mission 5.1 decisions (2026-11-13): APPROVED by the student, not built
+- Decisions 1, 2, 3, 4, 6, 7, 8 as recommended; `DESIGN.md` sections 4 and 10 now say mutants are validated by twin
+  difference only, never by a tripwire.
+- Decision 5: **360 runs** for `tripwire-test-1` (200 canaries, 160 clean). Checked with `trust.Posterior`: at 80
+  clean runs one false alarm gives a specificity lower bound of 0.9428 (< 0.95); at 160 clean runs up to 3 false
+  alarms clear the bar (0.9525), 4 do not (0.9441). Forecast about 2 hours in the student's window.
+- No pool 3: tripwire development uses pool 1 only, and the batch is never used for an LLM reviewer. Limit: 17 bases.
+- Next: Opus sitting A (plan steps 0-2).
+
+## Mission 5.1 design (2026-11-13): approved the same day (above)
 Full text: `docs/plans/mission_5_1_tripwires.md` (sections 1-9 design and self-review, 10 build order, 11 done
 when, 12 decisions). Every recall or false-alarm figure in it is an expectation, not a measurement.
 - **Idea:** a chain of custody for every reported number: dataset, registered split, fits on training rows only,
@@ -382,9 +391,8 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
    eval.ceiling_lock --check` (must end "Lock check: OK"), then `.venv\Scripts\python.exe -m canary.cli reaudit --batch
    ceiling-ext --role skeptic_d` (53 calls, about 40 min; should end "80 stored, 0 failed"), then the check again
    (120 answered, 0 not asked yet). Note the clock time the session ends.
-2. **Student: read `docs/plans/mission_5_1_tripwires.md` section 12 and answer the 8 decisions** (or "approve as
-   recommended"). Then Opus starts sitting A (steps 0-2: room in the test suite, the probe with its transparency
-   test, pair arithmetic). New files only; lock check after the session.
+2. **Opus: Mission 5.1 sitting A** (decisions approved 2026-11-13; plan steps 0-2: room in the test suite, the probe
+   with its transparency test, pair arithmetic). New files only; lock check after the session.
 3. **Sat 2026-11-14, not before the clock time Friday's session ended (rolling 24 h budget), student's window.**
    From the locked plan, section 7, in this order, reading no reply:
 
