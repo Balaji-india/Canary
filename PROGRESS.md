@@ -50,7 +50,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
 
 **M5 Defense in depth**
 - [ ] 5.1 Tripwires
-  - Outlined only (2026-11-10, `docs/plans/mission_5_1_tripwires_outline.md`); waits for the student's OK. Not built.
+  - Designed, not built (2026-11-13, `docs/plans/mission_5_1_tripwires.md`: design, self-review, 12 build steps);
+    waits for the student's OK on its section 12. The 2026-11-10 outline is superseded.
 - [ ] 5.2 Skeptic B and jury
 - [ ] 5.3 Replication gate
 - [ ] 5.4 RQ2 and RQ3
@@ -76,11 +77,52 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 **Current focus:** Cloud ceiling check, arm L: day 1 of 3 done (67 of 120 answered); day 2 from 2026-11-13 13:11 UTC (6:41 PM IST)
 
-**Stopped at (2026-11-12, third session):** arm L day 1 finished in the student's window. `eval.ceiling_lock --check`
-afterwards: 67 answered, 53 not asked yet, 0 failed twice, 0 failed once, 0 crashed; call log 70 attempts (3 smoke +
-67), server model `openai/gpt-oss-120b` only; "Lock check: OK, every hash matches". Stopped by the daily limit, as
-planned. No reply was read and nothing was analysed (the plan allows no partial analysis). Tests: 718 passed in
-29.7 s (at the limit). Mission 2.4 is the last mission complete; Mission 5.1 outlined only.
+**Stopped at (2026-11-13, design session, Fable):** Mission 5.1 designed, challenged and planned in
+`docs/plans/mission_5_1_tripwires.md`; nothing built, no code or test file changed, so the tests were not re-run
+(last run 2026-11-12: 718 passed in 29.7 s, at the limit). The ceiling arm was not touched: `campaign.log`, the call
+log and every `skeptic_d` audit or result were not read, and no frozen file was edited. Arm L is as day 1 left it
+(2026-11-12: 67 answered, 53 not asked yet, 0 failed, "Lock check: OK"); day 2 is the student's window tonight.
+Mission 2.4 is the last mission complete.
+
+## Mission 5.1 design (2026-11-13): not built, awaits the student's OK
+Full text: `docs/plans/mission_5_1_tripwires.md` (sections 1-9 design and self-review, 10 build order, 11 done
+when, 12 decisions). Every recall or false-alarm figure in it is an expectation, not a measurement.
+- **Idea:** a chain of custody for every reported number: dataset, registered split, fits on training rows only,
+  the registered model, one prediction of the test rows per arm, the registered metric on exactly the test
+  (row, label) pairs, the value in `results.json`. Each check verifies one link; what cannot be verified is flagged.
+- **How:** the run's script is replayed in a temporary copy with a probe that records what reaches
+  `train_test_split`, every fit and prediction, and the metric functions. Rows are identified by content and counted
+  as multisets of (row, label) pairs. No check reads the script's text, names or length, so padding, shams and
+  decoys cannot fire one by their shape (all 20 decoys are a required silent test).
+- **Checks:** static S1 split sizes, S2 class balance, L1 metric rule; replay K0 fidelity, K1 data in, K2 fit scope,
+  K3 registered arm, K4 test use, K5 scoring, K6 report. No thresholds except L1's 3:1.
+- **The four traps named in the request:** B07 natural duplicates (`blood-transfusion` 246, `pc1` 161) cannot fire
+  K1, because the dataset's own duplicates are counted too, and B07 subtle's noisy copies are rows the dataset does
+  not contain. B10 drops rows inside `run_arm`: K5 counts the pairs that reach the metric. B06 on real runs: L1 is
+  static and runs on every run. Real runs with padding and decoys: the checks are indifferent to both, by test.
+- **Said plainly:** B09 (weak baseline) has **no reliable tripwire**; only an advisory number is recorded. B06
+  obvious is a rule (the same line plants and detects it), reported outside the headline recall. Config-level and
+  cross-run problems, a leaky column inside the dataset, and code on another protocol are outside what it can verify.
+- **Fair measurement:** same runs, truth and `trust.py` statistics as the LLM reviewers, with recall split into
+  `fired` and `unverifiable`. Three labels never merged: known shapes (development: rq1-full, task-dev-1,
+  task-dev-2), known shapes on fresh bases (locked test: new batch `tripwire-test-1` on pool 2, and `ceiling-ext`
+  after arm L's analysis), held-out shapes (Mission 6.2, "not measured" until then). A gold-twin reference row
+  (numbers differ from a clean template run) is reported beside the tripwires.
+- **Union for Mission 4:** flag if either flags; measured directly as one reviewer on one batch, never computed from
+  the two halves; recall can only rise, specificity only fall, and J can fall (a flag-everything LLM ruins it).
+- **Self-review, 19 findings, fixed in the design.** The three that matter most: (1) tripwires written by someone
+  who read the bug catalog score near 1.0 by construction, so Mission 5.1 may only claim "known shapes"; (2)
+  `DESIGN.md` sections 4 and 10 let "a tripwire firing" validate a Mission 6.2 mutant, which would make the held-out
+  test circular: mutants must be validated by twin difference only (to change on approval); (3) a replay inside a
+  run folder would overwrite `results.json`, whose hash is in the ledger and the ceiling lock manifest: replay runs
+  in a temporary copy only, with a byte-identity test.
+- **Constraints while the ceiling arms are open:** new files only (`canary/probe.py`, `replay.py`, `tripwires.py`,
+  `eval/tripwires_dev.py`, `eval/tripwires_test.py`); no frozen file edited, so no `canary.cli` subcommand yet; no
+  ledger write; no audit loaded; `ceiling-ext` never used in development; lock check after every build session.
+- **Decisions waiting for the student (plan section 12, recommendation first):** approve the design; `unverifiable`
+  counts as a flag; B09 advisory only; B06 obvious outside the headline; test batch of 200 runs; bars for the
+  locked test (specificity lower bound 0.95, `fired` recall on chain classes lower bound 0.90); held-out shapes
+  wait for 6.2; the `DESIGN.md` oracle change.
 
 ## Ceiling plan challenged and locked (2026-11-12, second session): no cloud call made
 - **Student's decisions:** A. repeat pass = 20 ceiling-ext runs, seed 1112, first audit stands. B. the near-twin
@@ -328,23 +370,43 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   (smallest of 40/80/120/160/200 runs with P(SOLVABLE) at least 0.80 at a true J of 0.70 and a false-positive rate of
   at most 0.05 at J 0.40); the repeat pass on a seeded sample of 20 runs per cell; a daily call budget below each
   provider's limit.
-- **Mission 5.1 design: proposed, pending my approval.** Replay each run with a probe that records what data reaches
-  the split, every fit and the metric, and check properties of a correct experiment, instead of DESIGN section 6's
-  syntax-tree patterns. Split into 5.1a and 5.1b.
+- **Mission 5.1 design: proposed, pending my approval** (full design 2026-11-13, see "Mission 5.1 design" above and
+  `docs/plans/mission_5_1_tripwires.md` section 12). Replay each run with a probe and verify the chain of custody of
+  every reported number, instead of DESIGN section 6's syntax-tree patterns. Four sittings, 12 steps.
 - **Decided by the student, not pending (isolation rule):** the ceiling reviewer is called only through `canary/llm.py`
   with the blinded prompt. Claude Code never reviews runs itself, because it can see the sealed table, the bug
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-1. **Fri 2026-11-13, daytime:** Fable designs Mission 5.1 (tripwires) for the student's approval; then Opus starts
-   building it. Touch none of the ceiling plan's frozen files (section 3) while arm L is open; run the lock check after.
-2. **Fri, after 13:11 UTC (6:41 PM IST), student's window, arm L day 2:** `.venv\Scripts\python.exe -m
+1. **Fri 2026-11-13, after 13:11 UTC (6:41 PM IST), student's window, arm L day 2:** `.venv\Scripts\python.exe -m
    eval.ceiling_lock --check` (must end "Lock check: OK"), then `.venv\Scripts\python.exe -m canary.cli reaudit --batch
    ceiling-ext --role skeptic_d` (53 calls, about 40 min; should end "80 stored, 0 failed"), then the check again
-   (120 answered, 0 not asked yet).
-3. **Sat 2026-11-14, not before the time Friday's session started (rolling 24 h budget):** the check, then the repeat
-   pass (`.venv\Scripts\python.exe -m canary.cli rescore --batch ceiling-ext --reviewer skeptic_d --sample 20 --seed
-   1112`), then once `.venv\Scripts\python.exe -m eval.ceiling --arm L`; Fable reads the result (`/evaluate`).
+   (120 answered, 0 not asked yet). Note the clock time the session ends.
+2. **Student: read `docs/plans/mission_5_1_tripwires.md` section 12 and answer the 8 decisions** (or "approve as
+   recommended"). Then Opus starts sitting A (steps 0-2: room in the test suite, the probe with its transparency
+   test, pair arithmetic). New files only; lock check after the session.
+3. **Sat 2026-11-14, not before the clock time Friday's session ended (rolling 24 h budget), student's window.**
+   From the locked plan, section 7, in this order, reading no reply:
+
+   ```powershell
+   cd "C:\Users\Balaji Keerthi\Downloads\canary"
+   # Step 0: must end "Lock check: OK", name only openai/gpt-oss-120b, and show 120 answered, 0 not asked yet.
+   .venv\Scripts\python.exe -m eval.ceiling_lock --check
+   # Step 3, ONLY if the check shows runs "failed once": that batch's command exactly once more, then the check again.
+   #   .venv\Scripts\python.exe -m canary.cli reaudit --batch task-dev-2 --role skeptic_d
+   #   .venv\Scripts\python.exe -m canary.cli reaudit --batch ceiling-ext --role skeptic_d
+   # Step 4: the repeat pass (20 runs by seed, cache bypassed, nothing stored in the ledger; the first audit stands).
+   .venv\Scripts\python.exe -m canary.cli rescore --batch ceiling-ext --reviewer skeptic_d --sample 20 --seed 1112
+   # Step 0 again, before the analysis.
+   .venv\Scripts\python.exe -m eval.ceiling_lock --check
+   # Step 5: the analysis, ONCE. It writes eval/results/ceiling/arm_L.json and refuses a second run.
+   .venv\Scripts\python.exe -m eval.ceiling --arm L
+   ```
+
+   If the repeat pass says "Some calls failed or hit a limit", run the same `rescore` command again after the budget
+   is back (finished records are skipped). Stop and write it here, with no workaround, if a check does not end
+   "Lock check: OK", if another server model appears, or on an `access`, `config` or `request_refused` stop (plan
+   section 8). Then Fable reads `arm_L.json` (`/evaluate`).
 
 Next missions after the ceiling check: 5.1 tripwires (design awaits approval), 3.1 graveyard, 3.2 calibration.
 Known issues: cloud replies are not repeatable word for word at temperature 0 (verdict held on the smoke run);
@@ -921,6 +983,16 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
+- **Under the template, real runs cannot contain a code-level bug (found in the Mission 5.1 design, 2026-11-13).**
+  Real scripts are rendered from the template, so only config-level problems can occur in them (accuracy on
+  imbalanced data, a weak baseline). Consequences: tripwire recall on canaries says little about real runs; the
+  recall that matters for Rogan-Gladen on real runs is recall on those classes; Mission 4.2's hidden-truth runs are
+  where the whole estimate is tested. To weigh before Mission 4.1.
+- **`DESIGN.md` sections 4 and 10 let "a tripwire firing" validate a Mission 6.2 mutant.** A library chosen that way
+  holds only tripwire-detectable bugs, so it cannot measure tripwires. Change to a behavioural oracle (twin
+  difference) when the Mission 5.1 design is approved; also keep "benign rewrites" for held-out specificity.
+- **B09 (weak baseline) will have no tripwire** (design, 2026-11-13): the union's worst-class recall will be the
+  LLM's recall on B09. Prevention at proposal time is the proposed fix for real runs (Mission 4.1).
 - **Cloud provider facts that are still unverified (2026-11-11):** Gemini's free daily limit (not published; read it
   in AI Studio), which Groq tab the limits table read belongs to (confirm in the console), Gemini's token
   probabilities (reported deprecated, secondhand), which Gemini field is "silently ignored" on 3.6 Flash and newer
@@ -985,9 +1057,12 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **Overall recall looks more certain than it is while classes are untested.** With no data at all, it reads about 0.50, 90% [0.35, 0.65],
   purely from averaging 10 flat priors. `trust` and RQ1 print "tested k of 10"; any report must show that too.
 - **Mission 5.1's B10 tripwire ("test size smaller than declared") will not fire:** B10 now drops rows inside `run_arm`, so
-  `split_sizes` stays normal. It needs a different check.
+  `split_sizes` stays normal. It needs a different check. (Designed 2026-11-13: check K5 counts the pairs that reach
+  the metric.)
 - **Mission 5.1's B07 tripwire needs care:** `blood-transfusion` has 246 duplicate feature rows and `pc1` 161 before any
   bug, so row overlap between splits is normal there. Compare against the overlap expected from the dataset.
+  (Designed 2026-11-13: check K1 compares the rows entering the split with the dataset's, counted, so natural
+  duplicates match themselves.)
 - **The test suite is still close to its limit** (28.9-30.0 s of 30 s with 597 tests on 2026-11-09, test bootstrap at 200 draws; runs on a busy laptop
   measured 31-40 s with no code change, so time it twice before trimming). The broken-config and sham tests now run in-process; the 2 remaining subprocess tests take about 3 s each.
 - **Cold model loads are slow** (27-110 s seen). Handled with the 300 s cold timeout and `ModelQueue`.
@@ -1019,5 +1094,5 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
    never-seen batch, pre-registered and locked, with the same rules and the same bar; nothing is chosen on a batch
    whose results we have seen.
 3. **`/mission 5.1` (deterministic tripwires)**, the main defence whatever the ceiling check says; then Mission 3.1.
-   Needs the student's OK on the outline first (`docs/plans/mission_5_1_tripwires_outline.md`: replay with a probe).
+   Needs the student's OK on the design first (`docs/plans/mission_5_1_tripwires.md`, section 12).
 4. Housekeeping: `pytest -q` takes 30-35 s, over the 30 s target; trim or mark more tests slow.
