@@ -52,7 +52,10 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - [ ] 5.1 Tripwires
   - Designed 2026-11-13 (`docs/plans/mission_5_1_tripwires.md`), decisions approved the same day.
   - **Sitting A built 2026-11-14 (plan steps 0-2):** test-suite room, `canary/probe.py` + `canary/replay.py` proven
-    transparent (go), pair arithmetic in `canary/tripwires.py`. No check exists yet; sittings B-D and step 11 remain.
+    transparent (go), pair arithmetic in `canary/tripwires.py`.
+  - **Sitting B built 2026-11-14 (plan steps 3-4):** checks S1, S2, K0, K1, K2, K5, `run_tripwires`,
+    `python -m canary.tripwires`; guard tests. K3, K4, K6, L1 (sitting C), the dev loop and the locked test
+    (sitting D) and step 11 remain.
 - [ ] 5.2 Skeptic B and jury
 - [ ] 5.3 Replication gate
 - [ ] 5.4 RQ2 and RQ3
@@ -78,12 +81,55 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 **Current focus:** Cloud ceiling check, arm L: main pass done (120 of 120); repeat pass 14 of 20; finish and analysis Sat 2026-11-14 after 7:15 PM IST
 
-**Stopped at (2026-11-14, build session, Opus):** Mission 5.1 sitting A done (plan steps 0, 1, 2; details in the
-section below). Next is sitting B (steps 3-4: checks S1, S2, K0, K1, K2, K5, `run_tripwires`, guards). The ceiling
-arm was not touched: `campaign.log`, the call log, `data/rescore/` and every `skeptic_d` audit were not read, no
+**Stopped at (2026-11-14, second build session, Opus):** Mission 5.1 sittings A and B done (plan steps 0-4;
+details in the two sections below). Next is sitting C (steps 5-7: K3, K4, K6, L1 and the verdict, advisory A1, the
+development runner `eval/tripwires_dev.py`). In both sessions the ceiling arm was not touched: `campaign.log`, the call log, `data/rescore/` and every `skeptic_d` audit were not read, no
 cloud call was made, no frozen file was edited, nothing was written inside `data/runs/` or to the ledger; "Lock
 check: OK" at the start and at the end. The arm L repeat pass (14 of 20) is still the student's job tonight.
 Mission 2.4 is the last mission complete.
+
+## Mission 5.1 sitting B (2026-11-14, Opus): plan steps 3-4 built
+- **Step 3, checks and record** (`canary/tripwires.py`): S1 split sizes, S2 class balance (static, from
+  `results.json`, `config.yaml`, the dataset); K0 replay fidelity, K1 data in, K2 fit scope, K5 scoring (on the
+  replay's trace). Each check's docstring states its invariant and each returns `ok`, `fired` or `unverifiable` with
+  a counted evidence sentence. `run_tripwires(run_dir, replay=True)` returns the record of plan section 2.4 (verdict
+  `flag` if anything is `fired` or `unverifiable`; class from the first fired check along the chain; K3, K4, K6, L1
+  listed as `not_built`; `tier` static or replay; `version` = `v1:` + SHA-256 of the three sources). It writes
+  nothing. `python -m canary.tripwires <run_dir> [--no-replay] [--json]`.
+  - Fast: 20 hand-written-trace tests (each check `ok` / `fired` / `unverifiable`, evidence counts asserted).
+  - Slow, `pytest -m slow tests/test_tripwires.py`: **107 passed** (first run, before the challenge fixes; rerun
+    below). Three configs, 2 seeds each: `blood-transfusion` (natural duplicates, 3.2:1, binary f1), `wine` (3
+    classes, balanced accuracy), `breast_cancer` (svm + scaler, roc_auc). All 36 canaries (both tiers of B01, B02,
+    B03, B07, B08, B10 on each config, all applicable) flag on the check the design names (B01 K2, B02 K1, B03 K5,
+    B07 K1, B08 K5, B10 K5), with the class named and no check `unverifiable`. Clean, sham and padded clean scripts
+    (9 runs) and all 20 decoys on each config (60 runs) pass every built check. The same run gives the same record.
+  - Done-when: `python -m canary.tripwires <fresh baseline run>` printed `verdict: pass` with all six built checks
+    `ok`; on a B10 obvious canary of the same config: `verdict: flag (suspected B10)`, `K5: f1_score (call 6, seed 0)
+    scores 141 of the 143 test pairs: 2 left out`. Both runs were made in a scratch folder, not in `data/runs/`.
+- **Step 4, guards** (`tests/test_tripwire_guards.py`, fast except one): import allow-lists (`probe.py` imports
+  nothing from `canary`; `replay.py` codegen, probe, sandbox; `tripwires.py` codegen, datasets, probe, replay,
+  sandbox); no import chain reaches `sealed`, `controls`, `mixer`, `trust`, `padding`, `ledger` or `saboteur`
+  (`reachable_modules` from `tests/test_skeptic.py`); the sources never say `sealed.db`, `run_types`, `run_type`,
+  `sealed_plans`, `twins`; no identifier or text constant that a transform, a decoy or the padding adds to a rendered
+  script (found from the syntax trees) appears as an identifier or constant in the three sources; every check
+  docstring starts "Invariant:"; (slow) a full `run_tripwires` beside a filled sealed table, a twins folder and a
+  sealed plan opens no database and leaves the run folder byte-identical.
+  - The vocabulary guard found 8 real overlaps, all local names in my code (`column`, `order`, `value`, `rows`,
+    `wrong`, `config`, the keyword `deep=`, the text `"none"`); renamed (`series`, `positions`, `item`, `entering`,
+    `mislabelled`, `registered`, positional `get_params(False)`, `"no calls recorded"`). Left out of that comparison,
+    stated in the test: Python, numpy (with `np.dtype`, so `kind`) and pandas vocabulary, and names of 2 characters
+    or fewer.
+- **Own /challenge, 5 points:** (1) fixed: an error inside a check, or a missing or unreadable `config.yaml`,
+  dataset or trace, raised out of `run_tripwires` and would stop a batch; now that check is `unverifiable` (fail
+  closed), with a test. (2) fixed: K5 linked a metric to the latest prediction with the same values; equal vectors
+  predicted on different rows (a constant classifier) are now `unverifiable` instead of a guess, with a test (a
+  second `predict` on the same rows stays `ok`). (3) fixed: a `--no-replay` "pass" vouches only for S1 and S2; the
+  record now says `tier: static`. (4) stated, not changed: K1 encodes the template's protocol (one stratified split
+  per registered seed, label 1 = minority class); correct code on another protocol fires (plan section 5, measured on
+  benign rewrites in Mission 6.2). (5) stated: the vocabulary guard's exclusions mean a saboteur name that is also a
+  numpy or pandas word would not be caught; no such name is in the tripwire code today.
+- **End checks:** `pytest -q` 757 passed in 22.1 s twice; `pytest -m slow` 242 passed in 300 s (includes the 107 real-run tripwire cases again, after the renames and fixes); `eval.ceiling_lock --check`
+  "Lock check: OK" at the start and the end; `ledger verify` OK (2072 entries).
 
 ## Mission 5.1 sitting A (2026-11-14, Opus): plan steps 0-2 built
 - **Step 0, room in the test suite:** 16 secondary test functions (24 test items) of 0.2-1.5 s each marked `slow`
@@ -460,10 +506,11 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
    section 8).
 2. **Fable reads `arm_L.json` (`/evaluate`)**: SOLVABLE / HARD / INCONCLUSIVE, the focus-level sensitivity, the repeat
    pass; arm R only if arm L is not SOLVABLE.
-3. **Opus: Mission 5.1 sitting B** (plan steps 3-4: checks S1, S2, K0, K1, K2, K5 and `run_tripwires`, then the
-   guard tests). Sitting A is done (2026-11-14). New files only; lock check before and after the session.
+3. **Opus: Mission 5.1 sitting C** (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the development
+   runner `eval/tripwires_dev.py` on `task-dev-2`). Sittings A and B are done (2026-11-14). New files only; lock
+   check before and after the session.
 
-Next missions after the ceiling check: 5.1 tripwires (sitting A of 4 built), 3.1 graveyard, 3.2 calibration.
+Next missions after the ceiling check: 5.1 tripwires (sittings A and B of 4 built), 3.1 graveyard, 3.2 calibration.
 Known issues: cloud replies are not repeatable word for word at temperature 0 (verdict held on the smoke run);
 Gemini's real limits unknown (only needed for arm R).
 

@@ -202,6 +202,28 @@ def test_k5_links_a_probability_column_and_is_unverifiable_without_a_prediction(
     assert tw.check_k5_scoring(context()).status == tw.UNVERIFIABLE  # no metric call at all
 
 
+def test_k5_is_unverifiable_when_equal_predictions_came_from_different_rows():
+    # A constant classifier gives [1, 1] on the test rows and on two training rows: which rows were scored is unknown.
+    events = [est(1, "fit", 9, FEATURES.iloc[TRAIN], Y[TRAIN]),
+              est(2, "predict", 9, FEATURES.iloc[[0, 1]], values=[1, 1]),
+              est(3, "predict", 9, FEATURES.iloc[TEST], values=[1, 1]), metric(4, Y[TEST], [1, 1])]
+    check = tw.check_k5_scoring(context(*events))
+    assert check.status == tw.UNVERIFIABLE and "different rows" in check.evidence
+    same_rows = events[:1] + [est(2, "predict", 9, FEATURES.iloc[TEST], values=[1, 1])] + events[2:]
+    assert tw.check_k5_scoring(context(*same_rows)).status == tw.OK  # a second predict on the same rows is fine
+
+
+def test_an_error_inside_a_check_or_a_missing_file_is_unverifiable_not_a_crash(tmp_path):
+    def broken(_):
+        raise KeyError("seeds")
+
+    check = tw._guarded(broken, None)
+    assert check.status == tw.UNVERIFIABLE and "broken could not run" in check.evidence
+    record = tw.run_tripwires(tmp_path, replay=False)  # an empty folder: nothing can be read
+    assert record["verdict"] == "flag" and record["bug_class"] is None and record["tier"] == "static"
+    assert {c["status"] for n, c in record["checks"].items() if n in ("S1", "S2")} == {tw.UNVERIFIABLE}
+
+
 def test_the_verdict_fails_closed_and_the_first_link_names_the_class():
     ok, fired_s1, fired_k1 = tw.Check(tw.OK, "fine"), tw.Check(tw.FIRED, "rows", "B07"), tw.Check(tw.FIRED, "x", "B02")
     record = tw.summarize({"S1": fired_s1, "K1": fired_k1, "K2": ok}, {"status": "ok", "seconds": 1.0})
@@ -324,5 +346,5 @@ def test_the_same_run_always_gives_the_same_record(records):
 def test_the_static_tier_runs_without_executing_anything(records):
     run_dir = records[_key("canary", ("wine", "B07", "obvious"))]["run_dir"]
     record = tw.run_tripwires(run_dir, replay=False)
-    assert record["replay"]["status"] == tw.SKIPPED and "K0" not in record["checks"]
+    assert record["replay"]["status"] == tw.SKIPPED and "K0" not in record["checks"] and record["tier"] == "static"
     assert record["checks"]["S1"]["status"] == tw.FIRED and record["bug_class"] == "B07"

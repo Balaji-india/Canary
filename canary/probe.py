@@ -75,34 +75,34 @@ def _number_words(values) -> np.ndarray:
     return words
 
 
-def _text_word(value) -> int:
-    digest = hashlib.blake2b(str(value).encode("utf-8", "surrogatepass"), digest_size=8, person=b"text")
+def _text_word(item) -> int:
+    digest = hashlib.blake2b(str(item).encode("utf-8", "surrogatepass"), digest_size=8, person=b"text")
     return int.from_bytes(digest.digest(), "little")
 
 
-def _is_missing(value) -> bool:
-    return value is None or value is pd.NA or (isinstance(value, float) and value != value)
+def _is_missing(item) -> bool:
+    return item is None or item is pd.NA or (isinstance(item, float) and item != item)
 
 
 def _object_words(values) -> np.ndarray:
     """Words for values of mixed type: numbers as numbers (so 1, 1.0 and True agree), anything else as text."""
     words = np.empty(len(values), dtype=np.uint64)
-    for i, value in enumerate(values):
-        if _is_missing(value):
+    for i, item in enumerate(values):
+        if _is_missing(item):
             words[i] = _NAN_WORD
-        elif isinstance(value, (int, float, np.integer, np.floating, np.bool_)):
-            words[i] = _number_words([value])[0]
+        elif isinstance(item, (int, float, np.integer, np.floating, np.bool_)):
+            words[i] = _number_words([item])[0]
         else:
-            words[i] = _text_word(value)
+            words[i] = _text_word(item)
     return words
 
 
-def _column_words(column) -> np.ndarray:
-    if isinstance(column, pd.Series):
-        if pd.api.types.is_numeric_dtype(column.dtype) and not pd.api.types.is_complex_dtype(column.dtype):
-            return _number_words(column.to_numpy(dtype=np.float64, na_value=np.nan))
-        return _object_words(column.to_numpy(dtype=object))
-    array = np.asarray(column)
+def _column_words(series) -> np.ndarray:
+    if isinstance(series, pd.Series):
+        if pd.api.types.is_numeric_dtype(series.dtype) and not pd.api.types.is_complex_dtype(series.dtype):
+            return _number_words(series.to_numpy(dtype=np.float64, na_value=np.nan))
+        return _object_words(series.to_numpy(dtype=object))
+    array = np.asarray(series)
     if array.dtype.kind in "biuf":
         return _number_words(array)
     return _object_words(array.astype(object))
@@ -111,8 +111,8 @@ def _column_words(column) -> np.ndarray:
 def _word_matrix(data) -> np.ndarray:
     """An (n rows, n columns) array of words. Data frames: columns in name order, index ignored."""
     if isinstance(data, pd.DataFrame):
-        order = sorted(range(data.shape[1]), key=lambda i: str(data.columns[i]))
-        columns = [_column_words(data.iloc[:, i]) for i in order]
+        positions = sorted(range(data.shape[1]), key=lambda i: str(data.columns[i]))
+        columns = [_column_words(data.iloc[:, i]) for i in positions]
         n_rows = len(data)
     elif isinstance(data, pd.Series):
         columns, n_rows = [_column_words(data)], len(data)
@@ -170,27 +170,27 @@ def describe(data, values: bool = False) -> dict | None:
     return info
 
 
-def _is_data(value) -> bool:
-    return isinstance(value, (np.ndarray, pd.Series, pd.DataFrame)) or hasattr(value, "toarray")
+def _is_data(thing) -> bool:
+    return isinstance(thing, (np.ndarray, pd.Series, pd.DataFrame)) or hasattr(thing, "toarray")
 
 
-def plain(value, depth: int = 0):
+def plain(item, depth: int = 0):
     """A JSON-friendly copy of a parameter or keyword value. Estimators become their class and parameters."""
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
-    if isinstance(value, np.generic):
-        return value.item()
+    if item is None or isinstance(item, (bool, int, float, str)):
+        return item
+    if isinstance(item, np.generic):
+        return item.item()
     if depth >= _PARAM_DEPTH:
-        return {"repr": repr(value)[:200]}
-    if _is_data(value):
-        return {"data": describe(value)}
-    if isinstance(value, (list, tuple)):
-        return [plain(v, depth + 1) for v in value]
-    if isinstance(value, dict):
-        return {str(k): plain(v, depth + 1) for k, v in value.items()}
-    if hasattr(value, "get_params") and not isinstance(value, type):
-        return {"estimator": _class_name(value), "params": _params_of(value, depth + 1)}
-    return {"repr": repr(value)[:200]}
+        return {"repr": repr(item)[:200]}
+    if _is_data(item):
+        return {"data": describe(item)}
+    if isinstance(item, (list, tuple)):
+        return [plain(v, depth + 1) for v in item]
+    if isinstance(item, dict):
+        return {str(k): plain(v, depth + 1) for k, v in item.items()}
+    if hasattr(item, "get_params") and not isinstance(item, type):
+        return {"estimator": _class_name(item), "params": _params_of(item, depth + 1)}
+    return {"repr": repr(item)[:200]}
 
 
 def _class_name(obj) -> str:
@@ -199,7 +199,7 @@ def _class_name(obj) -> str:
 
 def _params_of(obj, depth: int = 0):
     try:
-        return plain(obj.get_params(deep=False), depth)
+        return plain(obj.get_params(False), depth)
     except Exception as exc:
         return {"error": repr(exc)}
 
@@ -340,14 +340,14 @@ def _estimator_classes():
     for module_name, module in list(sys.modules.items()):
         if not (module_name == "sklearn" or module_name.startswith("sklearn.")) or module is None:
             continue
-        for value in list(vars(module).values()):
+        for member in list(vars(module).values()):
             try:
-                is_estimator = isinstance(value, type) and issubclass(value, BaseEstimator)
+                is_estimator = isinstance(member, type) and issubclass(member, BaseEstimator)
             except TypeError:
                 continue
             if not is_estimator:
                 continue
-            for klass in value.__mro__:
+            for klass in member.__mro__:
                 if klass not in seen and klass.__module__.startswith("sklearn"):
                     seen.add(klass)
                     found.append(klass)
