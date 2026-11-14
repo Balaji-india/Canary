@@ -126,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     same = numbers_identical(stored, result.results)
     print(f"numbers identical: {'yes' if same else 'no'}" + (f" ({problem})" if stored is None else ""))
     counts = event_counts(result.trace)
-    print("events: " + (", ".join(f"{name} {n}" for name, n in sorted(counts.items())) or "none"))
+    print("events: " + (", ".join(f"{name} {n}" for name, n in sorted(counts.items())) or "no calls recorded"))
     if result.status != sandbox.STATUS_OK and result.stderr_tail:
         print(result.stderr_tail.rstrip()[-600:])
     return 0 if result.status == sandbox.STATUS_OK and same else 1
