@@ -191,6 +191,7 @@ def test_reaudit_reviews_only_the_batch_and_logs_like_a_batch(tmp_path, stores):
 
 # --- RQ1 for another role --------------------------------------------------------------------------------------------
 
+@pytest.mark.slow
 def test_another_roles_audits_leave_skeptic_a_numbers_unchanged(stores, monkeypatch):
     from tests.test_rq1 import small_batch
 

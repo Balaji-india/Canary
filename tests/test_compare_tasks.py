@@ -84,6 +84,7 @@ def test_the_pass_rule_is_the_lower_bound_above_zero_and_nothing_else(stores):
     assert c["passes_screen"] is False
 
 
+@pytest.mark.slow
 def test_other_batches_and_other_roles_are_left_out(stores):
     table, led = stores
     seal_and_audit(table, led, "skeptic_a", runs([True] * 4, [False] * 4), batch="other")

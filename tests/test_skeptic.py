@@ -300,6 +300,7 @@ def test_failed_audit_is_recorded_with_its_run_and_kind_and_stays_waiting(tmp_pa
     assert len(skeptic.audit_pending(client, led, runs).audited) == 1
 
 
+@pytest.mark.slow
 def test_oversized_prompt_is_recorded_as_its_own_kind(tmp_path, led):
     runs = tmp_path / "runs"
     add_ran_run(led, runs, script="x = 1\n" * 20000)

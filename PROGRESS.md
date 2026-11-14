@@ -50,8 +50,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 
 **M5 Defense in depth**
 - [ ] 5.1 Tripwires
-  - Designed, not built (2026-11-13, `docs/plans/mission_5_1_tripwires.md`: design, self-review, 12 build steps);
-    waits for the student's OK on its section 12. The 2026-11-10 outline is superseded.
+  - Designed 2026-11-13 (`docs/plans/mission_5_1_tripwires.md`), decisions approved the same day.
+  - **Sitting A built 2026-11-14 (plan steps 0-2):** test-suite room, `canary/probe.py` + `canary/replay.py` proven
+    transparent (go), pair arithmetic in `canary/tripwires.py`. No check exists yet; sittings B-D and step 11 remain.
 - [ ] 5.2 Skeptic B and jury
 - [ ] 5.3 Replication gate
 - [ ] 5.4 RQ2 and RQ3
@@ -77,12 +78,55 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 **Current focus:** Cloud ceiling check, arm L: main pass done (120 of 120); repeat pass 14 of 20; finish and analysis Sat 2026-11-14 after 7:15 PM IST
 
-**Stopped at (2026-11-13, design session, Fable):** Mission 5.1 designed, challenged and planned in
-`docs/plans/mission_5_1_tripwires.md`; nothing built, no code or test file changed, so the tests were not re-run
-(last run 2026-11-12: 718 passed in 29.7 s, at the limit). The ceiling arm was not touched: `campaign.log`, the call
-log and every `skeptic_d` audit or result were not read, and no frozen file was edited. Arm L is as day 1 left it
-(2026-11-12: 67 answered, 53 not asked yet, 0 failed, "Lock check: OK"); day 2 is the student's window tonight.
+**Stopped at (2026-11-14, build session, Opus):** Mission 5.1 sitting A done (plan steps 0, 1, 2; details in the
+section below). Next is sitting B (steps 3-4: checks S1, S2, K0, K1, K2, K5, `run_tripwires`, guards). The ceiling
+arm was not touched: `campaign.log`, the call log, `data/rescore/` and every `skeptic_d` audit were not read, no
+cloud call was made, no frozen file was edited, nothing was written inside `data/runs/` or to the ledger; "Lock
+check: OK" at the start and at the end. The arm L repeat pass (14 of 20) is still the student's job tonight.
 Mission 2.4 is the last mission complete.
+
+## Mission 5.1 sitting A (2026-11-14, Opus): plan steps 0-2 built
+- **Step 0, room in the test suite:** 16 secondary test functions (24 test items) of 0.2-1.5 s each marked `slow`
+  (none deleted): 6 in
+  `test_saboteur.py` (the per-model and "measured for real" effect checks; the 20 oracle proofs stay in the default
+  run), 4 in `test_mixer.py` (resume, status line, clone), and one each in `test_rq1`, `test_confirm`, `test_skeptic`,
+  `test_compare_tasks`, `test_reviewer_study`, `test_rescore`. Before: 718 passed in 28.7-29.1 s. After step 0:
+  694 passed in 24.9 s and 22.8 s (done when: at most 26 s twice). `pytest.ini`'s marker text updated to match.
+- **Step 1, probe and replay:** `canary/probe.py` (standard library, numpy, pandas, scikit-learn only; never imports
+  `canary`) wraps `train_test_split`, 8 methods on every loaded estimator class and every `sklearn.metrics`
+  function whose first parameter is `y_true`; records script-level calls only (caller is the script file, no
+  recorded call running). Conditional methods (`available_if`: `SVC`, `Pipeline`, `GridSearchCV`) are wrapped by a
+  descriptor that asks the original first, so `hasattr` is unchanged. `canary/replay.py`: `replay(run_dir)` copies
+  `experiment.py` and `dataset.csv.gz` to a new temporary folder, runs the probe there with `sandbox.run_script`
+  (same timeout), returns status, results, trace, seconds, and removes the folder; `python -m canary.replay`.
+  - **Go / no-go: GO.** `pytest -m slow tests/test_probe.py`: 28 passed. Replayed numbers equal a plain sandbox run's
+    exactly on all 7 models x 4 metrics (16 configs on `breast_cancer`, scalers rotating, svm with and without
+    probability), plus `wine` (macro F1), `credit-g` (13 text columns, one-hot) and `blood-transfusion` (natural
+    duplicates); `hasattr(..., "predict_proba")` answers as without the probe on `SVC`, `Pipeline` and
+    `GridSearchCV`; the run folder is byte-identical after a replay (SHA-256 of all 7 files) and the temporary
+    folder is gone; per seed the trace holds 1 split and, per arm, `fit_transform`, `transform`, `fit`, the
+    prediction call and 1 metric call, nothing from inside the pipeline; the B04 obvious decoy's grid search is 1
+    `fit` per seed with no internal metric or `score` call; a crash and a timeout are recorded statuses.
+  - Done-when: `python -m canary.replay <fresh baseline run>` printed `replay: ok in 3.2 s`, `numbers identical:
+    yes`, `events: fit 10, fit_transform 10, metric 10, predict 10, split 5, transform 10`. The fresh run was made
+    with `sandbox.run_config` (what `run-config` calls) in a scratch folder, not in `data/runs/` (rule: no writes
+    there while the ceiling arm is open).
+- **Step 2, fingerprints and pairs:** `probe.row_fingerprints` (numbers as float64 with -0.0 = 0.0 and one NaN
+  pattern, other values as text, index ignored, data-frame columns in name order). `tripwires.build_context` cuts a
+  trace into seeds and pushes each seed's training and test (row, label) multisets through every row-preserving
+  call; `tripwires.relate` answers `test`, `test_subset`, `train`, `train_subset`, `needs_test_rows` (with the count)
+  or `unknown`. 16 fast hand-computed tests (`tests/test_tripwire_pairs.py`) + 8 fast fingerprint tests.
+- **Own /challenge, fixed:** (1) transparency was shown on numeric data only: added `credit-g` and
+  `blood-transfusion` cases (both pass); (2) pairs that fit inside both a test and a training stage (natural
+  duplicates) were silently called `test_subset`: `Relation.ambiguous` now says so, with a test; (3) a stage's
+  fingerprint counts were rebuilt at every look: computed once; (4) a replay is a few tenths of a second slower
+  under the same timeout, so a run near the timeout can time out on replay: written into `replay.py` (it is a
+  recorded `timeout`, never a pass); (5) `pytest.ini` said `slow` means 0.5 s or more, no longer true: corrected.
+  Not fixed, stated: estimator classes first imported while the script runs are not wrapped (their calls are
+  missing, which the checks will treat as unverifiable); the script runs in the probe's process (accidents, not
+  attacks).
+- **End checks:** `pytest -q` 718 passed in 21.9 s and 21.7 s; `pytest -m slow` 134 passed in 174 s; `eval.ceiling_lock
+  --check` "Lock check: OK" (start and end); `ledger verify` OK (2072 entries).
 
 ## Arm L status (2026-11-13, evening, student's window)
 - **Main pass complete:** 120 of 120 answered, 0 failed, "Lock check: OK", server model `openai/gpt-oss-120b` only
@@ -416,10 +460,10 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
    section 8).
 2. **Fable reads `arm_L.json` (`/evaluate`)**: SOLVABLE / HARD / INCONCLUSIVE, the focus-level sensitivity, the repeat
    pass; arm R only if arm L is not SOLVABLE.
-3. **Opus: Mission 5.1 sitting A** (decisions approved 2026-11-13; plan steps 0-2: room in the test suite, the probe
-   with its transparency test, pair arithmetic). New files only; lock check after the session.
+3. **Opus: Mission 5.1 sitting B** (plan steps 3-4: checks S1, S2, K0, K1, K2, K5 and `run_tripwires`, then the
+   guard tests). Sitting A is done (2026-11-14). New files only; lock check before and after the session.
 
-Next missions after the ceiling check: 5.1 tripwires (approved, not built), 3.1 graveyard, 3.2 calibration.
+Next missions after the ceiling check: 5.1 tripwires (sitting A of 4 built), 3.1 graveyard, 3.2 calibration.
 Known issues: cloud replies are not repeatable word for word at temperature 0 (verdict held on the smoke run);
 Gemini's real limits unknown (only needed for arm R).
 
@@ -1106,4 +1150,4 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
    whose results we have seen.
 3. **`/mission 5.1` (deterministic tripwires)**, the main defence whatever the ceiling check says; then Mission 3.1.
    Needs the student's OK on the design first (`docs/plans/mission_5_1_tripwires.md`, section 12).
-4. Housekeeping: `pytest -q` takes 30-35 s, over the 30 s target; trim or mark more tests slow.
+4. Housekeeping: done 2026-11-14 (`pytest -q` 718 passed in about 22 s; 16 more test functions marked `slow`).

@@ -68,6 +68,7 @@ def test_chance_simulation_centres_on_the_flag_rate(stores):
     assert low < 0.5 < high and low > 0.05 and high < 0.95
 
 
+@pytest.mark.slow
 def test_flag_everything_reviewer_is_exactly_at_chance_and_j_is_low(stores):
     """The reason for the baseline: this reviewer has any-flag recall 1 and has learned nothing."""
     for _ in range(10):

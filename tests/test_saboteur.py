@@ -234,6 +234,7 @@ def test_oracle_sees_the_bug_only_in_the_sabotaged_script(bug_id, tier, workdir,
     assert sandbox.validate_results(results, sabotaged.config) is None
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("tier", ["obvious", "subtle"])
 def test_b01_leaky_fit_is_the_one_the_model_uses(tier, workdir, monkeypatch):
     """A train-only refit after the leak would undo it exactly, so there must be none, and the model's inputs must change."""
@@ -254,6 +255,7 @@ def mean_score(config, script, arm, monkeypatch):
     return np.mean(execute(script, monkeypatch)[1][arm])
 
 
+@pytest.mark.slow
 def test_b02_subtle_helps_without_a_perfect_score(workdir, monkeypatch):
     config = make_config()
     clean = mean_score(config, codegen.render_script(config), "treatment", monkeypatch)
@@ -261,6 +263,7 @@ def test_b02_subtle_helps_without_a_perfect_score(workdir, monkeypatch):
     assert clean < planted < 1.0
 
 
+@pytest.mark.slow
 def test_b09_subtle_lowers_the_control_when_measured_for_real(workdir, monkeypatch):
     config = make_config()
     monkeypatch.setattr(transforms, "_control_score", lambda c: mean_score(c, codegen.render_script(c), "control", monkeypatch))
@@ -298,6 +301,7 @@ def test_b09_subtle_refused_when_nothing_weakens_the_control(workdir, monkeypatc
         transforms.sabotage(make_config(), "B09", "subtle")
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("tier", ["obvious", "subtle"])
 def test_b10_raises_the_score_and_keeps_every_class(tier, workdir, monkeypatch):
     config = make_config()
@@ -312,6 +316,7 @@ def test_catalog_and_transforms_cover_the_same_20_variants():
     assert len(transforms.TRANSFORMS) == 20
 
 
+@pytest.mark.slow
 def test_tiers_of_a_class_are_different_bugs(workdir):
     for bug_id in classes.catalog():
         config = config_for(bug_id, "subtle")
@@ -349,6 +354,7 @@ def test_sabotaged_script_never_imports_canary(bug_id, tier, workdir):
     assert "canary" not in roots
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("model,params", [
     ("logistic_regression", {"C": 1.0, "max_iter": 500}), ("random_forest", {"n_estimators": 5}),
     ("gradient_boosting", {"n_estimators": 5}), ("svm", {"C": 1.0}), ("knn", {"n_neighbors": 5}),
