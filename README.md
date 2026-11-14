@@ -10,8 +10,9 @@
 but the review task itself is solvable: in a pre-registered check, the cloud model `openai/gpt-oss-120b` (free tier)
 flagged 46 of 60 buggy runs and 0 of 60 clean ones (Youden's J +0.767, 97.5% interval [+0.643, +0.891]). This holds
 for this model, at these settings, with this prompt, on Canary's own planted bugs; it missed almost every metric-misuse and
-weak-baseline bug. Next: Mission 5.1 (deterministic tripwires, 2 of 4 sittings built), then Mission 4 with the
-cloud reviewer and the tripwires together.
+weak-baseline bug. Real runs can carry only those two kinds of bug, so the Mission 4 reviewer is the
+cloud model and the deterministic tripwires together, with a proposal-time guard for weak baselines. Next: the guard
+and Mission 4.1 design, then Mission 5.1 (tripwires, 2 of 4 sittings built).
 
 ---
 

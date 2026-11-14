@@ -83,7 +83,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 
 **Stopped at (2026-11-14, evening, Fable):** arm L analysed once and read (section below): SOLVABLE for
 `openai/gpt-oss-120b`; arm R not needed. Breakdown tables, `/challenge` and the Mission 4 recommendation are written below.
-Open for the student: accept or change the Mission 4 reviewer recommendation. Mission 5.1 sittings A and B are done
+Mission 4 reviewer decided by the student (Decisions): union of `skeptic_d` and the tripwires, plus a drift sentinel set. Mission 5.1 sittings A and B are done
 (plan steps 0-4); next is sitting C (steps 5-7: K3, K4, K6, L1 and the verdict, advisory A1, the development runner
 `eval/tripwires_dev.py`). The ceiling files stay frozen until the tripwire test on `ceiling-ext` is done.
 Mission 2.4 is the last mission complete.
@@ -669,12 +669,12 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-1. **Opus: Mission 5.1 sitting C** (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the development
+1. **Sun 2026-11-15, Fable: design the B09 proposal guard and the Mission 4.1 approach** (how recall is applied
+   to real runs, which carry only B06 and B09; see Known issues).
+2. **Opus: Mission 5.1 sitting C** (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the development
    runner `eval/tripwires_dev.py` on `task-dev-2`). New files only; lock check before and after the session.
-2. **Student: decide the Mission 4 reviewer setup** (recommendation in the arm L section: the union of `openai/gpt-oss-120b`
-   and the tripwires, each logged alone; B09 handled at proposal time; a sentinel set for drift).
-3. **Mission 5.1 sitting D**, then the efficiency search (PLAN.md step 10: a cheaper or local reviewer on its own
-   fresh locked batch from a new pool 3). The efficiency search does not block Mission 4.
+3. **Mission 5.1 sitting D: the locked 360-run tripwire test.** After that, the efficiency search (PLAN.md step 10,
+   on a new pool 3); it does not block Mission 4.
 
 Done 2026-11-14: repeat pass finished (20 of 20), lock check OK, `eval.ceiling --arm L` once (SOLVABLE),
 `/evaluate` with breakdown tables and `/challenge`.
@@ -1041,6 +1041,11 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   `reaudit --batch ceiling-ext --role skeptic_d`. No partial analysis while it is open.
 
 ## Decisions
+- **Mission 4 reviewer (student, 2026-11-14):** the union of `openai/gpt-oss-120b` (`skeptic_d`) and the tripwires: a
+  run is flagged if either flags it, and each is also logged alone. Plus a **drift sentinel set**: the same
+  already-reviewed runs re-asked regularly with the cache bypassed (the repeat-pass mechanism), so a verdict change
+  means the reviewer changed. The union's recall and specificity are **expected, not measured**, until the locked
+  tripwire test (Mission 5.1 sitting D).
 - **Ceiling design fixed by the student's rule (2026-11-11, second session):** the rule (qualify under verdict ICC 0.1,
   0.2 and 0.4 with power >= 0.80 at J 0.70 and false-positive bound <= 0.05 at J 0.40; least strict level per design;
   fewest calls) was given before the simulations ran and picked **2 cells (baseline prompt only), 97.5%, 120 runs**
@@ -1253,6 +1258,13 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
+- **Real runs carry only the classes the LLM misses (student, 2026-11-14).** Real Scientist runs are rendered from the
+  template, so they can carry only config-level bugs: B06 and B09. Those are exactly the classes `skeptic_d` missed
+  on arm L (B06 0/6, B09 1/6). So for real runs: **B06** is covered by the tripwire rule (L1) on every run, not by
+  the LLM; **B09** needs a **proposal-time guard** (check before running that the control is not crippled), since no
+  tripwire and almost no LLM catch exist. **Mission 4.1 must account for this**: the canary recall averaged over 10
+  classes is not the recall that applies to real runs; what applies is the recall on B06 and B09 (with the rule
+  and the guard). Union numbers stay expected, not measured, until sitting D.
 - **Under the template, real runs cannot contain a code-level bug (found in the Mission 5.1 design, 2026-11-13).**
   Real scripts are rendered from the template, so only config-level problems can occur in them (accuracy on
   imbalanced data, a weak baseline). Consequences: tripwire recall on canaries says little about real runs; the
