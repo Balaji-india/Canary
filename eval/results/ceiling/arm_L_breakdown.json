@@ -1,0 +1,1025 @@
+{
+ "arm": "L",
+ "role": "skeptic_d",
+ "models": [
+  "openai/gpt-oss-120b"
+ ],
+ "generated_at": "2026-11-14T14:00:57.579410+00:00",
+ "arm_file_outcome": "SOLVABLE",
+ "totals_match_arm_file": true,
+ "status": "exploratory: not pre-registered, small groups, decides nothing",
+ "interval": "95% Jeffreys per proportion, clustering ignored",
+ "recall": {
+  "overall": {
+   "hits": 46,
+   "of": 60,
+   "value": 0.7666666666666667,
+   "interval_95_jeffreys": [
+    0.6488029497723009,
+    0.8595156652010473
+   ]
+  },
+  "by_class": {
+   "B01": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B02": {
+    "hits": 5,
+    "of": 6,
+    "value": 0.8333333333333334,
+    "interval_95_jeffreys": [
+     0.44194322639075173,
+     0.9813798728805578
+    ]
+   },
+   "B03": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B04": {
+    "hits": 5,
+    "of": 6,
+    "value": 0.8333333333333334,
+    "interval_95_jeffreys": [
+     0.44194322639075173,
+     0.9813798728805578
+    ]
+   },
+   "B05": {
+    "hits": 5,
+    "of": 6,
+    "value": 0.8333333333333334,
+    "interval_95_jeffreys": [
+     0.44194322639075173,
+     0.9813798728805578
+    ]
+   },
+   "B06": {
+    "hits": 0,
+    "of": 6,
+    "value": 0.0,
+    "interval_95_jeffreys": [
+     0.0,
+     0.33038890915155006
+    ]
+   },
+   "B07": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B08": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B09": {
+    "hits": 1,
+    "of": 6,
+    "value": 0.16666666666666666,
+    "interval_95_jeffreys": [
+     0.01862012711944218,
+     0.5580567736092483
+    ]
+   },
+   "B10": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   }
+  },
+  "by_tier": {
+   "obvious": {
+    "hits": 25,
+    "of": 30,
+    "value": 0.8333333333333334,
+    "interval_95_jeffreys": [
+     0.6725722483365388,
+     0.933426046432545
+    ]
+   },
+   "subtle": {
+    "hits": 21,
+    "of": 30,
+    "value": 0.7,
+    "interval_95_jeffreys": [
+     0.5234557972175782,
+     0.8400068115915281
+    ]
+   }
+  },
+  "by_class_and_tier": {
+   "B01 obvious": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B01 subtle": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B02 obvious": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B02 subtle": {
+    "hits": 2,
+    "of": 3,
+    "value": 0.6666666666666666,
+    "interval_95_jeffreys": [
+     0.1767360971312574,
+     0.9612523822148348
+    ]
+   },
+   "B03 obvious": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B03 subtle": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B04 obvious": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B04 subtle": {
+    "hits": 2,
+    "of": 3,
+    "value": 0.6666666666666666,
+    "interval_95_jeffreys": [
+     0.1767360971312574,
+     0.9612523822148348
+    ]
+   },
+   "B05 obvious": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B05 subtle": {
+    "hits": 2,
+    "of": 3,
+    "value": 0.6666666666666666,
+    "interval_95_jeffreys": [
+     0.1767360971312574,
+     0.9612523822148348
+    ]
+   },
+   "B06 obvious": {
+    "hits": 0,
+    "of": 3,
+    "value": 0.0,
+    "interval_95_jeffreys": [
+     0.0,
+     0.5355832430429502
+    ]
+   },
+   "B06 subtle": {
+    "hits": 0,
+    "of": 3,
+    "value": 0.0,
+    "interval_95_jeffreys": [
+     0.0,
+     0.5355832430429502
+    ]
+   },
+   "B07 obvious": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B07 subtle": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B08 obvious": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B08 subtle": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B09 obvious": {
+    "hits": 1,
+    "of": 3,
+    "value": 0.3333333333333333,
+    "interval_95_jeffreys": [
+     0.038747617785165195,
+     0.8232639028687426
+    ]
+   },
+   "B09 subtle": {
+    "hits": 0,
+    "of": 3,
+    "value": 0.0,
+    "interval_95_jeffreys": [
+     0.0,
+     0.5355832430429502
+    ]
+   },
+   "B10 obvious": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   },
+   "B10 subtle": {
+    "hits": 3,
+    "of": 3,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.46441675695704976,
+     1.0
+    ]
+   }
+  },
+  "by_batch": {
+   "ceiling-ext": {
+    "hits": 29,
+    "of": 40,
+    "value": 0.725,
+    "interval_95_jeffreys": [
+     0.5745142411047294,
+     0.8442446433933797
+    ]
+   },
+   "task-dev-2": {
+    "hits": 17,
+    "of": 20,
+    "value": 0.85,
+    "interval_95_jeffreys": [
+     0.651422289141546,
+     0.9558686580248441
+    ]
+   }
+  },
+  "by_dataset": {
+   "blood-transfusion-service-center": {
+    "hits": 5,
+    "of": 5,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6206228577009607,
+     1.0
+    ]
+   },
+   "breast_cancer": {
+    "hits": 6,
+    "of": 7,
+    "value": 0.8571428571428571,
+    "interval_95_jeffreys": [
+     0.4992025383809224,
+     0.9841234757872532
+    ]
+   },
+   "credit-g": {
+    "hits": 6,
+    "of": 8,
+    "value": 0.75,
+    "interval_95_jeffreys": [
+     0.40837648942666255,
+     0.9440331102753412
+    ]
+   },
+   "diabetes": {
+    "hits": 5,
+    "of": 8,
+    "value": 0.625,
+    "interval_95_jeffreys": [
+     0.2948234462803088,
+     0.8809608198458341
+    ]
+   },
+   "digits": {
+    "hits": 4,
+    "of": 4,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.5552373823423604,
+     1.0
+    ]
+   },
+   "ozone-level-8hr": {
+    "hits": 3,
+    "of": 4,
+    "value": 0.75,
+    "interval_95_jeffreys": [
+     0.28375167956341263,
+     0.9715291049128532
+    ]
+   },
+   "pc1": {
+    "hits": 5,
+    "of": 12,
+    "value": 0.4166666666666667,
+    "interval_95_jeffreys": [
+     0.1804786947897016,
+     0.6880595749598803
+    ]
+   },
+   "phoneme": {
+    "hits": 7,
+    "of": 7,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.7075638263376902,
+     1.0
+    ]
+   },
+   "wine": {
+    "hits": 5,
+    "of": 5,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6206228577009607,
+     1.0
+    ]
+   }
+  },
+  "by_metric": {
+   "accuracy": {
+    "hits": 12,
+    "of": 13,
+    "value": 0.9230769230769231,
+    "interval_95_jeffreys": [
+     0.6928505102933054,
+     0.9915703416877861
+    ]
+   },
+   "balanced_accuracy": {
+    "hits": 8,
+    "of": 11,
+    "value": 0.7272727272727273,
+    "interval_95_jeffreys": [
+     0.43490451949821435,
+     0.9165182401698058
+    ]
+   },
+   "f1": {
+    "hits": 15,
+    "of": 24,
+    "value": 0.625,
+    "interval_95_jeffreys": [
+     0.4261864147454165,
+     0.7956256354352873
+    ]
+   },
+   "roc_auc": {
+    "hits": 11,
+    "of": 12,
+    "value": 0.9166666666666666,
+    "interval_95_jeffreys": [
+     0.6715042735994116,
+     0.9908556737658515
+    ]
+   }
+  },
+  "by_model": {
+   "decision_tree": {
+    "hits": 7,
+    "of": 12,
+    "value": 0.5833333333333334,
+    "interval_95_jeffreys": [
+     0.31194042504011965,
+     0.8195213052102984
+    ]
+   },
+   "gaussian_nb": {
+    "hits": 11,
+    "of": 12,
+    "value": 0.9166666666666666,
+    "interval_95_jeffreys": [
+     0.6715042735994116,
+     0.9908556737658515
+    ]
+   },
+   "gradient_boosting": {
+    "hits": 8,
+    "of": 11,
+    "value": 0.7272727272727273,
+    "interval_95_jeffreys": [
+     0.43490451949821435,
+     0.9165182401698058
+    ]
+   },
+   "knn": {
+    "hits": 5,
+    "of": 6,
+    "value": 0.8333333333333334,
+    "interval_95_jeffreys": [
+     0.44194322639075173,
+     0.9813798728805578
+    ]
+   },
+   "logistic_regression": {
+    "hits": 7,
+    "of": 8,
+    "value": 0.875,
+    "interval_95_jeffreys": [
+     0.5462806789675854,
+     0.9861617662096792
+    ]
+   },
+   "random_forest": {
+    "hits": 4,
+    "of": 5,
+    "value": 0.8,
+    "interval_95_jeffreys": [
+     0.37137359936800574,
+     0.9774872340008449
+    ]
+   },
+   "svm": {
+    "hits": 4,
+    "of": 6,
+    "value": 0.6666666666666666,
+    "interval_95_jeffreys": [
+     0.28642300925419695,
+     0.9232298599651265
+    ]
+   }
+  },
+  "missed_by_class_and_dataset": {
+   "B02 subtle on breast_cancer, balanced_accuracy": 1,
+   "B04 subtle on diabetes, f1": 1,
+   "B05 subtle on pc1, f1": 1,
+   "B06 obvious on ozone-level-8hr, roc_auc": 1,
+   "B06 obvious on pc1, f1": 2,
+   "B06 subtle on diabetes, f1": 1,
+   "B06 subtle on pc1, f1": 2,
+   "B09 obvious on credit-g, accuracy": 1,
+   "B09 obvious on diabetes, balanced_accuracy": 1,
+   "B09 subtle on credit-g, balanced_accuracy": 1,
+   "B09 subtle on pc1, f1": 2
+  }
+ },
+ "class_named": {
+  "overall": {
+   "hits": 40,
+   "of": 46,
+   "value": 0.8695652173913043,
+   "interval_95_jeffreys": [
+    0.7507673772762,
+    0.9436728095221817
+   ]
+  },
+  "by_class": {
+   "B01": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B02": {
+    "hits": 5,
+    "of": 5,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6206228577009607,
+     1.0
+    ]
+   },
+   "B03": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B04": {
+    "hits": 5,
+    "of": 5,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6206228577009607,
+     1.0
+    ]
+   },
+   "B05": {
+    "hits": 5,
+    "of": 5,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6206228577009607,
+     1.0
+    ]
+   },
+   "B07": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B08": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B09": {
+    "hits": 1,
+    "of": 1,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.14674631630957521,
+     1.0
+    ]
+   },
+   "B10": {
+    "hits": 0,
+    "of": 6,
+    "value": 0.0,
+    "interval_95_jeffreys": [
+     0.0,
+     0.33038890915155006
+    ]
+   }
+  },
+  "wrong_names": {
+   "B10 named B01": 5,
+   "B10 named B03": 1
+  }
+ },
+ "specificity": {
+  "overall": {
+   "hits": 60,
+   "of": 60,
+   "value": 1.0,
+   "interval_95_jeffreys": [
+    0.9591660771331015,
+    1.0
+   ]
+  },
+  "by_type": {
+   "control": {
+    "hits": 30,
+    "of": 30,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.92032182618274,
+     1.0
+    ]
+   },
+   "sham": {
+    "hits": 30,
+    "of": 30,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.92032182618274,
+     1.0
+    ]
+   }
+  },
+  "with_decoy": {
+   "hits": 60,
+   "of": 60,
+   "value": 1.0,
+   "interval_95_jeffreys": [
+    0.9591660771331015,
+    1.0
+   ]
+  },
+  "without_decoy": {
+   "hits": 0,
+   "of": 0,
+   "value": null,
+   "interval_95_jeffreys": null
+  },
+  "by_decoy_class": {
+   "B01": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B02": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B03": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B04": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B05": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B06": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B07": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B08": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B09": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   },
+   "B10": {
+    "hits": 6,
+    "of": 6,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.6696110908484499,
+     1.0
+    ]
+   }
+  },
+  "by_decoy_tier": {
+   "obvious": {
+    "hits": 30,
+    "of": 30,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.92032182618274,
+     1.0
+    ]
+   },
+   "subtle": {
+    "hits": 30,
+    "of": 30,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.92032182618274,
+     1.0
+    ]
+   }
+  },
+  "by_type_and_decoy_tier": {
+   "control obvious": {
+    "hits": 15,
+    "of": 15,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.8481833378856023,
+     1.0
+    ]
+   },
+   "control subtle": {
+    "hits": 15,
+    "of": 15,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.8481833378856023,
+     1.0
+    ]
+   },
+   "sham obvious": {
+    "hits": 15,
+    "of": 15,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.8481833378856023,
+     1.0
+    ]
+   },
+   "sham subtle": {
+    "hits": 15,
+    "of": 15,
+    "value": 1.0,
+    "interval_95_jeffreys": [
+     0.8481833378856023,
+     1.0
+    ]
+   }
+  }
+ },
+ "repeat_pass": {
+  "asked": 20,
+  "buggy_asked": 14,
+  "clean_asked": 6,
+  "verdict_same": {
+   "hits": 19,
+   "of": 20,
+   "value": 0.95,
+   "interval_95_jeffreys": [
+    0.7891813637507348,
+    0.9945509674185734
+   ]
+  },
+  "bug_class_same": {
+   "hits": 18,
+   "of": 20,
+   "value": 0.9,
+   "interval_95_jeffreys": [
+    0.7161467426957476,
+    0.9786275119775252
+   ]
+  },
+  "bug_class_same_when_flagged_twice": {
+   "hits": 11,
+   "of": 12,
+   "value": 0.9166666666666666,
+   "interval_95_jeffreys": [
+    0.6715042735994116,
+    0.9908556737658515
+   ]
+  },
+  "wording_differs": 16,
+  "fields_changed": {
+   "bug_class": 2,
+   "confidence": 6,
+   "evidence": 16,
+   "verdict": 1
+  },
+  "verdict_changes": {
+   "buggy run: pass then flag": 1
+  }
+ },
+ "side_comparison": {
+  "paired_auc_difference_from_arm_file": {
+   "runs": 40,
+   "llama_role": "skeptic_c_checklist",
+   "value": 0.2825000000000001,
+   "interval_975_base": [
+    0.08000000000000007,
+    0.505496846903097
+   ]
+  },
+  "same_runs": {
+   "batch": "task-dev-2",
+   "note": "the same 40 padded runs with decoys; the prompts differ (cloud: baseline, llama: checklist with a line check)",
+   "reviewers": {
+    "skeptic_d": {
+     "models": [
+      "openai/gpt-oss-120b"
+     ],
+     "runs": 40,
+     "flagged_buggy": {
+      "hits": 17,
+      "of": 20,
+      "value": 0.85,
+      "interval_95_jeffreys": [
+       0.651422289141546,
+       0.9558686580248441
+      ]
+     },
+     "flagged_clean": {
+      "hits": 0,
+      "of": 20,
+      "value": 0.0,
+      "interval_95_jeffreys": [
+       0.0,
+       0.11663898290487539
+      ]
+     },
+     "youden_j": 0.85,
+     "auc_verdict": 0.925
+    },
+    "skeptic_c_checklist": {
+     "models": [
+      "llama3.1:8b"
+     ],
+     "runs": 40,
+     "flagged_buggy": {
+      "hits": 0,
+      "of": 20,
+      "value": 0.0,
+      "interval_95_jeffreys": [
+       0.0,
+       0.11663898290487539
+      ]
+     },
+     "flagged_clean": {
+      "hits": 0,
+      "of": 20,
+      "value": 0.0,
+      "interval_95_jeffreys": [
+       0.0,
+       0.11663898290487539
+      ]
+     },
+     "youden_j": 0.0,
+     "auc_verdict": 0.5
+    }
+   }
+  },
+  "other_runs": {
+   "batch": "task-dev-1",
+   "note": "40 different runs, no padding and no decoys, baseline prompt; the cloud model never saw them, so this is context only",
+   "reviewers": {
+    "skeptic_a": {
+     "models": [
+      "gemma3:4b"
+     ],
+     "runs": 40,
+     "flagged_buggy": {
+      "hits": 20,
+      "of": 20,
+      "value": 1.0,
+      "interval_95_jeffreys": [
+       0.8833610170951246,
+       1.0
+      ]
+     },
+     "flagged_clean": {
+      "hits": 20,
+      "of": 20,
+      "value": 1.0,
+      "interval_95_jeffreys": [
+       0.8833610170951246,
+       1.0
+      ]
+     },
+     "youden_j": 0.0,
+     "auc_verdict": 0.5
+    },
+    "skeptic_b": {
+     "models": [
+      "phi4-mini:latest"
+     ],
+     "runs": 40,
+     "flagged_buggy": {
+      "hits": 19,
+      "of": 20,
+      "value": 0.95,
+      "interval_95_jeffreys": [
+       0.7891813637507348,
+       0.9945509674185734
+      ]
+     },
+     "flagged_clean": {
+      "hits": 17,
+      "of": 20,
+      "value": 0.85,
+      "interval_95_jeffreys": [
+       0.651422289141546,
+       0.9558686580248441
+      ]
+     },
+     "youden_j": 0.09999999999999998,
+     "auc_verdict": 0.55
+    },
+    "skeptic_c": {
+     "models": [
+      "llama3.1:8b"
+     ],
+     "runs": 40,
+     "flagged_buggy": {
+      "hits": 20,
+      "of": 20,
+      "value": 1.0,
+      "interval_95_jeffreys": [
+       0.8833610170951246,
+       1.0
+      ]
+     },
+     "flagged_clean": {
+      "hits": 20,
+      "of": 20,
+      "value": 1.0,
+      "interval_95_jeffreys": [
+       0.8833610170951246,
+       1.0
+      ]
+     },
+     "youden_j": 0.0,
+     "auc_verdict": 0.5
+    }
+   }
+  }
+ }
+}

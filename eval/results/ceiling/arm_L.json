@@ -1,0 +1,189 @@
+{
+ "arm": "L",
+ "roles": [
+  "skeptic_d"
+ ],
+ "batches": [
+  "task-dev-2",
+  "ceiling-ext"
+ ],
+ "generated_at": "2026-11-14T13:54:19.651368+00:00",
+ "level": 0.975,
+ "draws": 10000,
+ "bars": {
+  "J": 0.0,
+  "AUC": 0.7,
+  "gap": 0.0,
+  "void_share": 0.1
+ },
+ "features": [
+  "line_count",
+  "char_count",
+  "statement_count",
+  "helper_chars",
+  "effect_spread",
+  "effect_size",
+  "top_score"
+ ],
+ "code_sha256": "894abf2de16dca53874f25f88e85a9463537ec8d69a15ed24cfc06bad9782085",
+ "cells": {
+  "skeptic_d": {
+   "runs": 120,
+   "buggy": 60,
+   "clean": 60,
+   "bases": 32,
+   "flagged_buggy": 46,
+   "flagged_clean": 0,
+   "failed_counted_against": 0,
+   "failed_share": 0.0,
+   "youden_j": {
+    "value": 0.7666666666666667,
+    "interval_975_base": [
+     0.6428571428571429,
+     0.8913168896321078
+    ]
+   },
+   "auc_verdict": {
+    "value": 0.8833333333333333,
+    "interval_975_base": [
+     0.8214285714285714,
+     0.9456584448160539
+    ]
+   },
+   "gap_vs_strongest_feature": {
+    "value": 0.35777777777777775,
+    "interval_975_base": [
+     0.18220236381202531,
+     0.38115686772374496
+    ],
+    "strongest_observed": "effect_spread"
+   },
+   "feature_auc": {
+    "line_count": 0.5,
+    "char_count": 0.5,
+    "statement_count": 0.5,
+    "helper_chars": 0.48486111111111113,
+    "effect_spread": 0.5255555555555556,
+    "effect_size": 0.5141666666666667,
+    "top_score": 0.5136111111111111
+   },
+   "draws_used": 10000,
+   "tests": {
+    "T1": true,
+    "T2": true,
+    "T3": true,
+    "void": false,
+    "passes": true,
+    "below_bar": false
+   },
+   "crashed_runs_left_out": 0,
+   "secondary": {
+    "recall": {
+     "value": 0.7666666666666667,
+     "of": 60
+    },
+    "specificity": {
+     "control": {
+      "value": 1.0,
+      "of": 30
+     },
+     "sham": {
+      "value": 1.0,
+      "of": 30
+     }
+    },
+    "recall_by_tier": {
+     "obvious": {
+      "value": 0.8333333333333334,
+      "of": 30
+     },
+     "subtle": {
+      "value": 0.7,
+      "of": 30
+     }
+    }
+   },
+   "focus_level": {
+    "clusters": 18,
+    "youden_j": {
+     "value": 0.7666666666666667,
+     "interval_975_base": [
+      0.6176470588235294,
+      0.9111257309941528
+     ]
+    },
+    "auc_verdict": {
+     "value": 0.8833333333333333,
+     "interval_975_base": [
+      0.8088235294117647,
+      0.9555628654970765
+     ]
+    },
+    "gap_vs_strongest_feature": {
+     "value": 0.35777777777777775,
+     "interval_975_base": [
+      0.178138146471636,
+      0.3858909995719178
+     ],
+     "strongest_observed": "effect_spread"
+    },
+    "tests": {
+     "T1": true,
+     "T2": true,
+     "T3": true,
+     "void": false,
+     "passes": true,
+     "below_bar": false
+    }
+   },
+   "paired_vs_llama": {
+    "runs": 40,
+    "llama_role": "skeptic_c_checklist",
+    "value": 0.2825000000000001,
+    "interval_975_base": [
+     0.08000000000000007,
+     0.505496846903097
+    ]
+   },
+   "repeat_pass": {
+    "runs": 20,
+    "reply_differs": 16,
+    "verdict_changed": 1
+   },
+   "models": [
+    "openai/gpt-oss-120b"
+   ]
+  }
+ },
+ "outcome": {
+  "outcome": "SOLVABLE",
+  "cells": [
+   "skeptic_d"
+  ],
+  "subcase": null
+ },
+ "sensitivity_focus_level": {
+  "outcome": {
+   "outcome": "SOLVABLE",
+   "cells": [
+    "skeptic_d"
+   ],
+   "subcase": null
+  },
+  "agrees": true,
+  "note": "bootstrap over dataset|metric|model clusters; decides nothing, but a disagreement is reported beside the outcome"
+ },
+ "call_log": {
+  "calls": 143,
+  "status": {
+   "200": 143
+  },
+  "total_tokens": 370809,
+  "reasoning_tokens": 11794,
+  "server_models": [
+   "openai/gpt-oss-120b"
+  ],
+  "file_sha256": "caecbbe77935ba267620b8c1b8418c90ca0d64ff4703e5656939c93eb409d651"
+ },
+ "claim": "for these models, at these settings, on Canary's canaries"
+}
