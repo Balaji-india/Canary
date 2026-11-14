@@ -120,6 +120,7 @@ def test_reviewer_roles_are_the_ones_on_that_model_that_audited_the_batch(tmp_pa
     assert mixer.reviewer_roles(cfg, "skeptic_b", led, {"r1"}) == []
 
 
+@pytest.mark.slow
 def test_the_fresh_pass_scores_only_differing_runs_and_keeps_the_first_file(tmp_path):
     led, runs = audited_run(tmp_path, reply=PASS_REPLY)
     led, runs = audited_run(tmp_path, reply=FLAG_REPLY, run_id="r2", hypothesis_id="h2", led=led, script="y = 2\n")

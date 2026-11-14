@@ -143,6 +143,7 @@ def test_batch_runs_seals_and_reviews_every_slot(world):
     assert world["led"].verify(world["runs"]) == []
 
 
+@pytest.mark.slow
 def test_resume_repeats_nothing(world):
     plan = short_plan()
     run(world, plan)
@@ -152,6 +153,7 @@ def test_resume_repeats_nothing(world):
     assert len(world["table"].all()) == SHORT
 
 
+@pytest.mark.slow
 def test_resume_after_a_stop_finishes_only_what_is_left(world, monkeypatch):
     plan = short_plan()
     real = mixer.execute_slot
@@ -205,6 +207,7 @@ def test_the_log_never_names_a_run_type(world):
     assert f"audit {SHORT}/{SHORT}" in text
 
 
+@pytest.mark.slow
 def test_status_line_sees_a_real_finished_batch_as_finished(world, tmp_path):
     """Ties the status-line tip to what run_batch really writes, so rewording that line fails here."""
     run(world, short_plan())
@@ -214,6 +217,7 @@ def test_status_line_sees_a_real_finished_batch_as_finished(world, tmp_path):
     assert load_state().campaign_state(tmp_path / "coach") is None
 
 
+@pytest.mark.slow
 def test_clone_keeps_its_base_wording_and_gets_new_seeds(world):
     plan = short_plan()
     run(world, plan)

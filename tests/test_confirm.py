@@ -75,6 +75,7 @@ def test_a_separating_score_is_confirmed_and_a_flat_one_is_not(tmp_path):
     assert flat["H2"]["value"] == 0.5 and not flat["confirmed"]
 
 
+@pytest.mark.slow
 def test_h3_fails_when_the_helper_size_separates_as_well_as_the_score(tmp_path):
     """The amended H3: a perfect score does not confirm if the helper's size alone separates just as well."""
     # Six bases, each with one canary and one control, so every bootstrap draw keeps both kinds.
