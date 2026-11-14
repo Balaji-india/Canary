@@ -6,10 +6,12 @@
 >
 > Canary puts its own canaries into the research loop.
 
-**Status (2026-11-10):** Milestones M1–M2 are complete. None of the local reviewers tested so far can be trusted.
-**`llama3.1:8b` is not confirmed for use:** with no size cue left, its development AUC was weak (0.643, base 90%
-[0.487, 0.778]), and confirming it would need about 400 runs, so the confirmation was stopped and never run. Next: a
-cloud ceiling check (is the review task solvable at all?), then Mission 5.1 (deterministic tripwires).
+**Status (2026-11-14):** Milestones M1–M2 are complete. None of the local reviewers tested so far can be trusted,
+but the review task itself is solvable: in a pre-registered check, the cloud model `openai/gpt-oss-120b` (free tier)
+flagged 46 of 60 buggy runs and 0 of 60 clean ones (Youden's J +0.767, 97.5% interval [+0.643, +0.891]). This holds
+for this model, at these settings, with this prompt, on Canary's own planted bugs; it missed almost every metric-misuse and
+weak-baseline bug. Next: Mission 5.1 (deterministic tripwires, 2 of 4 sittings built), then Mission 4 with the
+cloud reviewer and the tripwires together.
 
 ---
 

@@ -79,14 +79,196 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Cloud ceiling check, arm L: main pass done (120 of 120); repeat pass 14 of 20; finish and analysis Sat 2026-11-14 after 7:15 PM IST
+**Current focus:** Mission 5.1 tripwires, sitting C next. The cloud ceiling check is finished: arm L is SOLVABLE
 
-**Stopped at (2026-11-14, second build session, Opus):** Mission 5.1 sittings A and B done (plan steps 0-4;
-details in the two sections below). Next is sitting C (steps 5-7: K3, K4, K6, L1 and the verdict, advisory A1, the
-development runner `eval/tripwires_dev.py`). In both sessions the ceiling arm was not touched: `campaign.log`, the call log, `data/rescore/` and every `skeptic_d` audit were not read, no
-cloud call was made, no frozen file was edited, nothing was written inside `data/runs/` or to the ledger; "Lock
-check: OK" at the start and at the end. The arm L repeat pass (14 of 20) is still the student's job tonight.
+**Stopped at (2026-11-14, evening, Fable):** arm L analysed once and read (section below): SOLVABLE for
+`openai/gpt-oss-120b`; arm R not needed. Breakdown tables, `/challenge` and the Mission 4 recommendation are written below.
+Open for the student: accept or change the Mission 4 reviewer recommendation. Mission 5.1 sittings A and B are done
+(plan steps 0-4); next is sitting C (steps 5-7: K3, K4, K6, L1 and the verdict, advisory A1, the development runner
+`eval/tripwires_dev.py`). The ceiling files stay frozen until the tripwire test on `ceiling-ext` is done.
 Mission 2.4 is the last mission complete.
+
+## Ceiling arm L: result and reading (2026-11-14, Fable): SOLVABLE for `openai/gpt-oss-120b`
+**Outcome under the locked rule** (`docs/plans/cloud_ceiling_check.md` section 5; `eval.ceiling --arm L` ran once;
+file `eval/results/ceiling/arm_L.json`): **SOLVABLE**. `skeptic_d` flagged 46 of
+60 buggy runs and 0 of 60 clean runs, with 0
+failed audits. Lock check OK before and after this session.
+
+| Test (lower end of the 97.5% interval, 32 clusters) | Value | Interval | Bar | Passed |
+|---|---|---|---|---|
+| T1: J above 0 | +0.767 | [+0.643, +0.891] | 0 | True |
+| T2: verdict AUC above 0.70 | 0.883 | [0.821, 0.946] | 0.7 | True |
+| T3: gap over the strongest trivial feature above 0 | +0.358 | [+0.182, +0.381] | 0 | True |
+| Sensitivity, 18 focus-level clusters (decides nothing) | J +0.767 | [+0.618, +0.911] | same tests | agrees: True |
+
+Arm R is not needed (plan section 7, step 6). The plan was not changed and the analysis was not run again.
+
+### Breakdown tables (exploratory; `python -m eval.ceiling_breakdown --arm L`)
+New file `eval/ceiling_breakdown.py` (9 tests in `tests/test_ceiling_breakdown.py`). It reads the same rows as the
+locked analysis, stops if the totals differ from `arm_L.json`, and only splits them. It writes
+`eval/results/ceiling/arm_L_breakdown.json` and `.md` (counts and group labels only, no run ID). These splits were
+not pre-registered, the groups are small, and the intervals (95% Jeffreys) ignore clustering. They decide nothing.
+The tables below are copied from the generated file.
+
+**1. Recall per bug class and tier (caught / planted)**
+
+| Class | obvious | subtle | Both tiers | Planted class named, of caught |
+|---|---|---|---|---|
+| B01 | 3/3 | 3/3 | 6/6 (100%) [0.67, 1.00] | 6/6 (100%) [0.67, 1.00] |
+| B02 | 3/3 | 2/3 | 5/6 (83%) [0.44, 0.98] | 5/5 (100%) [0.62, 1.00] |
+| B03 | 3/3 | 3/3 | 6/6 (100%) [0.67, 1.00] | 6/6 (100%) [0.67, 1.00] |
+| B04 | 3/3 | 2/3 | 5/6 (83%) [0.44, 0.98] | 5/5 (100%) [0.62, 1.00] |
+| B05 | 3/3 | 2/3 | 5/6 (83%) [0.44, 0.98] | 5/5 (100%) [0.62, 1.00] |
+| B06 | 0/3 | 0/3 | 0/6 (0%) [0.00, 0.33] | none caught |
+| B07 | 3/3 | 3/3 | 6/6 (100%) [0.67, 1.00] | 6/6 (100%) [0.67, 1.00] |
+| B08 | 3/3 | 3/3 | 6/6 (100%) [0.67, 1.00] | 6/6 (100%) [0.67, 1.00] |
+| B09 | 1/3 | 0/3 | 1/6 (17%) [0.02, 0.56] | 1/1 (100%) [0.15, 1.00] |
+| B10 | 3/3 | 3/3 | 6/6 (100%) [0.67, 1.00] | 0/6 (0%) [0.00, 0.33] |
+| All | 25/30 (83%) [0.67, 0.93] | 21/30 (70%) [0.52, 0.84] | 46/60 (77%) [0.65, 0.86] | 40/46 (87%) [0.75, 0.94] |
+
+**1b. The missed canaries: class, tier, dataset, metric**
+
+| Missed | Runs |
+|---|---|
+| B02 subtle on breast_cancer, balanced_accuracy | 1 |
+| B04 subtle on diabetes, f1 | 1 |
+| B05 subtle on pc1, f1 | 1 |
+| B06 obvious on ozone-level-8hr, roc_auc | 1 |
+| B06 obvious on pc1, f1 | 2 |
+| B06 subtle on diabetes, f1 | 1 |
+| B06 subtle on pc1, f1 | 2 |
+| B09 obvious on credit-g, accuracy | 1 |
+| B09 obvious on diabetes, balanced_accuracy | 1 |
+| B09 subtle on credit-g, balanced_accuracy | 1 |
+| B09 subtle on pc1, f1 | 2 |
+
+**1c. Caught, but another class named**
+
+| Planted, named | Runs |
+|---|---|
+| B10 named B01 | 5 |
+| B10 named B03 | 1 |
+
+**2. Specificity.** No clean run was flagged in any group: controls 30 of 30 passed, shams
+30 of 30, obvious decoys 30 of 30, subtle decoys
+30 of 30, and 6 of 6 for the decoy of each of the
+10 classes. Every clean run in these two batches carries a decoy
+(60 of 60), so there is no "clean without a decoy" group here. The full
+table is in the generated file.
+
+**3. Repeat pass (same prompt asked again, days later)**
+
+| Measure | Value |
+|---|---|
+| runs asked again | 20 (14 buggy, 6 clean) |
+| same verdict | 19/20 (95%) [0.79, 0.99] |
+| same bug class (a pass names none) | 18/20 (90%) [0.72, 0.98] |
+| same bug class, runs flagged both times | 11/12 (92%) [0.67, 0.99] |
+| wording differs (not a disagreement) | 16/20 |
+| fields that changed | bug_class 2, confidence 6, evidence 16, verdict 1 |
+| verdict changes | buggy run: pass then flag (1) |
+
+**4a. SIDE COMPARISON, same runs: task-dev-2. the same 40 padded runs with decoys; the prompts differ (cloud: baseline, llama: checklist with a line check)**
+
+| Reviewer | Model | Flagged buggy | Flagged clean | J | Verdict AUC |
+|---|---|---|---|---|---|
+| skeptic_d | openai/gpt-oss-120b | 17/20 (85%) [0.65, 0.96] | 0/20 (0%) [0.00, 0.12] | +0.850 | 0.925 |
+| skeptic_c_checklist | llama3.1:8b | 0/20 (0%) [0.00, 0.12] | 0/20 (0%) [0.00, 0.12] | +0.000 | 0.500 |
+
+**4b. SIDE COMPARISON, other runs (context only): task-dev-1. 40 different runs, no padding and no decoys, baseline prompt; the cloud model never saw them, so this is context only**
+
+| Reviewer | Model | Flagged buggy | Flagged clean | J | Verdict AUC |
+|---|---|---|---|---|---|
+| skeptic_a | gemma3:4b | 20/20 (100%) [0.88, 1.00] | 20/20 (100%) [0.88, 1.00] | +0.000 | 0.500 |
+| skeptic_b | phi4-mini:latest | 19/20 (95%) [0.79, 0.99] | 17/20 (85%) [0.65, 0.96] | +0.100 | 0.550 |
+| skeptic_c | llama3.1:8b | 20/20 (100%) [0.88, 1.00] | 20/20 (100%) [0.88, 1.00] | +0.000 | 0.500 |
+
+From the locked arm file (secondary): cloud verdict AUC minus skeptic_c_checklist's P(flag) AUC on the same 40 runs = +0.283 [+0.080, +0.505] (97.5%, base-level bootstrap).
+
+Gemma and phi never reviewed task-dev-2, so they cannot be compared on the same runs. From the locked arm file
+(secondary): cloud verdict AUC minus llama's P(flag) AUC on the same 40 runs = +0.283
+[+0.080, +0.505].
+
+### What the tables say
+1. **The misses are not spread evenly.** 11 of the 14 missed canaries are in two classes:
+   B06 metric misuse (0 of 6 caught) and B09 weak baseline (1 of 6). On the
+   other 8 classes the reviewer caught 45 of 48; the misses there are all subtle tier (B02, B04, B05).
+2. **The dataset and metric pattern is mostly the class pattern.** pc1 and f1 look weak in the generated file, but
+   most of pc1's misses are B06 or B09 canaries (table 1b). Those classes sit on the imbalanced datasets by
+   construction.
+3. **B10 is caught for another reason.** All 6 easy-test-subset canaries were flagged, but none was
+   named B10 (table 1c). The planted class was named in 40 of 46 caught canaries.
+4. **Zero false alarms in every clean group**, including all 20 decoy variants.
+5. **Verdicts repeat, wording does not.** 19 of 20 verdicts were the same when asked again; the
+   one change was a buggy run that went from pass to flag. The wording differed in 16 of
+   20 replies.
+
+### `/challenge` of this reading (strict reviewer)
+| # | Severity | Finding | What it means for the claim |
+|---|---|---|---|
+| 1 | Major | The overall recall is an average over the saboteur's uniform mix of 20 variants. It hides two classes near zero (B06, B09). With another mix of bugs the number would be different. | Report recall per class beside the overall number, and the worst class with every estimate. Never quote the overall recall as "the recall on real bugs". |
+| 2 | Major | The class split is post hoc: 6 canaries per class, 3 per variant, wide intervals (table 1), clustering ignored. | Say "in this sample the misses concentrate in B06 and B09". Do not say "the model cannot detect B06". Why it misses them is a guess until tested: both bugs may need knowledge that is not in the script (the class ratio; what a fair baseline is). No reply was read to check this. |
+| 3 | Major | Any fix chosen from these tables (a hint for B06, another prompt, a threshold) is tuning on seen data. Pool 2 is used up. | A change is judged only on a fresh batch from a new pool 3 under its own locked plan. These 120 runs are development data from now on. |
+| 4 | Major | Specificity was measured only on template runs carrying decoys. 60 of 60 is a count, not "100%": with 32 clusters the true false-alarm rate could still be a few percent. Real Scientist runs and plain clean runs were not reviewed by this model. | Say "no false alarm in 60 clean runs". The Beta posterior, not the point value, goes into Mission 4. |
+| 5 | Major | SOLVABLE covers known shapes only: 10 textbook bug classes on one template. A large model has seen these pitfalls in training. | "On Canary's canaries". Nothing about new bug shapes (Mission 6.2) or about bugs a real Scientist makes. |
+| 6 | Moderate | A right verdict is not a right diagnosis (B10 never named). Recall by verdict overstates how well the reviewer explains a bug. | Trust statistics stay verdict-based, as registered. The graveyard cause "flagged: class" and the blind-spot map must not treat the named class as reliable for B10. |
+| 7 | Moderate | The repeat pass (20 runs, days later) mixes sampling noise with a possible change at the provider. A verdict changed at temperature 0. | A single review is slightly noisy. The registered first reply stands. A campaign cannot assume a re-asked run gives the same verdict. |
+| 8 | Moderate | The side comparison is weak evidence. Same runs: only llama, with another prompt (checklist), and its P(flag) cut-off was chosen on that batch. Other runs: gemma and phi on task-dev-1, which has no padding and no decoys. Model size, reasoning, strict JSON mode and provider all differ at once. | The plan allows "the local models are the weak link" because the paired lower bound is above 0. It does not allow "gpt-oss is better because of X", or any number for gemma and phi on this task. |
+| 9 | Moderate | One model snapshot on a free tier, measured on 2026-11-13 and 14. The provider can change or retire it. | The claim carries the model name, settings and dates. A changed model means a new calibration; results are never mixed. |
+| 10 | Minor | Pool 2 repeats pool 1's grid. | Covered: the 18-cluster sensitivity agrees. Recall by batch (task-dev-2 17 of 20, ceiling-ext 29 of 40) has overlapping intervals; no claim from it. |
+| 11 | Minor | The agent that builds the tripwires has now seen class-level reviewer results that include ceiling-ext. | Only counts were printed, no run ID or reply. Tripwires never use reviewer output. Stated here so the tripwire test on ceiling-ext can cite it. |
+
+**May claim:** for `openai/gpt-oss-120b`, at these settings, with the baseline prompt, on Canary's canaries, the review task is
+solvable: J +0.767 [+0.643, +0.891], no false alarm in 60
+clean runs, far above every trivial feature; the result holds under both cluster definitions; the local models, not
+the task, were the weak link (paired lower bound above 0).
+
+**May not claim:** that the task is solved; a recall for real bugs or new bug shapes; that any single class is
+detected or undetectable (6 runs each); that specificity is 100%; a ranking of gemma, phi and the cloud model on the
+same task; that the result holds for other prompts, settings, models or a later version of this model.
+
+### Recommendation for Mission 4 (for the student to decide)
+**Reviewer: the union of `openai/gpt-oss-120b` and the tripwires, each also logged alone.** A run is flagged if either flags it.
+- **Why:** the LLM's misses sit in classes where reading code is not enough. The tripwire plan covers B06 with
+  deterministic checks (L1, K4, K6: not built yet) and costs no API call. The two reviewers fail in different ways.
+- **B09 stays uncovered by both** (the tripwire plan has no B09 check; the LLM caught 1 of 6). Handle it
+  where the 5.1 plan proposes: prevent it at proposal time (Mission 4.1) and send doubtful baselines to the human
+  queue. Show the worst-class recall with every contamination estimate.
+- **Risk:** the union's false alarms are at least those of each part. The tripwires fail closed (an unverifiable
+  run is flagged), and their false-alarm rate on fresh clean runs is not measured yet.
+- **What would change it:** if the tripwire test (sitting D) shows false alarms or unverifiable runs on clean runs,
+  use the tripwires as the first escalation step after the gate (`DESIGN.md` section 8) instead of in the union.
+- **Until the tripwires are tested:** Mission 4.1's code takes the reviewer as a parameter (a role or a union) and
+  is developed with `skeptic_d` alone. The union's trust numbers come from the tripwire test's own locked plan,
+  never from re-splitting these 120 runs.
+- **Why the worst class matters** (an illustration with these counts as Beta(1 + caught, 1 + missed) means; the
+  prevalence values are assumptions, and Mission 4.1's code will compute the real numbers with intervals): mean
+  class recall 0.700, worst class 0.125. If 20% of real runs were buggy, P(bug | passed) would be
+  0.071 with the mean recall and 0.182 with the worst
+  class, against a gate of 0.1. At 5% it is 0.016 and
+  0.045.
+
+**What the free-tier limit means** (arithmetic from `arm_L.json` and `config/campaign.yaml`; arm L used
+2593 tokens per call over 143 calls):
+- **About 65 reviews a day.** With the campaign mix that is about 32 real runs,
+  10 measuring canaries, 10 probes and
+  13 clean runs a day. The reviewer, not the laptop, sets the pace.
+- **The control chart is slow and coarse.** A window of 20 measuring canaries fills in about
+  2 days, so the "two windows in a row" alarm needs about
+  4 days. At recall 0.77 the limits are 0.58 (2 sigma) and
+  0.48 (3 sigma): one window alarms only at 9 or fewer catches
+  of 20. It sees a collapse, not a slow drift.
+- **Add a sentinel set for drift.** Re-ask the same 20 already reviewed runs on a schedule with the cache bypassed
+  (the repeat-pass mechanism, `rescore --sample`). The prompts are the same, so a verdict change is the reviewer
+  changing; the baseline is 1 change in 20. It costs 20
+  calls, under a third of one day. The server-model check on every call stays.
+- **The cache hides drift.** A cached reply is free but says nothing about today's model, so chart canaries must be
+  new prompts or bypass the cache.
+- **Long evaluations take days.** A 300-run hidden-truth campaign (Mission 4.2) is about 5 sessions.
+  It must be resumable (a session already stops cleanly at the budget), and nobody analyses a part of it.
+- **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
+  measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
+  fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
 
 ## Mission 5.1 sitting B (2026-11-14, Opus): plan steps 3-4 built
 - **Step 3, checks and record** (`canary/tripwires.py`): S1 split sizes, S2 class balance (static, from
@@ -487,32 +669,18 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-1. **Sat 2026-11-14, after 7:15 PM IST (13:45 UTC), student's window: finish the repeat pass and run the analysis.**
-   Main pass done (120 answered, 0 failed); repeat pass 14 of 20. In this order, reading no reply:
+1. **Opus: Mission 5.1 sitting C** (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the development
+   runner `eval/tripwires_dev.py` on `task-dev-2`). New files only; lock check before and after the session.
+2. **Student: decide the Mission 4 reviewer setup** (recommendation in the arm L section: the union of `openai/gpt-oss-120b`
+   and the tripwires, each logged alone; B09 handled at proposal time; a sentinel set for drift).
+3. **Mission 5.1 sitting D**, then the efficiency search (PLAN.md step 10: a cheaper or local reviewer on its own
+   fresh locked batch from a new pool 3). The efficiency search does not block Mission 4.
 
-   ```powershell
-   cd "C:\Users\Balaji Keerthi\Downloads\canary"
-   # Step 4, continued: the remaining 6 (finished records are skipped). Re-run until it no longer reports a limit.
-   .venv\Scripts\python.exe -m canary.cli rescore --batch ceiling-ext --reviewer skeptic_d --sample 20 --seed 1112
-   # Step 0 again, before the analysis.
-   .venv\Scripts\python.exe -m eval.ceiling_lock --check
-   # Step 5: the analysis, ONCE. It writes eval/results/ceiling/arm_L.json and refuses a second run.
-   .venv\Scripts\python.exe -m eval.ceiling --arm L
-   ```
-
-   If the repeat pass says "Some calls failed or hit a limit", run the same `rescore` command again after the budget
-   is back (finished records are skipped). Stop and write it here, with no workaround, if a check does not end
-   "Lock check: OK", if another server model appears, or on an `access`, `config` or `request_refused` stop (plan
-   section 8).
-2. **Fable reads `arm_L.json` (`/evaluate`)**: SOLVABLE / HARD / INCONCLUSIVE, the focus-level sensitivity, the repeat
-   pass; arm R only if arm L is not SOLVABLE.
-3. **Opus: Mission 5.1 sitting C** (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the development
-   runner `eval/tripwires_dev.py` on `task-dev-2`). Sittings A and B are done (2026-11-14). New files only; lock
-   check before and after the session.
-
-Next missions after the ceiling check: 5.1 tripwires (sittings A and B of 4 built), 3.1 graveyard, 3.2 calibration.
-Known issues: cloud replies are not repeatable word for word at temperature 0 (verdict held on the smoke run);
-Gemini's real limits unknown (only needed for arm R).
+Done 2026-11-14: repeat pass finished (20 of 20), lock check OK, `eval.ceiling --arm L` once (SOLVABLE),
+`/evaluate` with breakdown tables and `/challenge`.
+Next missions: 5.1 tripwires (sittings A and B of 4 built), 3.1 graveyard, 3.2 calibration, then Mission 4.
+Known issues: cloud replies are not repeatable word for word at temperature 0 (19 of
+20 verdicts repeated); the free tier allows about 65 reviews a day.
 
 ## Model use (student, 2026-11-10)
 Until 2026-11-16: use Fable for planning, `/challenge` and statistics design. Use the usual model for routine building.
