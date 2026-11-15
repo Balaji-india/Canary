@@ -44,7 +44,10 @@ Claude updates this at the end of every mission. If a mission stops early, write
     calibration runs (`canary/padding.py`, `canary/saboteur/decoys.py`, decoys in the canaries' proportions), or
     measured trust (recall, specificity, contamination) may not transfer to them. Check it with the length gate on
     real runs mixed with calibration runs before any gate decision uses calibration numbers.
+  - Designed 2026-11-15 (`docs/plans/mission_4_1_trust.md`), not built. Needs the baseline guard
+    (`docs/plans/b09_proposal_guard.md`, designed, not built) before any real finding can be auto-accepted.
 - [ ] 4.2 Hidden-truth validation (RQ4)
+  - Designed 2026-11-15 (`docs/plans/mission_4_2_hidden_truth.md`), not built, not locked.
 - [ ] 4.3 Control chart and drift alarms
 - [ ] 4.4 Campaign agent loop
 
@@ -79,14 +82,83 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Mission 5.1 tripwires, sitting C next. The cloud ceiling check is finished: arm L is SOLVABLE
+**Current focus:** Mission 5.1 tripwires, sitting C next; then sitting D, then Mission 4.1 sitting 1 (designs ready)
 
-**Stopped at (2026-11-14, evening, Fable):** arm L analysed once and read (section below): SOLVABLE for
-`openai/gpt-oss-120b`; arm R not needed. Breakdown tables, `/challenge` and the Mission 4 recommendation are written below.
-Mission 4 reviewer decided by the student (Decisions): union of `skeptic_d` and the tripwires, plus a drift sentinel set. Mission 5.1 sittings A and B are done
-(plan steps 0-4); next is sitting C (steps 5-7: K3, K4, K6, L1 and the verdict, advisory A1, the development runner
-`eval/tripwires_dev.py`). The ceiling files stay frozen until the tripwire test on `ceiling-ext` is done.
-Mission 2.4 is the last mission complete.
+**Stopped at (2026-11-15, Fable, design only, nothing built):** three build plans written, challenged and committed:
+the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
+(`docs/plans/mission_4_1_trust.md`) and Mission 4.2 / RQ4 (`docs/plans/mission_4_2_hidden_truth.md`). Each has a
+build order, tests per step, "done when", traps, and a short list of decisions whose defaults apply unless the
+student changes them. Section "Design session 2026-11-15" below has the summary and the build order across all
+plans. No code in `canary/` or `eval/` changed; `pytest` was not run because nothing it covers changed. Mission 5.1
+sittings A and B are done; sitting C is next. The ceiling files stay frozen until the tripwire test on
+`ceiling-ext` is done. Mission 2.4 is the last mission complete.
+
+## Design session 2026-11-15 (Fable): baseline guard, Mission 4.1, Mission 4.2
+Design only. The simulations are design tools with **assumed** reviewer rates
+(`docs/plans/sims/trust_design_sim.py`, `rq4_bank_sim.py`, JSON beside them); Opus rebuilds them as tested code
+(`eval/rq4_power.py`) and re-runs them with the union's measured rates from sitting D before anything is locked.
+
+**1. Baseline guard (B09 before the run).** Code asks two things of a proposal. In what do the arms differ
+(library defaults read from scikit-learn at run time, no value table)? Is an arm worse than itself at library
+defaults (one short reference run on seeds no real run can draw, read with the existing verdict code)?
+- Reject and retry: accuracy above a 3:1 class ratio (G0); arms that differ in more than one factor (G1); in a
+  two-model comparison, a control weaker than itself at defaults (G2); a reference run that crashes (G5).
+- Human queue, never auto-accepted: one factor, and the control's value of it is weaker than the default (G3).
+  It may be the honest point ("depth 1 against depth 8"), so a person decides.
+- Warn only: both arms share a setting that is weaker than the default (G4).
+- Fair measurement: G0 and G1 are rules and are never reported as recall (the saboteur's B09 fails G1 by
+  definition). The measured rows are tested on fresh proposals and on mechanically generated handicaps, with a
+  behavioural oracle on other seeds and pass marks fixed in advance; if a mark fails, those rows become advisory.
+- Development fact: all 35 bases of pools 1 and 2 and the 3 real runs differ in exactly one factor.
+- Needs no cloud call at all.
+
+**2. Mission 4.1 with the union reviewer.**
+- Each population gets a **support**: the bug variants it can carry, each exclusion backed by a named rule.
+- **Pooled recall** (mean of the class recalls over the support) is the central estimate. **Worst-class recall**
+  gives the bound, and the gate uses it: simulated, a pooled gate still opens in 81% to 100% of campaigns when the
+  true contamination is 0.27 and every bug is of the worst class.
+- **B09 cannot stay in the support.** Simulated with zero real bugs, the gate opens in 8% to 35% of campaigns
+  (union) and 0% to 4% (LLM alone) when B09 is in it, and in 97% to 100% when it is out. So B09 leaves only
+  through the tested guard, and what the guard lets through is added back as a measured leak term.
+  **Until the guard passes its test, no real finding is auto-accepted.**
+- Gate order: guard label, enough calibration (12 canaries per supported class, 60 clean runs), reviewer
+  informative, then the 90th percentile of contamination plus leak against tau.
+- Free tier: opening the gate from nothing costs about 228 reviews (3.5 sessions); starting from the RQ4 bank
+  costs none. Proposed: in campaigns ask the LLM only when the tripwires pass (the union's verdict is the same).
+
+**3. Mission 4.2 (RQ4).** One reviewed bank, many hidden-truth populations: after sitting D, `skeptic_d` reviews
+the 360 runs of `tripwire-test-1` (7 short sessions with the sentinel). Each level (0, 0.10, 0.30, 0.50 buggy) is
+built by drawing 100 audited runs from the bank and calibrating on the rest (12 canaries per class, 60 clean), 2000
+times; the estimator sees only flags. Three kinds: matched mix, other experiments (different bases), adverse mix
+(B09-heavy, with a recommended top-up of 30 B09 canaries). 100 audited runs is what the bank allows; simulated
+interval widths are 0.04 to 0.20. Pass marks come from simulated banks of the same size, because re-splits of
+one bank cover more often than 90% even when all is well.
+
+**Build order across all plans** (also in `.project-memory/PLAN.md`, steps 15 to 24):
+| # | Who | What | Plan | Needs |
+|---|---|---|---|---|
+| 1 | Opus | 5.1 sitting C: K3, K4, K6, L1, A1, dev runner | `mission_5_1_tripwires.md` steps 5-7 | nothing |
+| 2 | Opus + student's window | 5.1 sitting D: lock, 360-run tripwire test, `ceiling-ext`; ceiling files unfreeze | steps 8-10 | 1 |
+| 3 | Opus | 5.1 step 11: `canary.cli tripwires`, ledger role `tripwire_v1` | step 11 | 2 |
+| 4 | Opus | 4.1 sitting 1: `eval/rq4_power.py`, prevalence, contamination, support, `trust.estimate`, union observations | `mission_4_1_trust.md` steps 1-4, 6 | 3 |
+| 5 | Opus | RQ4 code and lock: `eval/rq4.py`, `eval/rq4_lock.py`, `docs/plans/rq4_hidden_truth.md` | `mission_4_2_hidden_truth.md` steps 1-2 | 4 |
+| 6 | Student's window | 7 review sessions on `tripwire-test-1` (about 65 a day) | step 3 | 5 |
+| 7 | Opus, any day from now, local only | Guard sitting 1: `canary/baseline_guard.py`, wired into the Scientist | `b09_proposal_guard.md` steps 1-4 | nothing |
+| 8 | Opus, local only | Guard sitting 2: oracle, generator, lock, test once | steps 5-8 | 7 |
+| 9 | Opus | 4.1 sitting 2: `canary/gate.py`, real runs padded with decoys, ledger decisions | `mission_4_1_trust.md` steps 5, 7, 8 | 4 (and 2 for the padding code) |
+| 10 | Opus, then `/evaluate` | `python -m eval.rq4` once; RQ4 table and figure | `mission_4_2_hidden_truth.md` step 4 | 6 |
+
+Rows 7 to 9 fit into the review week of row 6: they need no cloud call and touch no file the RQ4 lock freezes.
+After row 10: Mission 4.3 (control chart, sentinel), 4.4 (campaign agent). Missions 3.1 and 3.2 block nothing here.
+
+**Decisions for the student** (each plan's last section; the default applies unless changed):
+- Guard: one factor only; G3 to the human queue and G4 a warning; add G0; the pass marks.
+- 4.1: gate on the worst class; no auto-accept until the guard is tested; lazy union in campaigns; minimum calibration.
+- 4.2: review all 360 runs (not only tripwire-passed ones); the B09 top-up; levels and 100 audited runs.
+
+**What these designs may not be read as:** every simulated number rests on assumed rates; the union has not been
+measured; contamination always means "bugs of the catalogued kinds"; the guard covers one definition of a weak
+baseline (against library defaults) and says which ones it misses.
 
 ## Ceiling arm L: result and reading (2026-11-14, Fable): SOLVABLE for `openai/gpt-oss-120b`
 **Outcome under the locked rule** (`docs/plans/cloud_ceiling_check.md` section 5; `eval.ceiling --arm L` ran once;
@@ -669,18 +741,21 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-1. **Sun 2026-11-15, Fable: design the B09 proposal guard and the Mission 4.1 approach** (how recall is applied
-   to real runs, which carry only B06 and B09; see Known issues).
-2. **Opus: Mission 5.1 sitting C** (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the development
+1. **Opus: Mission 5.1 sitting C** (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the development
    runner `eval/tripwires_dev.py` on `task-dev-2`). New files only; lock check before and after the session.
-3. **Mission 5.1 sitting D: the locked 360-run tripwire test.** After that, the efficiency search (PLAN.md step 10,
-   on a new pool 3); it does not block Mission 4.
+2. **Mission 5.1 sitting D: the locked 360-run tripwire test** (`tripwire-test-1`, then `ceiling-ext`). Its batch
+   is also the RQ4 bank, so do not review it with any LLM before the RQ4 plan is locked.
+3. **Opus: guard sitting 1** (`docs/plans/b09_proposal_guard.md` steps 1-4). Local only; can be done on any day,
+   also before sitting D. Then Mission 4.1 sitting 1 once the tripwire wiring (step 11) exists.
 
-Done 2026-11-14: repeat pass finished (20 of 20), lock check OK, `eval.ceiling --arm L` once (SOLVABLE),
-`/evaluate` with breakdown tables and `/challenge`.
-Next missions: 5.1 tripwires (sittings A and B of 4 built), 3.1 graveyard, 3.2 calibration, then Mission 4.
+Student: read the three "Decisions for the student" lists (section "Design session 2026-11-15") and change any
+default you disagree with before the matching build starts.
+
+Done 2026-11-15 (Fable, design only): baseline guard, Mission 4.1 and Mission 4.2 plans, each challenged and committed.
+Next missions: 5.1 tripwires (sittings C and D), then 4.1 and 4.2 (designed), 3.1 and 3.2 at any time.
 Known issues: cloud replies are not repeatable word for word at temperature 0 (19 of
-20 verdicts repeated); the free tier allows about 65 reviews a day.
+20 verdicts repeated); the free tier allows about 65 reviews a day; no real finding can be auto-accepted until the
+baseline guard has passed its test (Mission 4.1 design).
 
 ## Model use (student, 2026-11-10)
 Until 2026-11-16: use Fable for planning, `/challenge` and statistics design. Use the usual model for routine building.
@@ -1265,6 +1340,8 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   tripwire and almost no LLM catch exist. **Mission 4.1 must account for this**: the canary recall averaged over 10
   classes is not the recall that applies to real runs; what applies is the recall on B06 and B09 (with the rule
   and the guard). Union numbers stay expected, not measured, until sitting D.
+  **Designed 2026-11-15:** the guard (`docs/plans/b09_proposal_guard.md`) and how Mission 4.1 uses it (support,
+  worst-class gate, leak term: `docs/plans/mission_4_1_trust.md`). Not built yet.
 - **Under the template, real runs cannot contain a code-level bug (found in the Mission 5.1 design, 2026-11-13).**
   Real scripts are rendered from the template, so only config-level problems can occur in them (accuracy on
   imbalanced data, a weak baseline). Consequences: tripwire recall on canaries says little about real runs; the

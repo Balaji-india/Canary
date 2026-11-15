@@ -103,12 +103,12 @@ estimator. "Cover" is the share of a bank's re-splits whose pooled interval hold
 | C, 40% B09 | 0.10 | 0.934 | 0.88 | -0.031 | 1.000 |
 | C, 40% B09 | 0.20 | 0.872 | 0.75 | -0.054 | 1.000 |
 | C, 50% B09 (top-up) | 0.10 | 0.855 | 0.78 | -0.040 | 1.000 |
-| C, 50% B09 (top-up) | 0.30 | ROW_PENDING | | | |
+| C, 50% B09 (top-up) | 0.30 | 0.299 | 0.07 | -0.106 | 1.000 |
 
 What the table says: inside one bank a correct estimator covers almost always, so the pass mark for A and B is
-0.94 to 1.00, not 0.90. Under an adverse mix the pooled estimate reads low (by 0.03 to 0.05 here) and its cover
-drops, while the worst-class bound never fails. A pass mark of 1.00 (level 0.30) is replaced by 0.97 so that one
-unlucky bank cannot fail it on a handful of re-splits. Rows for `skeptic_d` alone are in the JSON.
+0.94 to 1.00, not 0.90. Under an adverse mix the pooled estimate reads low (by 0.03 to 0.11 here) and its cover
+drops (to 0.30 at level 0.30 with the top-up, the clear case), while the worst-class bound never fails. Pass marks above 0.97 (levels 0.30 and 0.50) are set to 0.97, so
+that one unlucky bank cannot fail on a handful of re-splits. Rows for `skeptic_d` alone are in the JSON.
 
 ## 6. Free-tier calendar (about 65 reviews a session)
 | Session | Reviews | What |
