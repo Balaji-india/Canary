@@ -42,7 +42,9 @@ epochs** (`mission_4_1_trust.md` section 4: "never pooled").
 version, the graveyard and feedback switches). A Scientist that proposes differently produces a different kind of
 run, so calibration measured on clones of the old kind must not be mixed with the new
 (`mission_3_1_3_2_memory_calibration.md`, section 6). A changed Scientist identity opens a new epoch like any
-other identity field; no chart is involved.
+other identity field; no chart is involved. The same holds for what every run looks like: the hash of the
+experiment template and of the `science` block of `config/campaign.yaml` (`seeds_per_arm`, the test share) are
+identity fields too.
 
 ### 2.1 Layer A: identity checks
 - **Every cloud call** already logs `server_model` and `response_id` (`data/cloud/calls.jsonl`). Added: the

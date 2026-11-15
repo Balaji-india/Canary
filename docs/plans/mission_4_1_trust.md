@@ -95,6 +95,10 @@ the gate takes any list of observations, so it works for `skeptic_d` alone today
 - **Start from the Mission 4.2 bank.** The 360 runs of `rq4-bank-1` (200 canaries, 160 clean, on a fresh pool 3
   built with the guard on) get reviewed for Mission 4.2 anyway. After RQ4 is analysed they are the campaign's first calibration set, so science can
   start with the gate already able to open, **if the sentinel set shows the model has not changed**.
+  (Roadmap pass, 2026-11-15: as sized, the bank holds 10 B06-subtle canaries, and B06 counts in the real-run
+  support through that variant only, so the bank alone leaves B06 at 10 of the 12 the gate needs. With the
+  proposed top-up of 10 (`mission_4_2_hidden_truth.md`, section 2b) the sentence holds; without it the first
+  campaign block calibrates B06. "The model has not changed" is made exact in `mission_4_3_drift.md`, section 2.2.)
 - **Spend canaries where the gate looks:** equal numbers per class in the support, not the 15% mix. B09 canaries
   are kept at a low rate for the blind-spot record only.
 - **Lazy union (a decision for the student, section 8):** in campaigns, ask the LLM only when the tripwires pass;

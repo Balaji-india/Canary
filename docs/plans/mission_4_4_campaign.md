@@ -179,6 +179,12 @@ What the table does **not** say:
   prevalence is near 0 and a weak class costs little. It is kept as the guard against a loop, and step 1 adds a
   world that reaches it (recall 0.20), with the same checks.
 - About 30 real runs a day is the pace **if** every review call succeeds and the laptop keeps up.
+- The "bank" start assumed 20 canaries in every supported class. The bank as sized has 10 for B06 (its subtle
+  variant only). Unless the B06-subtle top-up is approved (`mission_4_2_hidden_truth.md`, section 2b), rule 6
+  fires once at the start of the first campaign and a short calibration block comes first. Step 1 simulates the
+  bank as it will really be.
+- Which questions and cells give decisive verdicts is not simulated at all. The decisive-share check
+  (`roadmap_challenge_2026-11-15.md`, finding 2) decides the campaign's grid before pool 3 is built.
 
 ## 9. Where this plan differs from earlier text
 | Earlier text | This plan | Status |

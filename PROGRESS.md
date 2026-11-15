@@ -37,6 +37,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M3 Memory and calibration**
 - [ ] 3.1 Graveyard with similarity check
 - [ ] 3.2 Brier, reliability diagram, calibration feedback
+  - Both designed 2026-11-15 (`docs/plans/mission_3_1_3_2_memory_calibration.md`), not built. Local only; they
+    block nothing in Mission 4.
 
 **M4 How much should we trust our findings?**
 - [ ] 4.1 Prevalence, contamination, trust gate
@@ -49,7 +51,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 - [ ] 4.2 Hidden-truth validation (RQ4)
   - Designed 2026-11-15 (`docs/plans/mission_4_2_hidden_truth.md`), not built, not locked.
 - [ ] 4.3 Control chart and drift alarms
+  - Designed 2026-11-15 (`docs/plans/mission_4_3_drift.md`), not built.
 - [ ] 4.4 Campaign agent loop
+  - Designed 2026-11-15 (`docs/plans/mission_4_4_campaign.md`), not built.
 
 **M5 Defense in depth**
 - [ ] 5.1 Tripwires
@@ -84,10 +88,12 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 **Current focus:** Mission 5.1 tripwires, sitting C next; then sitting D, then Mission 4.1 sitting 1 (designs ready)
 
-**Stopped at (2026-11-15, Fable session 2, design only, nothing built):** Parts 4, 5 and 6 done (`docs/plans/mission_4_3_drift.md`, 9 decisions;
-`docs/plans/mission_4_4_campaign.md`, 6 decisions; `docs/plans/mission_3_1_3_2_memory_calibration.md`, 8 decisions; each
-simulated and challenged twice). Next: Part 7 (roadmap challenge `docs/plans/roadmap_challenge_2026-11-15.md`, the build
-order tables here and in `.project-memory/PLAN.md`, tidy the old Next actions section), then the closing lock check.
+**Stopped at (2026-11-15, Fable session 2, design only, nothing built):** Parts 4 to 7 are done and committed:
+`docs/plans/mission_4_3_drift.md`, `mission_4_4_campaign.md`, `mission_3_1_3_2_memory_calibration.md` and
+`roadmap_challenge_2026-11-15.md`, each with its simulation (assumed rates) and two challenge passes. **33 decisions
+wait for the student** (section "Design session 2" below lists where). No file in `canary/`, `eval/`, `tests/` or
+`config/` changed, so `pytest` was not run. Lock check OK before and after. Next build step is unchanged: Mission
+5.1 sitting C.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -97,6 +103,56 @@ student changes them. Section "Design session 2026-11-15" below has the summary 
 plans. No code in `canary/` or `eval/` changed; `pytest` was not run because nothing it covers changed. Mission 5.1
 sittings A and B are done; sitting C is next. The ceiling files stay frozen until the tripwire test on
 `ceiling-ext` is done. Mission 2.4 is the last mission complete.
+
+## Design session 2, 2026-11-15 (Fable): Missions 4.3, 4.4, 3.1 and 3.2, roadmap challenge
+Design only. Four simulations (`docs/plans/sims/drift_chart_sim.py`, `campaign_policy_sim.py`,
+`scientist_test_sim.py`, JSON beside each) use **assumed** rates; each script was committed before its first run
+with its rules in the docstring; Opus rebuilds each as tested code and re-runs it with measured rates.
+
+**1. Mission 4.3, drift (`mission_4_3_drift.md`).** Three layers: identity checks on every call (server model,
+tripwire and library versions, a cache key that carries the model identity); charts with exact Beta-binomial
+limits at Westgard's sigma levels (rules R1, R2 and a cumulative R3); a rolling calibration window (the most recent
+24 canaries per supported class and 120 clean runs). Everything belongs to a calibration epoch; epochs are never
+pooled. The sentinel is a fixed set of already-reviewed runs asked again with the cache bypassed, chosen by code
+from run type and class, never from replies.
+- By the rule fixed before the simulation: **60 sentinel runs, 20 a day** (31% of a day's calls).
+- Simulated: the LLM flagging everything is seen on day 1; passing everything within 2 review days in 0.97 to
+  1.00 of campaigns; a recall drop from 0.77 to 0.60 within a week in only 0.11 to 0.16. **The charts see large
+  changes, not moderate ones**; the rolling window covers the slow ones for the union.
+- Under the lazy union the fresh canary chart cannot see the LLM lose recall; only the sentinel can.
+- DESIGN section 9's normal-approximation limits alarm falsely about every 48 windows at recall 0.97.
+- An alarm: pause auto-accept, hold the real runs accepted in the alarm's evidence window, recalibrate in a new
+  epoch, re-open at tau 0.05 until 3 in-control slices.
+
+**2. Mission 4.4, campaign loop (`mission_4_4_campaign.md`).** One block per review day in ten resumable phases;
+a pure rule table decides the action (stop, wait, sentinel, recalibrate on drift, finish reviews, recalibrate when
+calibration is thin or too uncertain, science). "Too uncertain" is the zero-flag test: would the gate open if 60
+real runs were all passed? No LLM chooses an action. The daily-limit stop prints resume times in IST. Every
+decision is a trace line whose hash is in the ledger, and `replay` re-derives it.
+- Simulated: all five checks fixed before the run pass; from the bank about 30 real runs a day reach review; from
+  a cold start two calibration blocks come first.
+- The real proof: a 3-day cold-start campaign in the student's window (about 195 calls).
+
+**3. Missions 3.1 and 3.2 (`mission_3_1_3_2_memory_calibration.md`).** Similarity by an exact idea key first, text
+cosine second with a threshold set by a percentile rule and judged once on pool 3's pairs. Brier score with its
+three parts, resolved for every finished real run. RQ6: 8 paired chains of 20 per arm (rule's choice). The
+Scientist's narrow proposals: prompt v2 (shuffled lists, coverage table) judged on 72 fresh proposals per arm;
+fallback is the focus grid. **Pool 3 is built before any Scientist prompt change;** every switch stays off in
+campaigns until its test passed and RQ4 is analysed. All of it is local: no cloud call.
+
+**4. Roadmap challenge (`roadmap_challenge_2026-11-15.md`).** 20 findings. The ones that change the order of work:
+- The findings ledger may be almost empty: both real runs were inconclusive, and more seeds narrow the interval
+  by about a quarter to a third at most. **A local decisive-share check and the `seeds_per_arm` decision come
+  before pool 3.**
+- RQ3 as "gate on against off" cannot fail: it needs four acceptance rules, contamination and yield.
+- RQ4 never tests the support real campaigns use: **kind D** proposed (no extra review).
+- The bank has 10 B06-subtle canaries, the gate needs 12: **a top-up of 10** proposed (10 reviews).
+- The jury with `phi4-mini` is obsolete; Mission 6 needs a design pass before any build.
+
+**Decisions waiting for the student (recommended defaults in each file's last section):** Mission 4.3: 9;
+Mission 4.4: 6; Missions 3.1 and 3.2: 8; roadmap: 10. The ones that gate the next builds: roadmap 2 (check
+before pool 3), 3 (kind D), 4 (B06 top-up); Mission 4.3 decision 1 (sentinel size) and 8 (identity before the RQ4
+lock).
 
 ## Design session 2026-11-15 (Fable): baseline guard, Mission 4.1, Mission 4.2
 Design only. The simulations are design tools with **assumed** reviewer rates
@@ -144,24 +200,32 @@ times; the estimator sees only flags. Three kinds: matched mix, other experiment
 interval widths are 0.04 to 0.20. Pass marks come from simulated banks of the same size, because re-splits of
 one bank cover more often than 90% even when all is well.
 
-**Build order across all plans** (also in `.project-memory/PLAN.md`, steps 15 to 25):
+**Build order across all plans** (updated in design session 2; also in `.project-memory/PLAN.md`):
 | # | Who | What | Plan | Needs |
 |---|---|---|---|---|
 | 1 | Opus | 5.1 sitting C: K3, K4, K6, L1, A1, dev runner | `mission_5_1_tripwires.md` steps 5-7 | nothing |
 | 2 | Opus + student's window | 5.1 sitting D: lock, 360-run tripwire test, `ceiling-ext`; ceiling files unfreeze | steps 8-10 | 1 |
-| 3 | Opus | 5.1 step 11: `canary.cli tripwires`, ledger role `tripwire_v1` | step 11 | 2 |
-| 4 | Opus, any day from now, local only | Guard sitting 1: `canary/baseline_guard.py`, wired into the Scientist | `b09_proposal_guard.md` steps 1-4 | nothing |
-| 5 | Opus | 4.1 sitting 1: `eval/rq4_power.py`, prevalence, contamination, support, `trust.estimate`, union observations | `mission_4_1_trust.md` steps 1-4, 6 | 3 |
-| 6 | Opus prepares, student's window runs | RQ4 bank, local: pool 3 (guard on), `rq4-bank-1` (360 runs), `rq4-b09` (30), tripwire records; about 2 to 3 hours | `mission_4_2_hidden_truth.md` step 1b | 3, 4 |
-| 7 | Opus | RQ4 code and lock: `eval/rq4.py`, `eval/rq4_lock.py`, `docs/plans/rq4_hidden_truth.md` | steps 1-2 | 5, 6 |
-| 8 | Student's window | 7 review sessions on `rq4-bank-1` and `rq4-b09` (about 65 a day) | step 3 | 7 |
-| 9 | Opus, local only | Guard sitting 2: oracle, generator, lock, test once | `b09_proposal_guard.md` steps 5-8 | 4 |
-| 10 | Opus | 4.1 sitting 2: `canary/gate.py`, real runs padded with decoys, ledger decisions | `mission_4_1_trust.md` steps 5, 7, 8 | 5 |
-| 11 | Opus, then `/evaluate` | `python -m eval.rq4` once; RQ4 table and figure | `mission_4_2_hidden_truth.md` step 4 | 8 |
+| 3 | Opus | 5.1 step 11: `canary.cli tripwires`, ledger role `tripwire_v1`; then one DESIGN.md sync sitting | step 11; roadmap finding 17 | 2 |
+| 4 | Opus, any day, local only | Guard sitting 1: `canary/baseline_guard.py`, wired into the Scientist | `b09_proposal_guard.md` steps 1-4 | nothing |
+| 5 | Opus, any day, local, short | Decisive-share check on the clean runs already made (no reviewer data); the student then fixes the campaign grid and `seeds_per_arm`; the ledger anchor | roadmap findings 2 and 14 | nothing |
+| 6 | Opus, any day, new files only | 4.3 sitting 1: `canary/drift.py` limits and rules, `eval/drift_power.py`, chart state | `mission_4_3_drift.md` steps 1-3 | nothing (the measured re-run needs 2) |
+| 7 | Opus | 4.1 sitting 1: `eval/rq4_power.py`, prevalence, contamination, support, `trust.estimate`, union observations | `mission_4_1_trust.md` steps 1-4, 6 | 3 |
+| 8 | Opus | 4.3 steps 4-5: identity in `canary/llm.py`, cache key, epochs; before the RQ4 lock | `mission_4_3_drift.md` steps 4-5 | 2 |
+| 9 | Opus prepares, student's window runs | RQ4 bank, local: pool 3 (guard on), `rq4-bank-1` (360 runs), the top-ups, tripwire records; about 2 to 3 hours | `mission_4_2_hidden_truth.md` step 1b | 3, 4, 5 |
+| 10 | Opus | RQ4 code and lock: `eval/rq4.py`, `eval/rq4_lock.py`, `docs/plans/rq4_hidden_truth.md` | steps 1-2 | 7, 9 (8 if in time) |
+| 11 | Student's window | 7 review sessions on the bank and the top-ups (about 65 a day) | step 3 | 10 |
+| 12 | Opus, local, in the review week | Guard sitting 2: oracle, generator, lock, test once | `b09_proposal_guard.md` steps 5-8 | 4 |
+| 13 | Opus, in the review week | 4.1 sitting 2: `canary/gate.py`, real runs padded with decoys, ledger decisions | `mission_4_1_trust.md` steps 5, 7, 8 | 7 |
+| 14 | Opus, in the review week | 4.3 steps 6-8 on fakes (sentinel runner, alarm, hold, regression check, drill); 4.4 sittings 1-2 (policy, block and trace on a fake provider) | `mission_4_3_drift.md`; `mission_4_4_campaign.md` steps 1-6 | 6, 8, 13 |
+| 15 | Opus + student's window, local, in the review week | Missions 3.1 and 3.2: three sittings, then the variety test and RQ6 (about 4 to 8 laptop hours) | `mission_3_1_3_2_memory_calibration.md` | 2, or the new prompt file |
+| 16 | Opus, then `/evaluate` | `python -m eval.rq4` once; RQ4 table and figure | `mission_4_2_hidden_truth.md` step 4 | 11 |
+| 17 | Student's window | Sentinel drawn from the bank and its opening pass; then the real 3-day campaign (cold start) | `mission_4_3_drift.md` step 6; `mission_4_4_campaign.md` step 7 | 14, 16 |
+| 18 | Fable or Opus | Plans for Mission 5.4 (RQ2 in two labelled parts, RQ3 with baselines, both from the bank), Mission 6 (design pass) and Mission 8.1 (RQ1 on one common batch); then `/priorities` | `roadmap_challenge_2026-11-15.md` section 4 | 16 |
 
-Rows 9 and 10 fit into the review week of row 8: they need no cloud call and touch no file the RQ4 lock freezes.
-`tripwire-test-1` (row 2) is tripwires-only for good: no LLM ever reviews it.
-After row 10: Mission 4.3 (control chart, sentinel), 4.4 (campaign agent). Missions 3.1 and 3.2 block nothing here.
+Rows 12 to 15 fit into the review week of row 11: they make no cloud call and touch no file the RQ4 lock freezes.
+No campaign makes a review call while the bank's reviews are open. `tripwire-test-1` (row 2) is tripwires-only for
+good: no LLM ever reviews it. Rows 5 and 9 carry proposals that wait for the student (kind D, the B06-subtle top-up,
+the decisive-share check): see design session 2 above.
 
 **Decisions: all defaults approved by the student on 2026-11-15** (each plan's last section):
 - Guard: one factor only; G3 to the human queue and G4 a warning; add G0; the pass marks.
@@ -754,18 +818,20 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-1. **Opus: Mission 5.1 sitting C** (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the development
-   runner `eval/tripwires_dev.py` on `task-dev-2`). New files only; lock check before and after the session.
-2. **Mission 5.1 sitting D: the locked 360-run tripwire test** (`tripwire-test-1`, then `ceiling-ext`). No LLM
-   ever reviews `tripwire-test-1`; the RQ4 bank is a separate pool-3 batch.
-3. **Opus: guard sitting 1** (`docs/plans/b09_proposal_guard.md` steps 1-4). Local only; can be done on any day,
-   also before sitting D. It now comes before the RQ4 bank (pool 3 is built with the guard on). Then Mission 4.1
-   sitting 1 once the tripwire wiring (step 11) exists.
+The order is the build order table (section "Design session 2026-11-15"); rows in brackets.
+1. **Student: the open decisions** of the four new plans and the roadmap (33, each with a recommended default).
+   Needed first: roadmap decisions 2, 3 and 4 (they shape pool 3 and the bank), Mission 4.3 decisions 1 and 8.
+2. **Opus: Mission 5.1 sitting C** [row 1] (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the
+   development runner `eval/tripwires_dev.py` on `task-dev-2`). New files only; lock check before and after.
+3. **Mission 5.1 sitting D** [row 2]: the locked 360-run tripwire test (`tripwire-test-1`, then `ceiling-ext`). No
+   LLM ever reviews `tripwire-test-1`.
+4. **Opus, any day, local, in any order** [rows 4, 5, 6]: guard sitting 1; the decisive-share check and the ledger
+   anchor; Mission 4.3 sitting 1 (new files only).
+5. **Then** [rows 3, 7, 8, 9]: tripwire wiring and the DESIGN.md sync, Mission 4.1 sitting 1, identity in
+   `canary/llm.py`, pool 3 and the bank.
 
-Student: nothing open. All defaults of the three plans were approved on 2026-11-15.
-
-Done 2026-11-15 (Fable, design only): baseline guard, Mission 4.1 and Mission 4.2 plans, each challenged and committed.
-Next missions: 5.1 tripwires (sittings C and D), then 4.1 and 4.2 (designed), 3.1 and 3.2 at any time.
+Done 2026-11-15 (Fable, design only, two sessions): baseline guard, Missions 4.1 and 4.2 (approved); Missions 4.3,
+4.4, 3.1 and 3.2 and the roadmap challenge (decisions open).
 Known issues: cloud replies are not repeatable word for word at temperature 0 (19 of
 20 verdicts repeated); the free tier allows about 65 reviews a day; no real finding can be auto-accepted until the
 baseline guard has passed its test (Mission 4.1 design).
@@ -1127,6 +1193,8 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
 - Cloud: 3-call Groq smoke test (2026-11-11). **Arm L (`skeptic_d`) is open:** day 1 done 2026-11-12, 67 of 120
   answered (task-dev-2 40 of 40, ceiling-ext 27 of 80), 0 failed; resume from 2026-11-13 13:11 UTC with
   `reaudit --batch ceiling-ext --role skeptic_d`. No partial analysis while it is open.
+- **Arm L is finished (2026-11-14); the line above is the 2026-11-12 state.** Main pass 120 of 120 answered, repeat
+  pass 20 of 20, `eval.ceiling --arm L` ran once (SOLVABLE). Nothing is running or interrupted.
 
 ## Decisions
 - **Mission 4 reviewer (student, 2026-11-14):** the union of `openai/gpt-oss-120b` (`skeptic_d`) and the tripwires: a
@@ -1447,24 +1515,3 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **README's status line is hand-maintained:** when task-dev-2 or confirm-llama-2 finishes, update its "Status" line
   and the "What happens next" paragraph from `eval/results/` (llama stays "not confirmed" unless `confirm.json` says so).
 - `python3` still opens the Windows Store stub. Canary only uses `python`, so this is harmless.
-
-## Next actions
-1. **Cloud ceiling check on free APIs** (outline: `docs/plans/cloud_ceiling_check_outline.md`).
-   a. **Student:** confirm the provider (recommended: Groq for arm L, Gemini free tier for arm R) or pick an
-      alternative from outline section 2.
-   b. **(Opus) `/api`** from `docs/plans/api_cloud_provider_build_plan.md`: the OpenAI-style provider, pacing and
-      daily budget, call log, `cloud-smoke`, mocked tests. No real call and no key in that session. Does not wait
-      for (a).
-   c. `eval/ceiling.py` (verdict-based, frozen) and the `eval/power_sim.py` extension: the outcome table and the batch
-      size; an extension batch on the laptop if the size is above 40.
-   d. **Student:** create the two keys without a payment method, read the free limits in both consoles (outline
-      section 9); then the live smoke test (needs the OK to send one blinded old run), the lock, and arm L in short
-      daily sessions through `llm.py` only. Pay only if the free result is INCONCLUSIVE or HARD and a newer paid model
-      would change the conclusion.
-2. **Only if the ceiling check says SOLVABLE: efficiency search** for the cheapest model that still clears the bar:
-   local non-Qwen code models that fit 6 GB VRAM and smaller cloud models. Each candidate is tested on its own fresh,
-   never-seen batch, pre-registered and locked, with the same rules and the same bar; nothing is chosen on a batch
-   whose results we have seen.
-3. **`/mission 5.1` (deterministic tripwires)**, the main defence whatever the ceiling check says; then Mission 3.1.
-   Needs the student's OK on the design first (`docs/plans/mission_5_1_tripwires.md`, section 12).
-4. Housekeeping: done 2026-11-14 (`pytest -q` 718 passed in about 22 s; 16 more test functions marked `slow`).

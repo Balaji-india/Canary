@@ -71,6 +71,31 @@ Kind B has its own pass marks, simulated in step 1 for its smaller sizes before 
 **Three reviewers, same runs:** the union (primary), `skeptic_d` alone, the tripwires alone. Supports: all 20
 variants for every one of them (hidden-truth populations, `mission_4_1_trust.md` section 2).
 
+### 2b. Proposed in the roadmap pass (2026-11-15), pending the student's OK
+From `docs/plans/roadmap_challenge_2026-11-15.md`, findings 2, 5, 6 and 7. None changes a pass mark above; each
+adds something, and all are fixed before any review exists.
+1. **Kind D, guarded support.** Audited canaries are drawn evenly from the 17 supported variants only (no B09,
+   no B06 obvious); the estimator gets the real-run support of `mission_4_1_trust.md` (guard on), no leak term.
+   This is the configuration real campaigns use, and the only kind where the worst-class bound and the gate
+   measure say something: with all 20 variants in the support the worst class is B09 and the bound is near 1.
+   Same levels, same measures as kind A, plus: how often the gate opens and the true contamination when it does.
+   Pass marks: simulated in step 1 before the lock, by the same rule (5th percentile across simulated banks).
+   No extra review.
+2. **B06-subtle top-up of 10 canaries,** in the same extra batch as the B09 top-up. The bank has 10 B06-subtle
+   canaries; B06 counts in the real-run support through that variant only, and the gate needs 12 per supported
+   class. With the top-up, kind D can calibrate with 12 per class at every level, and the bank can open the gate
+   for campaigns afterwards. Cost: 10 reviews (session 7 becomes 10 + 30 + 10; still 7 sessions). Without it:
+   kind D runs at levels 0, 0.10 and 0.30 with 8 calibration canaries per class, and the first campaign block
+   calibrates B06.
+3. **The bound's size, not only how often it holds:** for every kind and level the median upper end of the
+   worst-class bound is reported beside the share of re-splits in which it holds.
+4. **Naive baselines beside every estimate:** the raw flag rate read as prevalence, and the Rogan-Gladen point
+   formula with plain proportions and no interval. Their mean error and their share within 0.10 of the truth, on
+   the same re-splits.
+5. **Before pool 3 is built (step 1b):** the local decisive-share check on the clean runs already made, and the
+   student's decision on the campaign grid and `seeds_per_arm`. The number of seeds is visible in every
+   `results.json`; changing it after the bank exists would make real runs differ from the bank's clones.
+
 ## 3. Sample size per level (from the simulations)
 - **100 audited runs per level.** Simulated with independent runs, 20 canaries per class and 100 clean runs for
   calibration (`trust_design_sim.json`, union rates): the 90% interval is 0.04 wide at level 0, 0.13 at 0.10,
@@ -234,3 +259,7 @@ section 4), under the same reviewer snapshot.
 2. The B09 top-up of 30 canaries: **yes.**
 3. Levels 0, 0.10, 0.30, 0.50 and 100 audited runs: **yes.**
 4. The bank is `rq4-bank-1` on a fresh pool 3, not `tripwire-test-1` (section 2a): **decided the same day.**
+
+**Open (roadmap pass, 2026-11-15; section 2b):** kind D; the B06-subtle top-up; the bound's median upper end and
+the naive baselines; the decisive-share check and the `seeds_per_arm` decision before pool 3. Recommended: yes to
+each. They are decisions 2, 3 and 4 of `docs/plans/roadmap_challenge_2026-11-15.md`.
