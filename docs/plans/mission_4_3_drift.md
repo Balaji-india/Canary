@@ -90,6 +90,11 @@ epochs** (`mission_4_1_trust.md` section 4: "never pooled").
   closing the RQ4 review week, exactly as `mission_4_2_hidden_truth.md` section 6 says. That plan's trigger
   ("more than 3 of 20 changed": report the estimate split by review day) is a reporting rule, not an alarm, and
   is unchanged.
+- **When the bank may calibrate campaigns** (`mission_4_1_trust.md` section 4 says "if the sentinel set shows the
+  model has not changed"; made exact here, with the number that plan already uses): the bank is epoch 1's
+  calibration set only if that trigger did **not** fire, that is, at most 3 of the 20 verdicts differ between the
+  opening and the closing pass of the review week. If it fired, the bank is still analysed for RQ4 as planned,
+  and campaigns start with a fresh calibration in a new epoch.
 
 ### 2.3 Layer B, part 2: the fresh-run charts (the union)
 Fresh calibration runs enter campaigns every day (Mission 4.4). In review order:
@@ -221,6 +226,17 @@ held runs: about 3 to 4 review days. With about 0.03 false alarms in 30 days tha
 | After a change | new epoch, new calibration | fix or accept the new version; new epoch for the union; LLM-alone numbers carry on |
 | Model retired or key refused | no union exists: the gate is closed, local work may go on | not affected |
 
+### 5.1 Where this plan differs from earlier text (nothing approved is changed without a decision below)
+| Earlier text | This plan | Status |
+|---|---|---|
+| DESIGN.md section 9: limits `p +- k sigma` (normal approximation) | exact Beta-binomial limits at the same sigma levels; rule R3 added | decision 2 |
+| DESIGN.md section 9: an alarm "makes the agent spend its next runs on canaries until the chart recovers" | recalibration spends the LLM's calls on the sentinel and on clean runs, because under the lazy union canaries reach the LLM only when the tripwires pass them; canaries are still run and still counted for the union; "recovers" = 3 in-control slices | follows from the approved lazy union; decision 3 |
+| `config/campaign.yaml` `control_chart` block (window 20, two rule names) | window 20 kept for the fresh charts; rules and tails written out; sentinel block added | changed in build step 8 |
+| `mission_4_1_trust.md` section 4: "a sentinel change beyond its baseline (1 change in 20) closes the gate" | "beyond its baseline" = rule R1, R2 or R3 on the sentinel chart | a definition, same intent |
+| `mission_4_1_trust.md`: the gate reads all calibration runs | the gate reads the rolling window (2.4); `trust.estimate` itself is unchanged, only what it is given | decision 5 |
+| `mission_4_2_hidden_truth.md` section 6: sentinel = the 20 repeat-pass runs, twice | unchanged; its trigger is reused for "may the bank calibrate campaigns" (2.2) | decision 9 |
+| First audit stands (PROGRESS, Decisions) | unchanged for every calibration run; a **held real run** gets one review in the new epoch, which is that epoch's first | decision 4 |
+
 ## 6. Build order (Opus)
 Frozen until tripwire sitting D is done: `canary/llm.py`, `canary/cli.py`, `canary/skeptic.py`,
 `canary/mixer.py`, `canary/prompts.py`. `canary/trust.py` will be frozen by the RQ4 lock. So the chart lives in a
@@ -237,7 +253,10 @@ Frozen until tripwire sitting D is done: `canary/llm.py`, `canary/cli.py`, `cana
 - **Step 2. `eval/drift_power.py`:** the simulation as tested code that calls `drift.limit` and `drift.rules`, so
   it cannot differ from the chart. Adds a base-level random effect (verdict ICC 0.1, 0.2, 0.4, as the ceiling
   design did), because runs of one base are not independent. Tests: seeded and repeatable; with no noise and no
-  change no rule ever fires; "flags everything" always fires on the first slice.
+  change no rule ever fires; "flags everything" always fires on the first slice. It also prints two things this
+  plan needs and does not have: the probability that "more than 3 of 20 differ" fires when nothing changed (the
+  bank rule of 2.2), and the day-to-day spread of the flip rate from the three passes over the `ceiling-ext`
+  sentinel (ceiling repeat pass, RQ4 opening, RQ4 closing), read as counts only.
   **Done when:** it reproduces `drift_chart_sim.json`'s choice from the assumed rates, then writes
   `eval/results/drift/power.json` from the measured rates. **If the measured run chooses another design, that
   design replaces section 2.2's sizes and the student is told before step 6.**
@@ -262,8 +281,8 @@ RQ4 is analysed; never while a lock that names these files is open.**
 - **Step 6. Sentinel.** `python -m canary.drift sentinel-draw --batch rq4-bank-1 --seed 4303` (reads run type,
   class, tier and base; writes the ID list); `sentinel-pass --opening` and `--slice` (through `skeptic.rescore`,
   cache bypassed, records appended; stops cleanly at the daily budget and resumes). Tests: the draw gives 3 per
-  class, 15 and 15, at most 4 per base, and is the same for the same seed; a spy shows no audit payload is read
-  by the draw; a sentinel reply never becomes a ledger audit; two identical `response_id`s are refused as "served
+  class, 15 and 15, at most 4 per base, and is the same for the same seed; a spy shows the draw reads only whether
+  a first audit exists (the entry's status), never a payload's verdict, class, confidence or evidence; a sentinel reply never becomes a ledger audit; two identical `response_id`s are refused as "served
   twice", not counted as stable.
 - **Step 7. Alarm, hold, gate.** Alarm and `held` ledger entries; `gate` reads tau and "closed: drift alarm" from
   the alarm state; recovery after 3 in-control slices. Tests: one test per row of section 5's list; a held run is
@@ -299,6 +318,7 @@ RQ4 is analysed; never while a lock that names these files is open.**
 mixed; a total failure of the LLM reviewer (passes everything, flags everything) raises an alarm within 1 to 2
 review days with the simulated probabilities of section 4; findings accepted just before an alarm are held and
 reviewed again; the gate's union numbers are at most about 8 to 11 review days old.
+Campaign results are reported per epoch.
 **May not claim:** that Canary "detects reviewer drift" without the size of the change: a recall drop from 0.77
 to 0.60 is mostly not detected within two weeks; that any detection probability was observed on a real provider
 change (all are simulated with assumed rates until one happens); that the canary chart monitors the LLM; that a
@@ -318,7 +338,16 @@ quiet chart shows the model is unchanged; anything about bug shapes outside the 
 | 9 | Moderate | A false alarm throws away a good calibration (3 to 4 days). | About 0.03 in 30 review days; accepted. No "appeal" path: it would be a second, untested rule. |
 | 10 | Moderate | The rolling window size (twice the minimum calibration) is a judgement, not a simulated optimum. | Tied to the approved minimum of Mission 4.1; step 2 reports the gate's opening rate with this window from the measured rates; a decision for the student (decision 5). |
 | 11 | Moderate | "Review days" hide calendar time: after a three-week break the last accepted findings were released under a slice three weeks old. | The slice comes first on every review day and nothing is accepted before it is in control (section 3). Findings accepted before the break stand unless the first slice after it alarms, and then the look-back holds them. |
-| 12 | Minor | DESIGN.md section 9 and `campaign.yaml` still describe the normal-approximation chart. | Changed in step 8, after the student approves decision 2. Until then this plan says where it differs. |
+| 12 | Minor | DESIGN.md section 9 and `campaign.yaml` still describe the normal-approximation chart. | Changed in step 8, after the student approves decision 2. Until then section 5.1 says where this plan differs. |
+
+**Second pass (same day), after reading the draft against the other plans:**
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| 13 | Major | The draft never said when the reviewed bank may serve as the first calibration set, although Mission 4.1 makes that depend on the sentinel. A new threshold invented here would be a threshold chosen after the plans were approved. | The trigger Mission 4.2 already fixed is reused (2.2). Its price is stated: with a baseline of 1 change in 20, more than 3 changes is not rare when nothing changed, and a false trigger costs a fresh calibration (about 3.5 sessions, `mission_4_1_trust.md` section 4). Step 2 prints that probability; the student decides with the number (decision 9). |
+| 14 | Major | The baseline is one opening pass on one day. If the provider's answers vary more between days than within a day (load, routing), the limits are too tight and false alarms exceed the simulated 0.03. | Step 2 measures the day-to-day spread on the `ceiling-ext` sentinel's three passes. Rule fixed now: if the spread is above what the within-day model gives (the Beta-binomial 95% limit of step 1), the opening pass is split over two review days. |
+| 15 | Major | A campaign that spans two epochs has two reviewers. A single table over the whole campaign would mix them. | Every campaign-level figure (RQ3 included) is reported per epoch, with the alarm between them shown (section 8). |
+| 16 | Moderate | The draft changed how earlier text reads (DESIGN.md section 9, two lines of Mission 4.1) without listing it. | Section 5.1. |
+| 17 | Moderate | When the gate cannot open for another reason (B09 still in the support), the daily slice protects no accepted finding and still costs 20 calls. | Kept: calibration runs reviewed on those days feed the trust numbers, and a change in the middle of them would mix two reviewers. Mission 4.4's budget counts the slice on every review day. |
 
 ## 10. Decisions (for the student; recommended default first)
 1. **Sentinel size and pace:** 60 runs, 20 a day (the rule's choice; 31% of a day's calls). Alternative: 40
@@ -338,3 +367,6 @@ quiet chart shows the model is unchanged; anything about bug shapes outside the 
    stops the pass and raises an alarm: **yes** (the ceiling plan's rule).
 8. **Build steps 4 and 5 (identity in `llm.py`, epochs) before the RQ4 lock,** so the bank's reviews already carry
    the epoch and the fingerprint: **yes, if sitting D is done in time; otherwise after RQ4 is analysed.**
+9. **The bank calibrates campaigns only if Mission 4.2's trigger did not fire** (at most 3 of 20 sentinel verdicts
+   differ between the opening and the closing pass): **yes,** reusing the approved number. Alternative: a looser
+   exact limit, which would need its own simulation first.
