@@ -107,7 +107,8 @@ Frozen until sitting D is done: `canary/cli.py`, `canary/mixer.py` and the other
 entry points (`python -m canary.gate`), no new `canary.cli` subcommand yet. `canary/trust.py`,
 `canary/scientist.py`, `canary/ledger.py` and `config/campaign.yaml` are not frozen.
 
-**Sitting 1 (steps 1 to 4): the numbers.**
+**Sitting 1 (steps 1 to 4, and step 6): the numbers.** Step 6 changes `canary/trust.py`, which the RQ4 plan
+freezes (`mission_4_2_hidden_truth.md`), so it is built here, before that lock.
 - **Step 1. `eval/rq4_power.py`:** the simulation as tested code (same functions the real estimator uses, so the
   simulation cannot drift from the code). Tests: seeded and repeatable; a reviewer with recall 1 and specificity 1
   recovers the planted prevalence exactly. Re-run with measured numbers when sitting D has them.
@@ -123,7 +124,8 @@ entry points (`python -m canary.gate`), no new `canary.cli` subcommand yet. `can
   section 3. It takes flags for the real runs, never the sealed table. Test: its signature and imports (no sealed
   access on the real-run side); pooled and worst agree when there is one class.
 
-**Sitting 2 (steps 5 to 8): the gate and the real-run pipeline.**
+**Sitting 2 (steps 5, 7, 8): the gate and the real-run pipeline.** It may run while the RQ4 reviews are under way:
+it edits no file that plan freezes.
 - **Step 5. `canary/gate.py`:** the table in section 3 as code; `python -m canary.gate --demo` runs it on
   synthetic counts and prints each branch. Tests: one test per row of the table; a decision record holds every
   number; the gate never accepts with an untested class.
