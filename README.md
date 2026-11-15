@@ -6,13 +6,14 @@
 >
 > Canary puts its own canaries into the research loop.
 
-**Status (2026-11-14):** Milestones M1–M2 are complete. None of the local reviewers tested so far can be trusted,
+**Status (2026-11-15):** Milestones M1–M2 are complete. None of the local reviewers tested so far can be trusted,
 but the review task itself is solvable: in a pre-registered check, the cloud model `openai/gpt-oss-120b` (free tier)
 flagged 46 of 60 buggy runs and 0 of 60 clean ones (Youden's J +0.767, 97.5% interval [+0.643, +0.891]). This holds
-for this model, at these settings, with this prompt, on Canary's own planted bugs; it missed almost every metric-misuse and
-weak-baseline bug. Real runs can carry only those two kinds of bug, so the Mission 4 reviewer is the
-cloud model and the deterministic tripwires together, with a proposal-time guard for weak baselines. Next: the guard
-and Mission 4.1 design, then Mission 5.1 (tripwires, 2 of 4 sittings built).
+for this model, at these settings, with this prompt, on Canary's own planted bugs. Its weakest classes were metric
+misuse (0 of 6 caught) and weak baselines (1 of 6). Real runs can carry only those two kinds of bug, so the Mission 4
+reviewer is the cloud model and the deterministic tripwires together, with a proposal-time guard for weak baselines.
+Mission 5.1 (tripwires) has 2 of 4 sittings built; the guard, Mission 4.1 and Mission 4.2 are designed, not built.
+Next: tripwire sittings C and D.
 
 ---
 
@@ -82,8 +83,8 @@ flowchart LR
     G -->|reject| GY[🪦 Graveyard]
 ```
 
-<sub>Built so far: everything up to the trust statistics, and the ledger. The trust gate is Mission 4; today the
-graveyard only receives crashed runs.</sub>
+<sub>Built so far: everything up to the trust statistics, the ledger, and half of the tripwires (Mission 5.1). The
+trust gate is Mission 4; today the graveyard only receives crashed runs.</sub>
 
 Rules built into the design:
 
@@ -91,7 +92,9 @@ Rules built into the design:
 - **Hypotheses are locked before they run.** The prediction is hashed first, so it cannot be rewritten afterwards.
 - **The findings ledger is hash-chained.** If anyone edits a past entry, `ledger verify` fails.
 - **The Scientist and the Skeptic come from different model families,** so they do not share the same blind spots.
-- **Everything runs locally** on a 6 GB laptop GPU through Ollama. No API keys, and no data leaves the machine.
+- **Everything runs locally** on a 6 GB laptop GPU through Ollama, except the one cloud reviewer. It sees only what
+  every reviewer sees: the blinded script, its results and the pre-registration. The sealed table never leaves the
+  laptop. Its key is read from `.env`, and the spending cap is $0 (free tier).
 
 ## First finding: the canary went quiet
 
@@ -142,14 +145,37 @@ holds the 40-run plan and the helper's size in characters (both pass). Effect sp
 is 0.521 [0.469, 0.567] on existing runs. One cue remains: bugs really inflate the best arm's score (0.591
 [0.541, 0.650]); a reviewer may notice that legitimately.</sub>
 
-**What happens next.** The llama confirmation (`docs/plans/llama_checklist_confirmation_v2.md`) was stopped
-before it ran: on task-dev-2 (40 runs, decoys, every size feature at 0.5) llama's AUC was 0.643, base 90% [0.487,
-0.778], and a simulation of the plan's own analysis gave about 400 runs for 80% power at that level
-(`eval/results/task_dev_2/dev_report.json`, `eval/results/confirm_llama_2/power_sim.json`). Next is a cloud ceiling
-check on the same 40 runs (`docs/plans/cloud_ceiling_check_outline.md`, outline only): if a strong cloud reviewer
-clearly beats llama, the task is solvable and a search for the cheapest model that clears the bar follows, each
-candidate on its own fresh batch. Mission 5.1 (tripwires) comes next either way. The rule stays: every change to the
-reviewer is chosen on development data and judged only on a batch it has never seen.
+## Reviewer study: can any reviewer do this task?
+
+| Reviewer | Runs | Result | Source |
+|---|---|---|---|
+| `gemma3:4b`, `phi4-mini` (local) | 180, no padding | **No better than chance.** They flagged 100 and 97 of 100 bugs, but also 80 and 75 of 80 clean runs. J 0.000 and +0.032. | `rq1_comparison.json` |
+| `llama3.1:8b` (local) | 40, padded, with decoys | **A weak signal, not confirmed.** AUC 0.643, base 90% [0.487, 0.778]. Confirming it would need about 400 runs for 80% power, so the confirmation was stopped before it ran. On unpadded runs it scored 0.735; how much of that was the length cue is not measurable. | `task_dev_2/dev_report.json`, `confirm_llama_2/power_sim.json` |
+| `openai/gpt-oss-120b` (Groq, free tier) | 120, padded, with decoys | **SOLVABLE under a locked plan.** 46 of 60 bugs caught, 0 of 60 clean runs flagged. J +0.767 [+0.643, +0.891], verdict AUC 0.883 [0.821, 0.946] (97.5%, intervals resample whole experiments). 19 of 20 verdicts were the same when asked again days later. | `ceiling/arm_L.json`, `ceiling/arm_L_breakdown.json` |
+
+**The average hides the worst class.** Recall over all classes was 46 of 60. On 8 of the 10 classes the cloud model
+caught 45 of 48. On metric misuse (B06) it caught **0 of 6** (95% interval [0.00, 0.33]), and on weak baselines (B09)
+**1 of 6**. These two classes were split out after the fact, and each has only 6 runs. On the same 40 runs, the cloud
+model's verdict AUC beat llama's by +0.283 [+0.080, +0.505].
+
+- **May claim:** for `openai/gpt-oss-120b`, at these settings, with the baseline prompt, on Canary's canaries, the
+  review task is solvable; there was no false alarm in 60 clean runs; and the local models, not the task, were the
+  weak link.
+- **May not claim:** that the task is solved; a recall for real bugs or new kinds of bug; that any single class is
+  detected or undetectable (6 runs each); that specificity is 100%; a ranking of gemma, phi and the cloud model on
+  the same task; that the result holds for other prompts, models, or a later version of this model.
+
+**What it means for Mission 4.** A real run is built from the template, so it can only carry the two config-level
+bugs the cloud model misses (B06, B09). The student's decision (2026-11-14): the Mission 4 reviewer is the cloud
+model **and** the deterministic tripwires (a run is flagged if either flags it; each is also logged alone), plus a
+fixed sentinel set re-asked to catch drift. B06 gets a tripwire rule. B09 has no tripwire, so a proposal-time guard
+stops weak baselines before they run. Every contamination estimate will show the worst class beside the average.
+**Built:** Mission 5.1 sittings A and B (the replay probe, and checks S1, S2, K0, K1, K2, K5). **Designed, not built:**
+the rest of the tripwires, the guard, Mission 4.1 and Mission 4.2 (`docs/plans/`). The union's own numbers come from
+the locked tripwire test; until then they are expected, not measured.
+
+The rule stays: every change to the reviewer is chosen on development data and judged only on a batch it has never
+seen.
 
 ## Try it
 
@@ -188,7 +214,7 @@ Tests: `pytest -q` (fast, no network, LLMs mocked). `pytest -m slow` runs the sl
 
 ```
 canary/      the system: scientist, prereg, ledger, saboteur/ (bugs, decoys), controls, padding, blinding, skeptic,
-             trust, mixer, sandbox, llm
+             trust, mixer, sandbox, llm, tripwires (with probe and replay)
 config/      models, datasets, bug classes, example experiment configs
 eval/        research-question scripts, results/ (JSON) and figures/
 tests/       pytest suite
@@ -201,8 +227,8 @@ docs/        DESIGN.md (design, maths, bug catalogue) and plans/ (pre-registrati
 
 **Done:** M1–M2, the honest core loop, the saboteur, controls and shams, trust statistics and the first reviewer
 study. Then the review-task screen, length matching plus decoys, and task-dev-2 (llama not confirmed for use; its
-confirmation stopped on power grounds). **Now:** a cloud ceiling check, to learn whether any reviewer can do this
-task, then Mission 5.1 (tripwires).
+confirmation stopped on power grounds), and the cloud ceiling check (SOLVABLE for `openai/gpt-oss-120b`). **Now:**
+Mission 5.1 (tripwires, 2 of 4 sittings built), then Missions 4.1 and 4.2 (designed).
 
 | Milestone | What it adds |
 |---|---|
