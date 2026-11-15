@@ -1,0 +1,233 @@
+{
+ "settings": {
+  "draws": 600,
+  "banks": 200,
+  "splits": 100,
+  "per_class": 20,
+  "clean": 160,
+  "cal_per_class": 12,
+  "cal_clean": 60,
+  "audited": 100,
+  "sp_true": 0.98,
+  "reviewers": {
+   "union_assumed": [
+    0.97,
+    0.97,
+    0.97,
+    0.97,
+    0.97,
+    0.97,
+    0.97,
+    0.97,
+    0.97,
+    0.17
+   ],
+   "llm_alone_assumed": [
+    0.94,
+    0.94,
+    0.94,
+    0.94,
+    0.94,
+    0.94,
+    0.94,
+    0.94,
+    0.05,
+    0.17
+   ]
+  }
+ },
+ "rows": [
+  {
+   "reviewer": "union_assumed",
+   "mix": "matched",
+   "share_buggy": 0.0,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.9910499999999999,
+   "pooled_cover_p05_across_banks": 0.94,
+   "pooled_cover_p50_across_banks": 1.0,
+   "pooled_bias": 0.007914867097704604,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "union_assumed",
+   "mix": "matched",
+   "share_buggy": 0.1,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.995,
+   "pooled_cover_p05_across_banks": 0.97,
+   "pooled_cover_p50_across_banks": 1.0,
+   "pooled_bias": -0.00214282568135693,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "union_assumed",
+   "mix": "matched",
+   "share_buggy": 0.3,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.9995500000000002,
+   "pooled_cover_p05_across_banks": 1.0,
+   "pooled_cover_p50_across_banks": 1.0,
+   "pooled_bias": 0.01135466964692089,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "union_assumed",
+   "mix": "matched",
+   "share_buggy": 0.5,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.99865,
+   "pooled_cover_p05_across_banks": 0.99,
+   "pooled_cover_p50_across_banks": 1.0,
+   "pooled_bias": 0.026172041078307617,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "union_assumed",
+   "mix": "b09_40pct",
+   "share_buggy": 0.1,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.93435,
+   "pooled_cover_p05_across_banks": 0.88,
+   "pooled_cover_p50_across_banks": 0.94,
+   "pooled_bias": -0.031060785505619887,
+   "worst_upper_holds_mean": 0.99995,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "union_assumed",
+   "mix": "b09_40pct",
+   "share_buggy": 0.2,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.872,
+   "pooled_cover_p05_across_banks": 0.7495,
+   "pooled_cover_p50_across_banks": 0.88,
+   "pooled_bias": -0.053640644495364015,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "union_assumed",
+   "mix": "b09_50pct_topup",
+   "share_buggy": 0.1,
+   "extra_b09": 30,
+   "pooled_cover_mean": 0.85515,
+   "pooled_cover_p05_across_banks": 0.78,
+   "pooled_cover_p50_across_banks": 0.86,
+   "pooled_bias": -0.04035140255710661,
+   "worst_upper_holds_mean": 0.99995,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "union_assumed",
+   "mix": "b09_50pct_topup",
+   "share_buggy": 0.3,
+   "extra_b09": 30,
+   "pooled_cover_mean": 0.29865,
+   "pooled_cover_p05_across_banks": 0.07,
+   "pooled_cover_p50_across_banks": 0.29,
+   "pooled_bias": -0.1061874249611233,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "llm_alone_assumed",
+   "mix": "matched",
+   "share_buggy": 0.0,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.9911,
+   "pooled_cover_p05_across_banks": 0.9495,
+   "pooled_cover_p50_across_banks": 1.0,
+   "pooled_bias": 0.008616182833719167,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "llm_alone_assumed",
+   "mix": "matched",
+   "share_buggy": 0.1,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.9924000000000001,
+   "pooled_cover_p05_across_banks": 0.9695,
+   "pooled_cover_p50_across_banks": 1.0,
+   "pooled_bias": -0.004364791824865974,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "llm_alone_assumed",
+   "mix": "matched",
+   "share_buggy": 0.3,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.99845,
+   "pooled_cover_p05_across_banks": 0.99,
+   "pooled_cover_p50_across_banks": 1.0,
+   "pooled_bias": 0.006980950883250681,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "llm_alone_assumed",
+   "mix": "matched",
+   "share_buggy": 0.5,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.9977000000000001,
+   "pooled_cover_p05_across_banks": 0.99,
+   "pooled_cover_p50_across_banks": 1.0,
+   "pooled_bias": 0.01883109043835085,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "llm_alone_assumed",
+   "mix": "b09_40pct",
+   "share_buggy": 0.1,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.9292500000000001,
+   "pooled_cover_p05_across_banks": 0.87,
+   "pooled_cover_p50_across_banks": 0.93,
+   "pooled_bias": -0.03193644370636972,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "llm_alone_assumed",
+   "mix": "b09_40pct",
+   "share_buggy": 0.2,
+   "extra_b09": 0,
+   "pooled_cover_mean": 0.86795,
+   "pooled_cover_p05_across_banks": 0.77,
+   "pooled_cover_p50_across_banks": 0.87,
+   "pooled_bias": -0.05598301285597332,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "llm_alone_assumed",
+   "mix": "b09_50pct_topup",
+   "share_buggy": 0.1,
+   "extra_b09": 30,
+   "pooled_cover_mean": 0.8622500000000001,
+   "pooled_cover_p05_across_banks": 0.79,
+   "pooled_cover_p50_across_banks": 0.86,
+   "pooled_bias": -0.04066165688134217,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  },
+  {
+   "reviewer": "llm_alone_assumed",
+   "mix": "b09_50pct_topup",
+   "share_buggy": 0.3,
+   "extra_b09": 30,
+   "pooled_cover_mean": 0.42675,
+   "pooled_cover_p05_across_banks": 0.19900000000000004,
+   "pooled_cover_p50_across_banks": 0.42,
+   "pooled_bias": -0.10767205815625916,
+   "worst_upper_holds_mean": 1.0,
+   "worst_upper_holds_p05_across_banks": 1.0
+  }
+ ]
+}

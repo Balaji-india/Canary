@@ -49,7 +49,9 @@ gate opens in 97% of campaigns at 6 canaries per class, 60 clean and 30 real run
 
 So B09 leaves the support only through the guard, and what the guard lets through is added back as a **leak
 term**: among guard-`ok` proposals in the guard's fresh test, the oracle found k of n controls truly weak; the
-leak is `Beta(1 + k, 1 + n - k)`. No credit is taken for the reviewer catching any of them.
+leak is `Beta(1 + k, 1 + n - k)`. No credit is taken for the reviewer catching any of them. The leak counts only
+what the oracle can see: weakness against library defaults. Other weak baselines (a poor default, a treatment
+tuned against an untuned control) are outside it and are named as not covered.
 Simulated: with a leak of 0 of 100 or 2 of 100 the gate still opens; so the guard test needs about 100 guard-`ok`
 proposals with at most a few weak ones.
 

@@ -36,13 +36,15 @@ bank by drawing runs. Extra levels cost no reviews.
 | Kind | How the audited canaries are drawn | What it tests | Expected |
 |---|---|---|---|
 | A. matched | evenly over the 10 classes | the arithmetic and the interval, when real bugs are spread like canaries | pooled estimate close to the truth |
-| B. other experiments | as A, but calibration and audited runs come from **different bases** | transfer from calibration clones to other experiments, the nearest thing to real runs | as A if the reviewer behaves the same across experiments |
+| B. other experiments | as A, but calibration and audited runs come from **different bases**; half a bank each, so 60 audited runs and 8 calibration canaries per class | transfer from calibration clones to other experiments, the nearest thing to real runs | as A if the reviewer behaves the same across experiments |
 | C. adverse mix | a large share of the canaries are B09, the class the reviewer misses | what Mission 4.1 claims: pooled fails, the worst-class bound holds | pooled too low; worst-class upper end still above the truth |
 
 Kind C, from the bank alone: 40% of the audited canaries are B09, at levels 0.10 and 0.20 (the bank has 20 B09
 canaries; 12 must stay for calibration). **Recommended top-up:** 30 more B09 canaries (batch `rq4-b09`, about an
 hour on the laptop and 30 reviews) allow 50% B09 at levels 0.10 and 0.30, where the simulated failure of the
 pooled estimate is clear instead of mild.
+
+Kind B has its own pass marks, simulated in step 1 for its smaller sizes before the lock.
 
 **Three reviewers, same runs:** the union (primary), `skeptic_d` alone, the tripwires alone. Supports: all 20
 variants for every one of them (hidden-truth populations, `mission_4_1_trust.md` section 2).
@@ -148,6 +150,9 @@ kinds, pass marks and commands, and its `.sha256`.
 Tests (fast, synthetic bank): a known bank gives hand-checked shares; the estimator is called with flags only
 (a spy asserts no sealed access on the audited side); base-disjoint re-splits share no base; kind C draws the
 stated B09 share; the script refuses when one audit is missing.
+If the top-up is chosen: build `rq4-b09` before the lock (30 B09 canaries, 15 per tier, on pool 2 bases, no
+audit). It needs a "these variants only" option in the batch planner (`canary/mixer.py`, unfrozen after sitting
+D), with a test that the default plan is unchanged.
 **Done when:** `python -m eval.rq4 --dry --batch tripwire-test-1` prints "360 runs, 0 reviewed, locked: OK".
 
 **Step 3 (student's window, 7 short sessions).** Each session: `python -m eval.rq4_lock --check`, then
@@ -172,7 +177,8 @@ section 4), under the same reviewer snapshot.
 4. **B06 obvious is caught by a rule (L1).** It is in the bank and counts for the union as it is; the tables show
    the result with and without it.
 5. **Kind B needs enough bases on each side.** Pool 2 has 17 bases; split them 9 and 8 at random per re-split and
-   skip (and count) re-splits that cannot fill a set.
+   skip (and count) re-splits that cannot fill a set. Half a bank holds about 10 canaries per class and 80 clean
+   runs, which is why kind B is smaller (60 audited, 8 per class); its intervals are wider, and that is said.
 6. **First audit stands.** A run reviewed twice by `skeptic_d` keeps its first verdict; sentinel replies never
    enter the analysis.
 7. **Levels share runs,** so the four levels are not four independent confirmations. Say so in the caption.

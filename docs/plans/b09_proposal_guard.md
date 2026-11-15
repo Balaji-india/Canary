@@ -71,6 +71,10 @@ not, is appended to `data/guard/proposals.jsonl`; an accepted proposal also carr
   retry removes a needless difference.
 - **Queue (G3) on an honest simple control** ("a stump against depth 8"). Cost: a person looks at it. It is not
   thrown away. Step 7 reports how often this happens on fresh proposals.
+- **G3 when the treatment is the library default.** The control's reference is then the treatment itself, so G3
+  fires exactly when the hypothesis is true. Every finding of the form "the default beats my unusual value" goes
+  to a person. That is intended (the unusual value is the strawman), but it can be many: E1 counts them, and
+  the student may turn G3 into a label without the queue (decision 2).
 - **Warn (G4) on a sensible shared choice.** `class_weight: balanced` lowers plain accuracy, so with the accuracy
   metric the guard may call the regime weak. That is why G4 only warns.
 - **When library defaults are bad**, the reference is weak and the guard goes quiet. This is a miss, not a false
@@ -188,6 +192,7 @@ changed (the feedback sentence travels through the existing retry argument).
 | 7 | Moderate | E2's recipe is still written by people who know the catalog. | The recipe is mechanical over the schema's whole range and locked before data; LLM-written mutants stay "not measured" until 6.2. |
 | 8 | Moderate | Rejected proposals vanish today, so the natural rate of weak controls could not be reported. | Every guard result is logged (section 3). |
 | 9 | Minor | The human queue does not exist yet. | Until Mission 4.1, G3 is a label only; the gate reads it later. |
+| 10 | Major | With the treatment at the default, G3's reference run is the experiment itself on other seeds: the guard has in effect run the experiment before the lock, and queues every true finding of that form. | The Scientist gets no feedback from G3 (the run proceeds), so nothing leaks into the proposal; the gap is stored, never shown to the reviewer; the volume is measured in E1 (section 4). |
 
 ## 9. Decisions for the student (defaults apply unless changed)
 1. One factor only (G1 rejects). Default: yes.
