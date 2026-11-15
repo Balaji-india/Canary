@@ -92,8 +92,8 @@ the gate takes any list of observations, so it works for `skeptic_d` alone today
 ## 4. What the free tier allows (about 65 reviews a day)
 - **Calibration is the cost, clean runs most of all.** To open the gate from nothing: 12 canaries for each of 9
   classes in the support, 60 clean runs, 60 real runs = 228 reviews, about 3.5 sessions.
-- **Start from the Mission 4.2 bank.** The 360 runs of `tripwire-test-1` (200 canaries, 160 clean) get reviewed
-  for Mission 4.2 anyway. After RQ4 is analysed they are the campaign's first calibration set, so science can
+- **Start from the Mission 4.2 bank.** The 360 runs of `rq4-bank-1` (200 canaries, 160 clean, on a fresh pool 3
+  built with the guard on) get reviewed for Mission 4.2 anyway. After RQ4 is analysed they are the campaign's first calibration set, so science can
   start with the gate already able to open, **if the sentinel set shows the model has not changed**.
 - **Spend canaries where the gate looks:** equal numbers per class in the support, not the 15% mix. B09 canaries
   are kept at a low rate for the blind-spot record only.
@@ -175,8 +175,9 @@ it edits no file that plan freezes.
 | 9 | Moderate | Lazy union drops LLM-alone data on tripwire-flagged runs. | The student's decision; measurement batches always ask both. |
 | 10 | Minor | 12 canaries per class and 60 clean runs are round numbers. | They come from the simulation rows where the gate opens reliably with no real bugs; fixed before any real data. |
 
-## 8. Decisions for the student (defaults apply unless changed)
-1. The gate uses the worst class in the support; pooled is shown beside it. Default: yes.
-2. B09 leaves the support only after the guard passes its test; until then nothing is auto-accepted. Default: yes.
-3. Lazy union in campaigns (not in measurement batches). Default: yes, from Mission 4.4 on.
-4. Minimum calibration before the gate can open: 12 canaries per supported class, 60 clean runs. Default: yes.
+## 8. Decisions (approved by the student, 2026-11-15)
+1. The gate uses the worst class in the support; pooled is shown beside it: **yes.**
+2. B09 leaves the support only after the guard passes its test; until then nothing is auto-accepted: **yes.**
+3. In campaigns the LLM is asked only when the tripwires pass (not in measurement batches): **yes, from Mission
+   4.4 on.** The RQ4 bank is a measurement batch: both are always asked there.
+4. Minimum calibration before the gate can open: 12 canaries per supported class, 60 clean runs: **yes.**

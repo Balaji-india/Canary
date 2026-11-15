@@ -3,8 +3,10 @@
 Designed 2026-11-15 by Fable. Not built, not locked: step 2 writes the locked plan
 `docs/plans/rq4_hidden_truth.md` from this one. Builder: Opus (1 sitting for the code, 1 for the analysis); the
 reviews run in the student's window over about a week.
-Depends on: tripwire sitting D (the batch `tripwire-test-1` and its tripwire records) and Mission 4.1 sitting 1
-(the estimator). Read `docs/plans/mission_4_1_trust.md` first: "support", "pooled" and "worst class" are defined there.
+Depends on: tripwire sitting D and step 11 (the locked tripwire version and its runner), guard sitting 1 (pool 3
+is built with the guard on) and Mission 4.1 sitting 1 (the estimator).
+**Changed 2026-11-15 (student's question): the bank is a new batch on a fresh pool 3, not `tripwire-test-1`**
+(section 2a). Read `docs/plans/mission_4_1_trust.md` first: "support", "pooled" and "worst class" are defined there.
 
 Simulations: `docs/plans/sims/trust_design_sim.py` (sample size) and `docs/plans/sims/rq4_bank_sim.py` (pass
 marks), outputs beside them. **Reviewer rates in both are assumptions,** re-run with measured numbers in step 1.
@@ -18,11 +20,11 @@ A prevalence level is only a mixture. A population with 30% buggy runs is 30 can
 expensive part (reviews) is done **once**, on a bank of runs with known truth, and every level is built from the
 bank by drawing runs. Extra levels cost no reviews.
 
-- **The bank: `tripwire-test-1`.** 360 runs that sitting D builds anyway: 200 canaries (20 per class, 10 per
-  variant) and 160 clean runs, padded, with decoys. `skeptic_d` has never reviewed them. After the tripwire test
-  is finished and written up, `skeptic_d` reviews all 360 with the baseline prompt and arm L's settings. Each run
-  then has a tripwire record and an LLM audit, so the union's verdict is known. (Its plan says the batch may not be
-  used to **choose** anything about an LLM reviewer. Here nothing is chosen: the reviewer and prompt are fixed.)
+- **The bank: `rq4-bank-1`, a new batch on a fresh pool 3.** 360 runs with the same make-up as the tripwire test
+  batch: 200 canaries (20 per class, 10 per variant) and 160 clean runs, padded, with decoys, built with
+  `calibrate --no-audit`. The locked tripwire version then writes a tripwire record for every run (local, no
+  cloud call), and `skeptic_d` reviews all 360 with the baseline prompt and arm L's settings. Each run then has
+  both, so the union's verdict is known. The sizes are unchanged, so the simulations still apply.
 - **One re-split** = draw an **audited set** of 100 runs with a fixed share of canaries, then a **calibration
   set** from the runs that are left: 12 canaries per class and 60 clean runs. The estimator
   (`trust.estimate`) gets the calibration set with its truth, and the audited set as **flags only**. Code compares
@@ -31,6 +33,26 @@ bank by drawing runs. Extra levels cost no reviews.
   all clean, and the estimate must say so.
 - **2000 re-splits per level,** seeded. Re-split number 0 is the one shown as "the campaign" in the figure
   (estimate and interval against truth at each level); the other 1999 show how much that picture depends on luck.
+
+### 2a. Why the bank is not `tripwire-test-1` (decided 2026-11-15)
+The first draft of this plan reviewed `tripwire-test-1` with `skeptic_d`. The Mission 5.1 plan is right and that
+draft was wrong, for three reasons:
+1. **A recorded decision.** The student approved "no pool 3" for `tripwire-test-1` on the stated ground that
+   pool 2 is used up for LLM reviewers and this batch "may never be used for" one
+   (`mission_5_1_tripwires.md`, section 12, answers). Reviewing it would remove the ground that decision stands on.
+2. **Not out of sample.** `skeptic_d`'s results on pool 2's bases (`ceiling-ext`) were read before this design
+   was written: the B09 and B06 misses came from there. Kind C predicts "pooled fails when B09 is common". Tested
+   on clones of the same 17 bases, that prediction would partly re-confirm what was already seen. The ceiling
+   plan's own rule is that anything decided after reading those results is judged on a new pool.
+3. **The bank becomes the first calibration set for real campaigns.** Real proposals will pass the baseline
+   guard, so the bases they are compared with must have passed it too. Pool 2 was built without the guard.
+
+**Pool 3:** built by the existing pool builder with a new seed, the guard on, and pools 1 and 2 passed as
+`avoid` (so no base repeats), question q1 and the same focus grid. At least 17 bases, or stop and report. The
+guard version is written into the pool file. `tripwire-test-1` stays what it was approved as: a tripwires-only
+test batch. Running the locked tripwires on `rq4-bank-1` is a use of them, not a second test, though its
+recall there is reported as one more "known shapes, fresh bases" figure. The efficiency search (ceiling plan,
+follow-up) needs its own fresh pool after this one (pool 4).
 
 **Three kinds of audited population** (all from the same reviews):
 | Kind | How the audited canaries are drawn | What it tests | Expected |
@@ -115,14 +137,16 @@ that one unlucky bank cannot fail on a handful of re-splits. Rows for `skeptic_d
 ## 6. Free-tier calendar (about 65 reviews a session)
 | Session | Reviews | What |
 |---|---|---|
-| before 1 | 0 | lock check; `eval.rq4 --dry` confirms 360 runs, 0 audits by `skeptic_d` |
+| local build | 0 | one unattended sitting, about 2 to 3 hours (the 5.1 plan forecasts 2 hours for 360 runs with twins and replays): pool 3, `rq4-bank-1`, `rq4-b09`, tripwire records; then the lock |
+| before 1 | 0 | lock check; `eval.rq4 --dry` confirms 360 + 30 runs, 0 audits by `skeptic_d` |
 | 1 | 20 + 45 | sentinel set (the 20 repeat-pass runs, cache bypassed), then the first 45 runs |
 | 2 to 5 | 65 each | runs 46 to 305 |
 | 6 | 55 + 10 | runs 306 to 360, then the first half of the closing sentinel |
-| 7 | 10 (+ 30) | rest of the closing sentinel; the B09 top-up if chosen |
+| 7 | 10 + 30 | rest of the closing sentinel; the B09 top-up |
 | after 7 | 0 | lock check; `python -m eval.rq4` **once** |
 
-- 360 reviews + 40 sentinel = 400 calls = 6.2 sessions, so 7 sittings of a few minutes each; with the top-up 430.
+- 360 reviews + 30 top-up + 40 sentinel = 430 calls = 6.6 sessions, so 7 sittings of a few minutes each. Moving
+  the bank to pool 3 adds no review; it adds the local build sitting and makes guard sitting 1 a prerequisite.
   A skipped day moves the end by a day and loses nothing: `reaudit` resumes, and a stop at the daily limit is not
   a failed audit.
 - Tokens: arm L used about 2600 tokens a call; 65 calls stay inside the daily token budget already configured.
@@ -143,6 +167,12 @@ that one unlucky bank cannot fail on a handful of re-splits. Rows for `skeptic_d
 replaced by the new one **before** step 2.
 Tests: seeded; a perfect reviewer recovers every level exactly; a bank re-split never puts a run in both sets.
 
+**Step 1b (Opus prepares, student's window runs; local, no cloud call).** After guard sitting 1 and tripwire
+step 11: build pool 3 (section 2a); `calibrate --runs 360 --batch rq4-bank-1 --pool data/calibration/pool-3.json
+--seed <new> --no-audit`; build `rq4-b09`; run the locked tripwires on both batches; `ledger verify`.
+**Done when:** both batches exist with 0 audits and one tripwire record per run, and the pool file names the
+guard version.
+
 **Step 2 (Opus).** `eval/rq4.py` (re-splits, the five measures, pass marks, `--dry`, refuses partial data) and
 `eval/rq4_lock.py` (or `ceiling_lock` generalised: hashes of `canary/trust.py`, `eval/rq4.py`, the tripwire
 records, the batch's run-ID list, the prompt). Then write `docs/plans/rq4_hidden_truth.md` with seeds, sizes,
@@ -150,13 +180,14 @@ kinds, pass marks and commands, and its `.sha256`.
 Tests (fast, synthetic bank): a known bank gives hand-checked shares; the estimator is called with flags only
 (a spy asserts no sealed access on the audited side); base-disjoint re-splits share no base; kind C draws the
 stated B09 share; the script refuses when one audit is missing.
-If the top-up is chosen: build `rq4-b09` before the lock (30 B09 canaries, 15 per tier, on pool 2 bases, no
+The top-up: build `rq4-b09` before the lock (30 B09 canaries, 15 per tier, on pool 3 bases, no
 audit). It needs a "these variants only" option in the batch planner (`canary/mixer.py`, unfrozen after sitting
 D), with a test that the default plan is unchanged.
-**Done when:** `python -m eval.rq4 --dry --batch tripwire-test-1` prints "360 runs, 0 reviewed, locked: OK".
+**Done when:** `python -m eval.rq4 --dry --batch rq4-bank-1` prints "360 runs, 0 reviewed, locked: OK".
 
 **Step 3 (student's window, 7 short sessions).** Each session: `python -m eval.rq4_lock --check`, then
-`python -m canary.cli reaudit --batch tripwire-test-1 --role skeptic_d` (it stops by itself at the daily budget).
+`python -m canary.cli reaudit --batch rq4-bank-1 --role skeptic_d` (it stops by itself at the daily budget;
+`rq4-b09` the same way in session 7).
 Sessions 1 and 7 also run the sentinel (`rescore --sample`, the repeat-pass command).
 
 **Step 4 (Opus, then Fable or the student's usual model for `/evaluate`).** `python -m eval.rq4` once; results in
@@ -176,7 +207,7 @@ section 4), under the same reviewer snapshot.
    broken"). Report the harmful-only version beside it, as a sensitivity.
 4. **B06 obvious is caught by a rule (L1).** It is in the bank and counts for the union as it is; the tables show
    the result with and without it.
-5. **Kind B needs enough bases on each side.** Pool 2 has 17 bases; split them 9 and 8 at random per re-split and
+5. **Kind B needs enough bases on each side.** Pool 3 has at least 17 bases; split them in two halves at random per re-split and
    skip (and count) re-splits that cannot fill a set. Half a bank holds about 10 canaries per class and 80 clean
    runs, which is why kind B is smaller (60 audited, 8 per class); its intervals are wider, and that is said.
 6. **First audit stands.** A run reviewed twice by `skeptic_d` keeps its first verdict; sentinel replies never
@@ -194,11 +225,12 @@ section 4), under the same reviewer snapshot.
 | 4 | Major | The pass marks come from assumed reviewer rates. | Step 1 recomputes them from sitting D's measured union before the lock. |
 | 5 | Major | 12 calibration canaries per class is thin; flat priors pull the pooled recall down. | Bias is simulated and reported; the mean-error mark (0.05) allows for it; the direction is cautious. |
 | 6 | Major | Kind C at 0.10 and 0.20 with 40% B09 may show only a mild failure, which reads as "pooled is fine". | The B09 top-up (recommended) gives 50% at 0.30; the prediction is registered either way, and a mild result is reported as mild. |
-| 7 | Moderate | Reviewing the tripwire test batch with the LLM could be seen as reusing a locked test set. | The tripwire test is finished and written up first; nothing about the reviewer is chosen on this batch; the RQ4 lock lists it. |
+| 7 | Major | The first draft used `tripwire-test-1` (pool 2) as the bank. That batch was approved on pool 2 only because no LLM would ever review it, and `skeptic_d`'s misses on pool 2's bases were already read when this design was written. | The bank is a new batch on a fresh pool 3 (section 2a). `tripwire-test-1` stays tripwires-only. |
 | 8 | Moderate | The gate measure here is a preview, with supports of all 20 variants, so the worst-class gate will be closed almost always. | Reported as such; RQ3 proper (gate on and off, guarded populations) is Mission 5.4. |
 | 9 | Minor | 100 audited runs give intervals up to 0.20 wide. | The bank's limit (section 3); a wider study needs a second batch. |
 
-## 10. Decisions for the student (defaults apply unless changed)
-1. Review all 360 runs with the LLM (7 sessions), not only the ones the tripwires pass. Default: all 360.
-2. The B09 top-up of 30 canaries. Default: yes.
-3. Levels 0, 0.10, 0.30, 0.50 and 100 audited runs. Default: yes.
+## 10. Decisions (approved by the student, 2026-11-15)
+1. Review all 360 runs with the LLM (7 sessions), not only the ones the tripwires pass: **all 360.**
+2. The B09 top-up of 30 canaries: **yes.**
+3. Levels 0, 0.10, 0.30, 0.50 and 100 audited runs: **yes.**
+4. The bank is `rq4-bank-1` on a fresh pool 3, not `tripwire-test-1` (section 2a): **decided the same day.**

@@ -451,7 +451,9 @@ Forecasts below are from `PROGRESS.md` (task-dev-2: 40 runs in 357 s including t
   data/calibration/pool-2.json --seed 1114 --no-audit` (no reviewer is called; confirm the flags with `calibrate
   -h` first); `.venv\Scripts\python.exe -m eval.tripwires_test --batch tripwire-test-1`; then `--batch ceiling-ext`;
   lock check; `ledger verify`. Forecast: about 2 hours in all (360 runs with twins, then 360 + 80 replays).
-  `tripwire-test-1` must not be used to choose anything about an LLM reviewer later.
+  `tripwire-test-1` is never reviewed by an LLM reviewer and never used to choose anything about one (pool 2
+  is used up for LLMs). Confirmed 2026-11-15: the RQ4 bank is a separate batch, `rq4-bank-1`, on a fresh pool 3
+  (`mission_4_2_hidden_truth.md`, section 2a).
 - Done when: both test JSON files exist and `PROGRESS.md` reports them under the label "known shapes, fresh bases".
 
 **Step 11. Wiring (only when the ceiling arms are closed and `canary/cli.py` is no longer frozen).**
@@ -503,3 +505,6 @@ Step 11 is a follow-up that must be done before Mission 4.1 uses tripwires.
   which uses pool-1 batches only (section 7.2), and the tripwires have no tuned threshold. Pool 2 being used up
   (ceiling plan section 9) applies to LLM-reviewer follow-ups, which this batch may never be used for (step 10).
   Limit, stated: 17 bases, so base-level intervals rest on at most 17 clusters.
+- **Confirmed 2026-11-15:** a draft of the Mission 4.2 plan proposed reviewing `tripwire-test-1` with `skeptic_d`.
+  Rejected: this answer stands. Mission 5.4's comparison of tripwires, LLM and union on the same runs uses
+  `ceiling-ext` (as planned) and the pool-3 bank `rq4-bank-1`.

@@ -126,35 +126,43 @@ defaults (one short reference run on seeds no real run can draw, read with the e
 - Free tier: opening the gate from nothing costs about 228 reviews (3.5 sessions); starting from the RQ4 bank
   costs none. Proposed: in campaigns ask the LLM only when the tripwires pass (the union's verdict is the same).
 
-**3. Mission 4.2 (RQ4).** One reviewed bank, many hidden-truth populations: after sitting D, `skeptic_d` reviews
-the 360 runs of `tripwire-test-1` (7 short sessions with the sentinel). Each level (0, 0.10, 0.30, 0.50 buggy) is
+**3. Mission 4.2 (RQ4).** One reviewed bank, many hidden-truth populations: `skeptic_d` reviews the 360 runs of
+a new batch `rq4-bank-1` on a **fresh pool 3** (7 short sessions with the sentinel and the B09 top-up).
+**Corrected the same day:** the first draft used `tripwire-test-1` (pool 2). The Mission 5.1 plan is right that
+this batch is never reviewed by an LLM: that was the ground for approving it without a pool 3; `skeptic_d`'s
+misses on pool 2's bases were already read when RQ4 was designed, so the B09-heavy test would not be out of
+sample there; and the bank later calibrates real campaigns, so its bases must pass the guard. Cost: one local
+build sitting (about 2 to 3 hours, no cloud call) and guard sitting 1 first. No extra review. Each level (0, 0.10, 0.30, 0.50 buggy) is
 built by drawing 100 audited runs from the bank and calibrating on the rest (12 canaries per class, 60 clean), 2000
 times; the estimator sees only flags. Three kinds: matched mix, other experiments (different bases), adverse mix
 (B09-heavy, with a recommended top-up of 30 B09 canaries). 100 audited runs is what the bank allows; simulated
 interval widths are 0.04 to 0.20. Pass marks come from simulated banks of the same size, because re-splits of
 one bank cover more often than 90% even when all is well.
 
-**Build order across all plans** (also in `.project-memory/PLAN.md`, steps 15 to 24):
+**Build order across all plans** (also in `.project-memory/PLAN.md`, steps 15 to 25):
 | # | Who | What | Plan | Needs |
 |---|---|---|---|---|
 | 1 | Opus | 5.1 sitting C: K3, K4, K6, L1, A1, dev runner | `mission_5_1_tripwires.md` steps 5-7 | nothing |
 | 2 | Opus + student's window | 5.1 sitting D: lock, 360-run tripwire test, `ceiling-ext`; ceiling files unfreeze | steps 8-10 | 1 |
 | 3 | Opus | 5.1 step 11: `canary.cli tripwires`, ledger role `tripwire_v1` | step 11 | 2 |
-| 4 | Opus | 4.1 sitting 1: `eval/rq4_power.py`, prevalence, contamination, support, `trust.estimate`, union observations | `mission_4_1_trust.md` steps 1-4, 6 | 3 |
-| 5 | Opus | RQ4 code and lock: `eval/rq4.py`, `eval/rq4_lock.py`, `docs/plans/rq4_hidden_truth.md` | `mission_4_2_hidden_truth.md` steps 1-2 | 4 |
-| 6 | Student's window | 7 review sessions on `tripwire-test-1` (about 65 a day) | step 3 | 5 |
-| 7 | Opus, any day from now, local only | Guard sitting 1: `canary/baseline_guard.py`, wired into the Scientist | `b09_proposal_guard.md` steps 1-4 | nothing |
-| 8 | Opus, local only | Guard sitting 2: oracle, generator, lock, test once | steps 5-8 | 7 |
-| 9 | Opus | 4.1 sitting 2: `canary/gate.py`, real runs padded with decoys, ledger decisions | `mission_4_1_trust.md` steps 5, 7, 8 | 4 (and 2 for the padding code) |
-| 10 | Opus, then `/evaluate` | `python -m eval.rq4` once; RQ4 table and figure | `mission_4_2_hidden_truth.md` step 4 | 6 |
+| 4 | Opus, any day from now, local only | Guard sitting 1: `canary/baseline_guard.py`, wired into the Scientist | `b09_proposal_guard.md` steps 1-4 | nothing |
+| 5 | Opus | 4.1 sitting 1: `eval/rq4_power.py`, prevalence, contamination, support, `trust.estimate`, union observations | `mission_4_1_trust.md` steps 1-4, 6 | 3 |
+| 6 | Opus prepares, student's window runs | RQ4 bank, local: pool 3 (guard on), `rq4-bank-1` (360 runs), `rq4-b09` (30), tripwire records; about 2 to 3 hours | `mission_4_2_hidden_truth.md` step 1b | 3, 4 |
+| 7 | Opus | RQ4 code and lock: `eval/rq4.py`, `eval/rq4_lock.py`, `docs/plans/rq4_hidden_truth.md` | steps 1-2 | 5, 6 |
+| 8 | Student's window | 7 review sessions on `rq4-bank-1` and `rq4-b09` (about 65 a day) | step 3 | 7 |
+| 9 | Opus, local only | Guard sitting 2: oracle, generator, lock, test once | `b09_proposal_guard.md` steps 5-8 | 4 |
+| 10 | Opus | 4.1 sitting 2: `canary/gate.py`, real runs padded with decoys, ledger decisions | `mission_4_1_trust.md` steps 5, 7, 8 | 5 |
+| 11 | Opus, then `/evaluate` | `python -m eval.rq4` once; RQ4 table and figure | `mission_4_2_hidden_truth.md` step 4 | 8 |
 
-Rows 7 to 9 fit into the review week of row 6: they need no cloud call and touch no file the RQ4 lock freezes.
+Rows 9 and 10 fit into the review week of row 8: they need no cloud call and touch no file the RQ4 lock freezes.
+`tripwire-test-1` (row 2) is tripwires-only for good: no LLM ever reviews it.
 After row 10: Mission 4.3 (control chart, sentinel), 4.4 (campaign agent). Missions 3.1 and 3.2 block nothing here.
 
-**Decisions for the student** (each plan's last section; the default applies unless changed):
+**Decisions: all defaults approved by the student on 2026-11-15** (each plan's last section):
 - Guard: one factor only; G3 to the human queue and G4 a warning; add G0; the pass marks.
 - 4.1: gate on the worst class; no auto-accept until the guard is tested; lazy union in campaigns; minimum calibration.
-- 4.2: review all 360 runs (not only tripwire-passed ones); the B09 top-up; levels and 100 audited runs.
+- 4.2: review all 360 runs (not only tripwire-passed ones); the B09 top-up; levels and 100 audited runs; the
+  bank on a fresh pool 3.
 
 **What these designs may not be read as:** every simulated number rests on assumed rates; the union has not been
 measured; contamination always means "bugs of the catalogued kinds"; the guard covers one definition of a weak
@@ -743,13 +751,13 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
 ## Next actions (next session)
 1. **Opus: Mission 5.1 sitting C** (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the development
    runner `eval/tripwires_dev.py` on `task-dev-2`). New files only; lock check before and after the session.
-2. **Mission 5.1 sitting D: the locked 360-run tripwire test** (`tripwire-test-1`, then `ceiling-ext`). Its batch
-   is also the RQ4 bank, so do not review it with any LLM before the RQ4 plan is locked.
+2. **Mission 5.1 sitting D: the locked 360-run tripwire test** (`tripwire-test-1`, then `ceiling-ext`). No LLM
+   ever reviews `tripwire-test-1`; the RQ4 bank is a separate pool-3 batch.
 3. **Opus: guard sitting 1** (`docs/plans/b09_proposal_guard.md` steps 1-4). Local only; can be done on any day,
-   also before sitting D. Then Mission 4.1 sitting 1 once the tripwire wiring (step 11) exists.
+   also before sitting D. It now comes before the RQ4 bank (pool 3 is built with the guard on). Then Mission 4.1
+   sitting 1 once the tripwire wiring (step 11) exists.
 
-Student: read the three "Decisions for the student" lists (section "Design session 2026-11-15") and change any
-default you disagree with before the matching build starts.
+Student: nothing open. All defaults of the three plans were approved on 2026-11-15.
 
 Done 2026-11-15 (Fable, design only): baseline guard, Mission 4.1 and Mission 4.2 plans, each challenged and committed.
 Next missions: 5.1 tripwires (sittings C and D), then 4.1 and 4.2 (designed), 3.1 and 3.2 at any time.

@@ -194,8 +194,11 @@ changed (the feedback sentence travels through the existing retry argument).
 | 9 | Minor | The human queue does not exist yet. | Until Mission 4.1, G3 is a label only; the gate reads it later. |
 | 10 | Major | With the treatment at the default, G3's reference run is the experiment itself on other seeds: the guard has in effect run the experiment before the lock, and queues every true finding of that form. | The Scientist gets no feedback from G3 (the run proceeds), so nothing leaks into the proposal; the gap is stored, never shown to the reviewer; the volume is measured in E1 (section 4). |
 
-## 9. Decisions for the student (defaults apply unless changed)
-1. One factor only (G1 rejects). Default: yes.
-2. G3 goes to the human queue, G4 only warns. Default: yes.
-3. Add G0 (the L1 rule at proposal time) in the same module. Default: yes.
-4. The bars in section 5. Default: as written.
+## 9. Decisions (approved by the student, 2026-11-15)
+1. One factor only (G1 rejects): **yes.**
+2. G3 goes to the human queue, G4 only warns: **yes.**
+3. Add G0 (the L1 rule at proposal time) in the same module: **yes.**
+4. The bars in section 5: **as written.**
+
+Sitting 1 is now a prerequisite of the RQ4 bank: pool 3 is built with the guard on
+(`mission_4_2_hidden_truth.md`, section 2a).
