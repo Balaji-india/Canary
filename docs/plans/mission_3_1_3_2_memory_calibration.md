@@ -14,8 +14,9 @@ beside it, committed **before its first run** (commit dc5a833) with both selecti
 - **3.2 Calibration:** score the Scientist's stated confidence against what happened (Brier score, reliability
   diagram) and tell it the result; RQ6 asks whether telling helps.
 - **The known issue** (PROGRESS, Known issues): every Scientist model tried put 14 of 15 proposals on one dataset,
-  all 15 on `balanced_accuracy`, all 15 predicted "increase", and stated confidence was 0.75 or 0.80 almost
-  always. A graveyard of one experiment and a Brier score of one confidence value show nothing.
+  all 15 on `balanced_accuracy`, all 15 predicted "increase", and two of the three models stated one fixed
+  confidence (0.75; 0.80), the third 0.70 to 0.85. A graveyard of one experiment and a Brier score of one
+  confidence value show nothing.
 
 **What they block.** Nothing in Missions 4.1 to 4.4 or 5.1: the gate, the estimate, the chart and the campaign
 loop work without them (campaign real slots use the pool's focus grid, `mission_4_4_campaign.md` decision 4).
@@ -64,7 +65,8 @@ most of their words, so it may retrieve everything or nothing. The rule, fixed h
    5 in 100 unrelated experiments would be retrieved as "similar".
 3. **Usefulness check, same data:** if fewer than half of the same-idea pairs reach T, text similarity does not
    follow experiment similarity here. Then **only the idea key retrieves**; the cosine is kept for ranking and is
-   reported as not useful. (With fewer than 10 same-idea pairs the check is reported and not applied.)
+   reported as not useful. With fewer than 10 same-idea pairs the check cannot be made; then too only the
+   idea key retrieves, until pool 3's pairs (step 4) allow the check.
 4. **Judged once on fresh pairs:** pool 3's bases against the 35 older ones (pairs that did not exist when T was
    set). Pass mark: the share of unrelated pairs at or above T has a 90% upper bound of at most 0.10. If it
    fails, the consequence of step 3 applies. T is not adjusted afterwards.
@@ -167,7 +169,8 @@ say so: "the Scientist chooses the comparison, code chooses where".
 - **Reading, fixed now:** arm 2 passes V1, V2 and V5: prompt v2 may be used wherever proposing is unfocused,
   after section 6's procedure. Arm 2 fails: the focus grid stays, for good unless a new prompt passes a new
   test. Arm 1 is the reference: if arm 1 itself passes V1 and V2, the known issue has gone away by itself
-  (another model version) and v2 is not needed.
+  (another model version) and v2 is not needed. Arm 3 is judged on its own: if it fails V5 (the extra turn costs
+  an attempt) the graveyard step stays off, and prompt v2 is still judged by arm 2 alone.
 
 ## 6. A change to the Scientist is a change to the runs: the order of work
 The reviewer is shown the pre-registration: the hypothesis sentence, both configs, `predicted_effect`,
@@ -189,6 +192,16 @@ the reviewer, and Mission 4.1's leak term, measured on the old kind of proposal,
    "other experiments" kind is the evidence for transfer across bases.
 4. Changes that alter the pre-registration's look by design (direction assigned by code, a confidence scale)
    are not part of this plan. Each would be a Scientist change of its own.
+
+### 6.1 Where this plan differs from earlier text
+| Earlier text | This plan | Status |
+|---|---|---|
+| DESIGN.md section 11: "the 3 most similar graveyard entries (MiniLM embeddings, cosine at least 0.75)" | the idea key first; T from the percentile rule; the cosine switched off if it fails its check | decision 1 |
+| DESIGN.md section 11: the Scientist receives the entries "before proposing" | after a first proposal, in one extra turn (nothing can be similar to a proposal that does not exist) | decision 2 |
+| PROGRESS, Decisions: "Rejected proposals are printed, not stored in the ledger" | stored as `graveyard` entries | already foreseen in the approved guard plan (its trap 8) |
+| DESIGN.md section 11: "From Mission 3 on, the Scientist sees its own recent calibration summary" | built, but off in campaigns until RQ6 has passed and section 6's procedure is done | decision 7 |
+| `mission_4_3_drift.md`: an epoch is one reviewer identity | the epoch record also holds the Scientist's identity (model, prompt version, switches), so a Scientist change starts a new epoch and the calibration window can never mix the two kinds of run | added to that plan in the roadmap pass |
+| PROGRESS, Known issues: "ask for dataset variety in the prompt" if nothing else helps | not done: an instruction to vary is weaker than showing counts, and its effect could not be told apart from F2 | section 4 |
 
 ## 7. Build order (Opus)
 New files: `canary/graveyard.py`, `canary/calibration.py`, `canary/scientist_prompt_v2.py` (a new file, so
@@ -292,6 +305,15 @@ other Scientist models or questions than the ones tested.
 | 9 | Moderate | The `differs` sentence is never read by code. Why ask for it? | DESIGN.md asks the Scientist to say how its idea differs; whether asking changes behaviour is measured by the revisit share, and the step stays off if it does not (2.4). |
 | 10 | Moderate | About 5 to 8 hours of laptop time for two tests of a part no Mission 4 result depends on. | Both are resumable and local; they are scheduled after the RQ4 bank is built, in the review week when the laptop is otherwise idle (roadmap). |
 | 11 | Minor | `graveyard_similarity: 0.75` in `config/campaign.yaml` and "cosine at least 0.75" in DESIGN.md become wrong. | Replaced in steps 2 and 9, after decision 1. |
+
+**Second pass (same day), after reading the draft against the other plans:**
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| 12 | Major | Section 6 said a Scientist change needs a refilled calibration window, but nothing would enforce it: Mission 4.3's epoch knows only the reviewer. | The Scientist's identity goes into the epoch record (6.1); a change then opens a new epoch by the code that already exists for reviewer changes. Written into `mission_4_3_drift.md`. |
+| 13 | Major | When pools 1 and 2 hold too few same-idea pairs, the draft let an unchecked cosine trigger extra proposal turns. | Unchecked means off: only the idea key retrieves until pool 3's pairs allow the check (2.3). |
+| 14 | Moderate | The draft changed three sentences of DESIGN.md section 11 and one recorded decision without listing them. | Section 6.1. |
+| 15 | Moderate | The summary of the known issue overstated "constant confidence" for one of the three models. | Corrected from PROGRESS's table (section 1). |
+| 16 | Moderate | The graveyard step costs an attempt, so arm 3 may reject more slots than arm 2 and look worse on V5 for a reason that is not the prompt. | V5 is judged per arm; arm 3 failing V5 keeps the step off and does not fail prompt v2 (arm 2). Said in section 5's reading. |
 
 ## 11. Decisions (for the student; recommended default first)
 1. **Similarity:** the idea key first, text cosine second, with T set by the 95th-percentile rule and switched

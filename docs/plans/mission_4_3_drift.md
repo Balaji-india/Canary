@@ -38,6 +38,11 @@ prompt, the wire-schema hash, the options (reasoning effort, output limit), the 
 (`tripwires.version()`), the library versions (Python, numpy, scikit-learn, pandas), the start time and the
 reason it started. It is a ledger entry, so it is hash-chained. **No trust number is ever computed across two
 epochs** (`mission_4_1_trust.md` section 4: "never pooled").
+**Added in the roadmap pass (2026-11-15):** the record also holds the **Scientist's identity** (model, prompt
+version, the graveyard and feedback switches). A Scientist that proposes differently produces a different kind of
+run, so calibration measured on clones of the old kind must not be mixed with the new
+(`mission_3_1_3_2_memory_calibration.md`, section 6). A changed Scientist identity opens a new epoch like any
+other identity field; no chart is involved.
 
 ### 2.1 Layer A: identity checks
 - **Every cloud call** already logs `server_model` and `response_id` (`data/cloud/calls.jsonl`). Added: the
