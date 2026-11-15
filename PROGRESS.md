@@ -84,9 +84,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 **Current focus:** Mission 5.1 tripwires, sitting C next; then sitting D, then Mission 4.1 sitting 1 (designs ready)
 
-**Stopped at (2026-11-15, Fable session 2, design only, nothing built):** Part 4 done (Mission 4.3 drift, `docs/plans/mission_4_3_drift.md`, 9 decisions).
-Part 5 (Mission 4.4 campaign, `docs/plans/mission_4_4_campaign.md`): draft written with its simulation; next: its second
-`/challenge` pass, then Part 6 (Missions 3.1 and 3.2), Part 7 (roadmap challenge).
+**Stopped at (2026-11-15, Fable session 2, design only, nothing built):** Parts 4 and 5 done (`docs/plans/mission_4_3_drift.md`, 9 decisions;
+`docs/plans/mission_4_4_campaign.md`, 6 decisions; each simulated and challenged twice). Next: Part 6 (Missions 3.1 and
+3.2 plan, draft), then Part 7 (roadmap challenge, build order tables, tidy the old Next actions section).
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer

@@ -36,7 +36,9 @@ in this order. Every phase is resumable: a finished slot or call is never done t
 | 8 | **Lazy review:** the LLM is asked only about runs the tripwires passed, in a seeded shuffled order, until done or the daily limit | cloud reviewer | the rest |
 | 9 | **Gate and ledger** for real runs that have a union verdict; trust numbers, charts and the block's outcome written | code | 0 |
 
-A calibration block has no phase 5 and no real slot. After an alarm the block is Mission 4.3's sequence
+Phases 1 and 2 are not a separate mechanism: they are rules 3 and 5 of the policy firing before any block can
+be planned. The policy is asked again after each action; a session ends when a science or calibration block is
+complete, or with `wait` or `stop`. A calibration block has no phase 5 and no real slot. After an alarm the block is Mission 4.3's sequence
 (reference pass, baseline pass, calibration, held runs).
 
 ## 3. The policy: which action, decided by code
@@ -131,7 +133,10 @@ happen. Campaigns run in the student's own PowerShell window (Edge closed for lo
 Code. Progress goes to `data/runs/campaign.log` as now.
 
 **No campaign review call while a locked evaluation's reviews are open** (the RQ4 bank week): they share one
-quota and one reviewer, and campaign calls would sit between the bank's reviews. Preflight refuses.
+quota and one reviewer, and campaign calls would sit between the bank's reviews. Preflight refuses. How it knows:
+`config/campaign.yaml` gets a list `blocked_by` of (batch, role, outcome file); a campaign is refused while a
+listed batch has runs the role has not answered and the outcome file does not exist. The RQ4 lock step adds
+`rq4-bank-1` and `rq4-b09` to it.
 
 ## 7. The trace: why each decision was taken, replayable
 Every decision is one JSON line in `data/campaigns/<id>/trace.jsonl`, and its SHA-256 is a ledger entry
@@ -159,7 +164,7 @@ and matches. Trust draws use a seed derived from the campaign seed and the decis
 | no real bug | bank | 0 | day 1 | 1.00 | 900 | 877 to 887 |
 | no real bug | cold | 2 | day 3 | 0.93 | 840 | 817 to 828 |
 | 5% of real runs buggy (supported classes) | bank | 0 | day 1 | 1.00 | 900 | 829 to 848 |
-| 5% of real runs buggy | cold | 2 | day 3 | 0.93 | 783 median passing | 773 to 793 |
+| 5% of real runs buggy | cold | 2 | day 3 | 0.93 | 840 | 773 to 793 |
 | one supported class at recall 0.60 | bank | 0 | day 1 | 0.99 | 900 | 845 to 886 |
 | one supported class at recall 0.60 | cold | 2 | day 3 | 0.92 | 840 | 788 to 828 |
 
@@ -215,7 +220,9 @@ run types); `skeptic.py` and `blinding.py` may not import it (the existing impor
   tripwire runner, `skeptic.audit` and `gate`. Tests (fake provider, fake clock, temporary folders): a block runs
   end to end; killing it after any phase and resuming repeats no slot and no audit; a run flagged by the
   tripwires is never sent to the LLM; a run whose LLM call failed has no union verdict and waits; real runs
-  reach the gate only with an in-control slice; the reviewer path never opens the sealed file (the existing spy).
+  reach the gate only with an in-control slice; the reviewer path never opens the sealed file (the existing spy);
+  a real slot whose three proposals were all rejected is dropped and counted, and the block goes on; preflight
+  refuses while a `blocked_by` batch is unfinished.
 - **Step 6. Budget, wait and the trace.** The daily-limit stop becomes a `wait` record with both times in IST and
   UTC; trace records and their ledger hashes; `replay`. Tests: the fake clock crosses a daily limit in the middle
   of phase 8 and `--resume` continues with the first waiting run; the printed times equal hand-computed ones for
@@ -294,6 +301,9 @@ a clean ledger (see the claims of Missions 4.1 and 4.3); anything from the fake-
 | 14 | Major | Real proposals come from the Scientist unprompted; pool 3's bases come from a grid. Calibration and real runs are then different populations, the very thing padding and decoys were added to prevent. | Real slots of a campaign are proposed with the same focus grid as the pool (code picks the cell, the Scientist proposes inside it), until the variety fix is judged. Stated in section 5 through decision 4; RQ4's kind B measures transfer across bases. |
 | 15 | Moderate | The trace stores the state, but a reader also needs what the agent would have done under the other rules. | Every rule's truth value and numbers are stored down to the firing rule (section 7); `--explain` prints the rest for any stored state. |
 | 16 | Moderate | Mission 4.3's simulated pace (15 clean, 20 canaries a day) differs from this plan's mix (12, 18). | Listed in section 9; Mission 4.3 step 2 re-runs with this mix before its sizes are final. |
+| 17 | Moderate | Section 2 showed the sentinel and the backlog as fixed phases while section 3 lists them as policy rules; a builder could implement them twice. | One mechanism: the policy (section 2's note). A test asserts that a session's first cloud call is always a sentinel call. |
+| 18 | Moderate | "No campaign while a locked evaluation is open" had no way to be checked by code. | The `blocked_by` list in `config/campaign.yaml` (section 6) with a test (step 5). |
+| 19 | Minor | One cell of the simulation table held the wrong column's number. | Corrected from the JSON (5% buggy, cold start: 840 real runs reviewed). |
 
 ## 14. Decisions (for the student; recommended default first)
 1. **The real proof starts cold** (`--calibration cold`, 3 review days, about 195 calls), so the trace shows a
