@@ -1,0 +1,197 @@
+{
+ "assumed": {
+  "union_recall_supported": 0.97,
+  "specificity": 0.98,
+  "leak_beta": [
+   1,
+   101
+  ],
+  "llm_calls_after_sentinel": 45,
+  "science_block": [
+   30,
+   18,
+   12
+  ],
+  "calibration_canaries": 60
+ },
+ "campaigns": 300,
+ "days": 30,
+ "seed": 4404,
+ "cells": {
+  "clean|bank": {
+   "longest_calibration_run_max": 0,
+   "calibration_blocks_mean": 0.0,
+   "first_science_day": {
+    "median": 1.0,
+    "by_day_3": 1.0
+   },
+   "science_on_day_10": 1.0,
+   "ever_in_weak_state": 0.0,
+   "gate_open_share_of_days": {
+    "mean": 1.0,
+    "p10": 1.0
+   },
+   "campaigns_open_on_90pct_of_days": 1.0,
+   "real_reviewed_30_days": {
+    "median": 900.0
+   },
+   "accepted_30_days": {
+    "p10": 877.0,
+    "median": 882.0,
+    "p90": 887.0
+   },
+   "true_contamination_of_accepted": {
+    "mean": 0.0,
+    "p90": 0.0,
+    "campaigns_at_most_tau": 1.0
+   }
+  },
+  "clean|cold": {
+   "longest_calibration_run_max": 2,
+   "calibration_blocks_mean": 2.0,
+   "first_science_day": {
+    "median": 3.0,
+    "by_day_3": 1.0
+   },
+   "science_on_day_10": 1.0,
+   "ever_in_weak_state": 0.0,
+   "gate_open_share_of_days": {
+    "mean": 0.9332222222222222,
+    "p10": 0.9333333333333333
+   },
+   "campaigns_open_on_90pct_of_days": 1.0,
+   "real_reviewed_30_days": {
+    "median": 840.0
+   },
+   "accepted_30_days": {
+    "p10": 817.0,
+    "median": 823.0,
+    "p90": 828.0
+   },
+   "true_contamination_of_accepted": {
+    "mean": 0.0,
+    "p90": 0.0,
+    "campaigns_at_most_tau": 1.0
+   }
+  },
+  "bugs_5pct|bank": {
+   "longest_calibration_run_max": 0,
+   "calibration_blocks_mean": 0.0,
+   "first_science_day": {
+    "median": 1.0,
+    "by_day_3": 1.0
+   },
+   "science_on_day_10": 1.0,
+   "ever_in_weak_state": 0.0,
+   "gate_open_share_of_days": {
+    "mean": 0.9998888888888888,
+    "p10": 1.0
+   },
+   "campaigns_open_on_90pct_of_days": 1.0,
+   "real_reviewed_30_days": {
+    "median": 900.0
+   },
+   "accepted_30_days": {
+    "p10": 829.0,
+    "median": 839.0,
+    "p90": 848.0
+   },
+   "true_contamination_of_accepted": {
+    "mean": 0.0014978872748735756,
+    "p90": 0.003555346669518524,
+    "campaigns_at_most_tau": 1.0
+   }
+  },
+  "bugs_5pct|cold": {
+   "longest_calibration_run_max": 2,
+   "calibration_blocks_mean": 2.0,
+   "first_science_day": {
+    "median": 3.0,
+    "by_day_3": 1.0
+   },
+   "science_on_day_10": 1.0,
+   "ever_in_weak_state": 0.0,
+   "gate_open_share_of_days": {
+    "mean": 0.9321111111111111,
+    "p10": 0.9333333333333333
+   },
+   "campaigns_open_on_90pct_of_days": 1.0,
+   "real_reviewed_30_days": {
+    "median": 840.0
+   },
+   "accepted_30_days": {
+    "p10": 773.0,
+    "median": 783.0,
+    "p90": 793.0
+   },
+   "true_contamination_of_accepted": {
+    "mean": 0.001532458666243164,
+    "p90": 0.0037504693366708385,
+    "campaigns_at_most_tau": 1.0
+   }
+  },
+  "weak_class|bank": {
+   "longest_calibration_run_max": 0,
+   "calibration_blocks_mean": 0.0,
+   "first_science_day": {
+    "median": 1.0,
+    "by_day_3": 1.0
+   },
+   "science_on_day_10": 1.0,
+   "ever_in_weak_state": 0.0,
+   "gate_open_share_of_days": {
+    "mean": 0.9862222222222222,
+    "p10": 0.9666666666666667
+   },
+   "campaigns_open_on_90pct_of_days": 0.9833333333333333,
+   "real_reviewed_30_days": {
+    "median": 900.0
+   },
+   "accepted_30_days": {
+    "p10": 845.0,
+    "median": 881.0,
+    "p90": 886.0
+   },
+   "true_contamination_of_accepted": {
+    "mean": 0.0,
+    "p90": 0.0,
+    "campaigns_at_most_tau": 1.0
+   }
+  },
+  "weak_class|cold": {
+   "longest_calibration_run_max": 2,
+   "calibration_blocks_mean": 2.0,
+   "first_science_day": {
+    "median": 3.0,
+    "by_day_3": 1.0
+   },
+   "science_on_day_10": 1.0,
+   "ever_in_weak_state": 0.0,
+   "gate_open_share_of_days": {
+    "mean": 0.9202222222222222,
+    "p10": 0.9
+   },
+   "campaigns_open_on_90pct_of_days": 0.9133333333333333,
+   "real_reviewed_30_days": {
+    "median": 840.0
+   },
+   "accepted_30_days": {
+    "p10": 788.0,
+    "median": 822.0,
+    "p90": 828.0
+   },
+   "true_contamination_of_accepted": {
+    "mean": 0.0,
+    "p90": 0.0,
+    "campaigns_at_most_tau": 1.0
+   }
+  }
+ },
+ "checks": {
+  "C1_no_loop": true,
+  "C2_bank_clean_open_90pct_of_days": true,
+  "C3_cold_science_by_day_3": true,
+  "C4_weak_class_leaves_calibration": true,
+  "C5_bugs_contamination_at_most_tau": true
+ }
+}
