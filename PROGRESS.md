@@ -88,18 +88,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 **Current focus:** Mission 5.1 tripwires, sitting C next; then sitting D, then Mission 4.1 sitting 1 (designs ready)
 
-**Stopped at (2026-11-15, Fable session 2, design only, nothing built):** stopped early at the usage limit, in Part 7. Done and
-committed: Parts 4, 5 and 6 (`docs/plans/mission_4_3_drift.md`, `mission_4_4_campaign.md`,
-`mission_3_1_3_2_memory_calibration.md`, each with its simulation on assumed rates and two challenge passes) and, of Part 7,
-the roadmap challenge (`roadmap_challenge_2026-11-15.md`), its fixes in the plans, the build order table, the next actions
-and the removal of the old Next actions section in this file. The closing lock check was run and says OK.
-**What comes next, in order:** (1) update `.project-memory/PLAN.md` (steps for 4.3, 4.4, 3.1, 3.2, the decisive-share check,
-the ledger anchor and the DESIGN sync, as in the build order table below), `.project-memory/MEMORY.md` (Current work; it is
-over its 4 KB budget) and today's history file: NOT done; (2) give the student the list of the 33 open decisions with
-their defaults (they are in the last section of each of the four new files; section 'Design session 2' below says which
-come first): NOT done in chat; (3) the roadmap file had one challenge pass, not two: a second read against the plans is
-still owed. No file in `canary/`, `eval/`, `tests/` or `config/` changed, so `pytest` was not run. The next build step is
-unchanged: Mission 5.1 sitting C.
+**Stopped at:** design session 2 complete; next step Mission 5.1 sitting C (Opus).
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
