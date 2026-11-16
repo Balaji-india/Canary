@@ -894,8 +894,12 @@ def registered_metric(metric: str, y_true: list, scored: list, n_classes: int) -
     raise ValueError(f"unknown metric {metric!r}")
 
 
-# Floating-point rounding only: the same metric computed along another code path can differ in the last bits. Any
-# two different values of these metrics on our test sets differ by far more (at least 1 / (test rows)^2).
+# Floating-point rounding only (not a tuned threshold): the same metric computed along another code path can differ in
+# the last bits. Accuracy, binary F1, balanced accuracy on two classes and ROC AUC are ratios of counts with
+# denominators of at most 2n on n test rows, so two different values differ by at least 1 / (2n)^2 (about 1.4e-7 for
+# our largest test set, 1351 rows). Macro F1 and multi-class balanced accuracy are means of such ratios and have no
+# useful bound; there the tolerance could only let two different values that agree to 12 digits pass (a miss by
+# coincidence, never a false alarm).
 _ROUNDING = 1e-12
 
 

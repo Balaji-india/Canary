@@ -121,6 +121,15 @@ def inspect_batch(batch: str, run_ids: list[str], runs_dir: Path = sandbox.RUNS_
 
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         records = dict(pool.map(one, run_ids))
+    # A replay that timed out while other replays shared the machine says nothing about the run (a run near the
+    # sandbox timeout can pass it alone and miss it under load). Each is made again once, alone, and the log says so.
+    for run_id, record in records.items():
+        if record is not None and record["replay"].get("status") == sandbox.STATUS_TIMEOUT and workers > 1:
+            _log(log_path, f"RETRY {run_id}: replay timed out under {workers} workers; again, alone", lock)
+            record = {"run_id": run_id, **inspect(runs_dir / run_id)}
+            (records_dir / f"{run_id}.json").write_text(json.dumps(record, indent=1), encoding="utf-8")
+            records[run_id] = record
+            _log(log_path, f"RETRIED {run_id} {record['verdict']} replay={record['replay']['status']}", lock)
     _log(log_path, f"DONE batch={batch} made={done['made']} reused={done['reused']}", lock)
     return records
 

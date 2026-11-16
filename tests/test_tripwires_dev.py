@@ -190,3 +190,22 @@ def test_the_runner_loads_no_audit_and_never_opens_the_ledger():
              if isinstance(n, (ast.Attribute, ast.Name))}
     assert not names & {"Ledger", "ledger", "AUDITED", "collect_observations", "skeptic_d", "audit"}
     assert "ceiling-ext" not in dev.DEV_BATCHES and "tripwire-test-1" not in dev.DEV_BATCHES
+
+
+def test_a_replay_that_timed_out_under_load_is_made_again_alone(tmp_path):
+    runs, stored, log = tmp_path / "runs", tmp_path / "records", tmp_path / "dev.log"
+    for run_id in ("a", "b"):
+        (runs / run_id).mkdir(parents=True)
+    calls = []
+
+    def fake(path):
+        calls.append(path.name)
+        timed_out = path.name == "a" and calls.count("a") == 1  # the first replay of "a" times out
+        made = record("flag" if timed_out else "pass")
+        made["replay"]["status"] = "timeout" if timed_out else "ok"
+        return {**made, "version": tripwires.source_version()}
+
+    records = dev.inspect_batch("task-dev-2", ["a", "b"], runs, stored, log, workers=2, inspect=fake)
+    assert sorted(calls) == ["a", "a", "b"] and records["a"]["verdict"] == "pass"
+    assert json.loads((stored / "a.json").read_text(encoding="utf-8"))["replay"]["status"] == "ok"
+    assert "RETRY a" in log.read_text(encoding="utf-8")
