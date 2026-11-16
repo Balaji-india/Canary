@@ -384,3 +384,20 @@ def test_the_static_tier_runs_without_executing_anything(records):
     assert record["replay"]["status"] == tw.SKIPPED and "K0" not in record["checks"] and record["tier"] == "static"
     assert record["checks"]["S1"]["status"] == tw.FIRED and record["bug_class"] == "B07"
     assert record["advisory"]["no_skill_margin"] is None  # A1 needs the replay's test labels
+
+
+@pytest.mark.slow
+def test_arms_with_different_scalers_and_equal_predictions_pass(tmp_path):
+    """Found on task-dev-2 (plan step 7): a decision tree ignores scaling, so two arms that differ only in their scaler
+    predict exactly the same values on test rows whose fingerprints differ per arm. A clean run must still pass."""
+    config = {"dataset": "breast_cancer", "metric": "roc_auc", "seeds": [0, 1], "test_size": 0.25,
+              "control": {"model": "decision_tree", "params": {"max_depth": 3}, "preprocessing": []},
+              "treatment": {"model": "decision_tree", "params": {"max_depth": 3}, "preprocessing": ["standard_scaler"]}}
+    record = sandbox.run_config(config, runs_dir=tmp_path)
+    assert record["status"] == sandbox.STATUS_OK
+    import json
+
+    stored = json.loads((tmp_path / record["run_id"] / sandbox.RESULTS_NAME).read_text(encoding="utf-8"))
+    assert stored["control"] == stored["treatment"]  # the shape this test is about: equal outputs in both arms
+    result = tw.run_tripwires(tmp_path / record["run_id"])
+    assert result["verdict"] == "pass", result

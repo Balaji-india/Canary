@@ -502,33 +502,52 @@ def _prediction_vectors(event: dict) -> list:
     return [values]
 
 
-AMBIGUOUS_LINK = "ambiguous"
+def _linked_predictions(seed: SeedContext, metric: dict) -> list[dict]:
+    """Every prediction call (of this seed, before this metric call) whose output is exactly the scored vector.
 
-
-def _linked_prediction(seed: SeedContext, metric: dict) -> dict | str | None:
-    """The prediction call (of this seed, before this metric call) whose output is exactly the scored vector.
-
-    Several calls can make the same vector (a second `predict` on the same rows is normal). They must then have been
-    made on the same rows; if equal vectors came from different rows (a constant classifier, say), which rows were
-    scored cannot be told, and the answer is AMBIGUOUS_LINK rather than a guess.
+    Several calls can make the same vector: a second `predict` on the same rows, or the two arms' models when both
+    give the same predictions (trees and naive Bayes ignore scaling, so different scalers can still give equal
+    outputs, on rows whose fingerprints differ because each arm's preprocessor made them). The checks then judge every
+    candidate and accept the link when all candidates agree on how the scored rows relate to the split.
     """
     scored = (metric.get("second") or {}).get("values")
     if scored is None:
-        return None
-    matches = [e for e in seed.events
-               if e["seq"] < metric["seq"] and e.get("kind") == "estimator" and e.get("method") in PREDICTION_METHODS
-               and "raised" not in e and any(vector == scored for vector in _prediction_vectors(e))]
-    if not matches:
-        return None
-    if len({tuple(sorted(Counter((m.get("X") or {}).get("fp", [])).items())) for m in matches}) > 1:
-        return AMBIGUOUS_LINK
-    return matches[-1]
+        return []
+    return [e for e in seed.events
+            if e["seq"] < metric["seq"] and e.get("kind") == "estimator" and e.get("method") in PREDICTION_METHODS
+            and "raised" not in e and any(vector == scored for vector in _prediction_vectors(e))]
+
+
+def _judge_scored_pairs(seed: SeedContext, metric: dict, prediction: dict, what: str) -> Check:
+    """K5 for one candidate prediction: how the scored (row, label) pairs relate to the test split's pairs."""
+    pairs = pairs_of(prediction.get("X"), metric.get("y_true"))
+    if pairs is None:
+        return Check(UNVERIFIABLE, f"{what}: the labels and the predicted rows differ in number")
+    relation = relate(seed, pairs)
+    if relation.kind == TEST:
+        return Check(OK, f"{what} scores the {len(pairs)} test pairs")
+    if relation.kind in (TRAIN, TRAIN_SUBSET):
+        return Check(FIRED, f"{what} scores {len(pairs)} training pairs, not the test pairs", "B03")
+    if relation.kind == TEST_SUBSET:
+        note = " (these pairs also occur among the training pairs)" if relation.ambiguous else ""
+        return Check(FIRED, f"{what} scores {len(pairs)} of the {relation.stage.size} test pairs: "
+                            f"{relation.count} left out{note}", "B10")
+    by_row = relate(seed, [(fp, None) for fp, _ in pairs])
+    if by_row.kind == TEST:
+        mislabelled = sum((Counter(pairs) - by_row.stage.pairs).values())
+        return Check(FIRED, f"{what} scores the {len(pairs)} test rows, {mislabelled} of them with a label that is "
+                            f"not theirs", "B08")
+    if relation.kind == NEEDS_TEST_ROWS or by_row.kind in (TRAIN, TRAIN_SUBSET, NEEDS_TEST_ROWS):
+        return Check(FIRED, f"{what} scores {len(pairs)} pairs that are not the test split's pairs", "B03")
+    return Check(UNVERIFIABLE, f"{what}: its {len(pairs)} scored pairs could not be matched to the split")
 
 
 def check_k5_scoring(context: TraceContext) -> Check:
     """Invariant: the (row, label) pairs that are scored are exactly the test split's pairs, and the scored values are
     a model's output on those rows. Training rows scored is B03; fewer pairs than the test split is B10; the test rows
-    with labels that are not theirs is B08; scored values that no recorded prediction made are `unverifiable`."""
+    with labels that are not theirs is B08; scored values that no recorded prediction made are `unverifiable`, and so
+    are equal values predicted by several calls whose rows relate differently to the split (which rows were scored
+    cannot be told: a constant classifier on test rows and on training rows, say)."""
     if not context.seeds:
         return Check(UNVERIFIABLE, "no split was recorded")
     n_metrics = 0
@@ -536,32 +555,16 @@ def check_k5_scoring(context: TraceContext) -> Check:
         for metric in (e for e in seed.events if e.get("kind") == "metric"):
             n_metrics += 1
             what = f"{metric['func']} (call {metric['seq']}, seed {seed.index})"
-            prediction = _linked_prediction(seed, metric)
-            if prediction is None:
+            candidates = _linked_predictions(seed, metric)
+            if not candidates:
                 return Check(UNVERIFIABLE, f"{what}: the scored values match no recorded prediction call")
-            if prediction == AMBIGUOUS_LINK:
-                return Check(UNVERIFIABLE, f"{what}: the scored values were predicted on different rows by different "
-                                           f"calls, so the scored rows cannot be told")
-            pairs = pairs_of(prediction.get("X"), metric.get("y_true"))
-            if pairs is None:
-                return Check(UNVERIFIABLE, f"{what}: the labels and the predicted rows differ in number")
-            relation = relate(seed, pairs)
-            if relation.kind == TEST:
-                continue
-            if relation.kind in (TRAIN, TRAIN_SUBSET):
-                return Check(FIRED, f"{what} scores {len(pairs)} training pairs, not the test pairs", "B03")
-            if relation.kind == TEST_SUBSET:
-                note = " (these pairs also occur among the training pairs)" if relation.ambiguous else ""
-                return Check(FIRED, f"{what} scores {len(pairs)} of the {relation.stage.size} test pairs: "
-                                    f"{relation.count} left out{note}", "B10")
-            by_row = relate(seed, [(fp, None) for fp, _ in pairs])
-            if by_row.kind == TEST:
-                mislabelled = sum((Counter(pairs) - by_row.stage.pairs).values())
-                return Check(FIRED, f"{what} scores the {len(pairs)} test rows, {mislabelled} of them with a label that is "
-                                    f"not theirs", "B08")
-            if relation.kind == NEEDS_TEST_ROWS or by_row.kind in (TRAIN, TRAIN_SUBSET, NEEDS_TEST_ROWS):
-                return Check(FIRED, f"{what} scores {len(pairs)} pairs that are not the test split's pairs", "B03")
-            return Check(UNVERIFIABLE, f"{what}: its {len(pairs)} scored pairs could not be matched to the split")
+            outcomes = [_judge_scored_pairs(seed, metric, p, what) for p in candidates]
+            if len({(c.status, c.bug_class) for c in outcomes}) > 1:
+                return Check(UNVERIFIABLE, f"{what}: equal scored values were predicted on different rows by "
+                                           f"{len(candidates)} calls that relate differently to the split, so the "
+                                           f"scored rows cannot be told")
+            if outcomes[-1].status != OK:
+                return outcomes[-1]
     if n_metrics == 0:
         return Check(UNVERIFIABLE, "no metric call was recorded")
     return Check(OK, f"{n_metrics} metric calls, each on exactly the test pairs of its seed")
@@ -571,15 +574,21 @@ def check_k5_scoring(context: TraceContext) -> Check:
 
 @dataclass
 class Evaluation:
-    """One scoring in a seed: a metric call (with the prediction call that made its scored values) or an estimator's
-    own `score` call (which predicts and scores in one). `placement` says how the scored rows, labels left out, relate to
-    the split; `problem` says why the prediction could not be found (then `prediction` is None)."""
+    """One scoring in a seed: a metric call (with every prediction call that made exactly its scored values) or an
+    estimator's own `score` call (which predicts and scores in one). `placements` says, per candidate, how its rows
+    (labels left out) relate to the split; `placement` is their common answer when all candidates agree on the kind,
+    else `unknown`. `problem` says why the scored rows are unknown (then K3, K4 and K6 are `unverifiable` on it)."""
 
     seed: SeedContext
     event: dict
-    prediction: dict | None
-    placement: Relation
+    predictions: list[dict]
+    placements: list[Relation]
     problem: str | None = None
+
+    @property
+    def placement(self) -> Relation:
+        kinds = {p.kind for p in self.placements}
+        return self.placements[-1] if len(kinds) == 1 else Relation(UNKNOWN)
 
     @property
     def what(self) -> str:
@@ -604,24 +613,23 @@ def _touches_test(relation: Relation) -> bool:
 
 
 def evaluations(context: TraceContext) -> list[Evaluation]:
-    """Every metric call and every estimator `score` call of every seed, with the prediction behind it."""
+    """Every metric call and every estimator `score` call of every seed, with the prediction calls behind it."""
     found = []
     for seed in context.seeds:
         for event in seed.events:
             if "raised" in event:
                 continue
             if event.get("kind") == "metric":
-                prediction = _linked_prediction(seed, event)
-                if prediction is None:
-                    found.append(Evaluation(seed, event, None, Relation(UNKNOWN),
-                                            "the scored values match no recorded prediction call"))
-                elif prediction == AMBIGUOUS_LINK:
-                    found.append(Evaluation(seed, event, None, Relation(UNKNOWN),
-                                            "the scored values were predicted on different rows by different calls"))
-                else:
-                    found.append(Evaluation(seed, event, prediction, _rows_relation(seed, prediction)))
+                candidates = _linked_predictions(seed, event)
+                placements = [_rows_relation(seed, p) for p in candidates]
+                problem = None
+                if not candidates:
+                    problem = "the scored values match no recorded prediction call"
+                elif len({p.kind for p in placements}) > 1:
+                    problem = "equal scored values were predicted on rows that relate differently to the split"
+                found.append(Evaluation(seed, event, candidates, placements, problem))
             elif event.get("kind") == "estimator" and event.get("method") == "score":
-                found.append(Evaluation(seed, event, event, _rows_relation(seed, event)))
+                found.append(Evaluation(seed, event, [event], [_rows_relation(seed, event)]))
     return found
 
 
@@ -726,6 +734,22 @@ def _arm_differences(fit: dict, scalers: list[tuple[str, dict]], arm: dict, seed
     return problems
 
 
+def candidate_verdicts(context: TraceContext, evaluation: Evaluation, registered: dict) -> list:
+    """Per candidate prediction call of this evaluation: {arm: differences} (see `_match_one`) or a reason string.
+    A reason string instead of a list when the scored rows are unknown altogether."""
+    if evaluation.problem:
+        return evaluation.problem
+    seeds = registered["seeds"]
+    if evaluation.seed.index >= len(seeds):
+        return f"seed {evaluation.seed.index} has no registered seed"
+    return [_match_one(context, evaluation.seed, p, placement, registered, seeds[evaluation.seed.index])
+            for p, placement in zip(evaluation.predictions, evaluation.placements)]
+
+
+def _is_registered(verdict) -> bool:
+    return isinstance(verdict, dict) and any(not problems for problems in verdict.values())
+
+
 def match_arms(context: TraceContext, evaluation: Evaluation, registered: dict) -> dict[str, list[str]] | str:
     """For each registered arm, how the model behind this evaluation differs from it ([] = it is that arm's model).
 
@@ -733,34 +757,45 @@ def match_arms(context: TraceContext, evaluation: Evaluation, registered: dict) 
     is no arm's model: the probe records every script-level fit of a wrapped class, so the missing fit is observed,
     not unobserved. Returns a reason (a string) when the model cannot be judged: no linked prediction, its rows cannot
     be placed in the split, or they went through a transform whose object was never fitted at script level.
+
+    When several prediction calls made exactly the scored values (see `_linked_predictions`), the values are an arm's
+    when any of those models is that arm's: identical values give the identical number that arm's registered model
+    gives (K6 uses this). Whether every scored model is registered is K3's question, asked of every candidate.
     """
-    if evaluation.prediction is None:
-        return evaluation.problem or "no prediction call"
-    space = context.spaces.get(evaluation.prediction["seq"])
+    judged = candidate_verdicts(context, evaluation, registered)
+    if isinstance(judged, str):
+        return judged
+    usable = [j for j in judged if not isinstance(j, str)]
+    if not usable:
+        return judged[0] if judged else "no prediction call"
+    return {arm: min((j[arm] for j in usable), key=len) for arm in ARMS}
+
+
+def _match_one(context: TraceContext, seed: SeedContext, prediction: dict, placement: Relation, registered: dict,
+               seed_value: int) -> dict[str, list[str]] | str:
+    """`match_arms` for one candidate prediction call."""
+    space = context.spaces.get(prediction["seq"])
     if space is None:
         return "the prediction call is not an estimator call"
     if space[2] == 0:
-        unfitted = f"the {_short(evaluation.prediction.get('cls', '?'))} that made the scored values was never fitted by the script"
+        unfitted = f"the {_short(prediction.get('cls', '?'))} that made the scored values was never fitted by the script"
         return {arm: [unfitted] for arm in ARMS}
     fit = context.fits[space[1:]]
-    stage = evaluation.placement.stage
+    stage = placement.stage
     if stage is None:
         return "the scored rows could not be placed in the split"
-    seeds = registered["seeds"]
-    if evaluation.seed.index >= len(seeds):
-        return f"seed {evaluation.seed.index} has no registered seed"
     # Two arms with the same scalers give identical rows, so several stages can hold the predicted rows equally well;
     # each is a path the rows may have taken, and an arm matches when one of those paths matches it.
-    predicted = Counter((evaluation.prediction.get("X") or {}).get("fp", []))
-    candidates = [s for s in evaluation.seed.stages if s.side == stage.side and _is_sub(predicted, s.fps)] or [stage]
-    chains = [c for c in (_lineage_fits(context, s) for s in candidates) if c is not None]
+    predicted = Counter((prediction.get("X") or {}).get("fp", []))
+    stages = [s for s in seed.stages if s.side == stage.side and _is_sub(predicted, s.fps)] or [stage]
+    chains = [c for c in (_lineage_fits(context, s) for s in stages) if c is not None]
     if not chains:
         return "the scored rows went through a transform whose object was never fitted at script level"
     model_scalers = _scalers_in(fit["cls"], fit.get("params"))
     verdicts = {}
     for arm in ARMS:
         options = [_arm_differences(fit, [s for f in chain for s in _scalers_in(f["cls"], f.get("params"))]
-                                    + model_scalers, registered[arm], seeds[evaluation.seed.index])
+                                    + model_scalers, registered[arm], seed_value)
                    for chain in chains]
         verdicts[arm] = min(options, key=len)
     return verdicts
@@ -770,7 +805,8 @@ def check_k3_registered_arm(context: TraceContext, inputs: RunInputs) -> Check:
     """Invariant: every model whose output is scored (by a metric call, or by its own `score` on test rows) is a
     registered arm's model, fitted at script level: its class is the arm's, every hyperparameter is the config's
     value or the library default, random_state is the seed of its split, and the rows it predicted went through
-    exactly the arm's scalers, in order, at their library defaults."""
+    exactly the arm's scalers, in order, at their library defaults. When several calls made exactly the scored values,
+    every one of them must be a registered arm's model; if only some are, which model was scored cannot be told."""
     if not context.seeds:
         return Check(UNVERIFIABLE, "no split was recorded")
     n_scored = 0
@@ -778,13 +814,21 @@ def check_k3_registered_arm(context: TraceContext, inputs: RunInputs) -> Check:
         if evaluation.event.get("kind") != "metric" and not _touches_test(evaluation.placement):
             continue
         n_scored += 1
-        verdicts = match_arms(context, evaluation, inputs.registered)
-        if isinstance(verdicts, str):
-            return Check(UNVERIFIABLE, f"{evaluation.what}: {verdicts}")
-        if not any(not problems for problems in verdicts.values()):
-            arm, problems = min(verdicts.items(), key=lambda item: len(item[1]))
+        judged = candidate_verdicts(context, evaluation, inputs.registered)
+        if isinstance(judged, str):
+            return Check(UNVERIFIABLE, f"{evaluation.what}: {judged}")
+        if all(_is_registered(j) for j in judged):
+            continue
+        dicts = [j for j in judged if isinstance(j, dict)]
+        if len(dicts) == len(judged) and not any(_is_registered(j) for j in dicts):
+            arm, problems = min(((a, p) for j in dicts for a, p in j.items()), key=lambda item: len(item[1]))
             return Check(FIRED, f"{evaluation.what} scores a model that is no registered arm: {len(problems)} "
                                 f"differences from the {arm} arm ({'; '.join(problems[:3])})", "B04")
+        if not dicts:
+            return Check(UNVERIFIABLE, f"{evaluation.what}: {judged[0]}")
+        return Check(UNVERIFIABLE, f"{evaluation.what}: equal scored values came from {len(judged)} prediction calls, "
+                                   f"of which {sum(map(_is_registered, judged))} are registered arms' models, so which "
+                                   f"model was scored cannot be told")
     if n_scored == 0:
         return Check(UNVERIFIABLE, "no scored model was recorded")
     return Check(OK, f"{n_scored} scorings, each of a registered arm's model (class, hyperparameters, random_state = "
@@ -815,13 +859,13 @@ def check_k4_test_use(context: TraceContext) -> Check:
                                 f"registers {len(ARMS)} arms", "B04")
         scorings = []
         for evaluation in (e for e in all_evaluations if e.seed is seed):
-            if evaluation.prediction is None:
+            if evaluation.problem:
                 return Check(UNVERIFIABLE, f"{evaluation.what}: {evaluation.problem}, so its rows are unknown")
             if _touches_test(evaluation.placement):
                 scorings.append(evaluation)
         if len(scorings) > len(ARMS):
-            scored = Counter((_model_key(context, e.prediction), json.dumps((e.event.get("second") or {}).get("values")))
-                             for e in scorings)
+            scored = Counter((frozenset(_model_key(context, p) for p in e.predictions),
+                              json.dumps((e.event.get("second") or {}).get("values"))) for e in scorings)
             repeated = sum(n - 1 for n in scored.values())
             if repeated:
                 return Check(FIRED, f"seed {seed.index}: {len(scorings)} scorings of the test rows for {len(ARMS)} "

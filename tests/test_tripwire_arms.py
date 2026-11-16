@@ -50,9 +50,9 @@ class Trace:
                          "second": D(np.asarray(scored), values=True), "kwargs": kwargs or {"average": "binary"},
                          "out": float(value)})
 
-    def arm(self, C, scaler=StandardScaler, model=None, rows=TEST, random_state=0, score=True):
+    def arm(self, C, scaler=StandardScaler, model=None, rows=TEST, random_state=0, score=True, predictions=None):
         """Scale, fit on the training rows, predict `rows`, score them (binary f1). Returns (model obj, predictions,
-        value)."""
+        value). `predictions` replaces what the model predicted (to make two arms' outputs differ or agree)."""
         scaler_obj, model_obj = self.next_obj, self.next_obj + 1
         self.next_obj += 2
         transformer = scaler()
@@ -63,7 +63,7 @@ class Trace:
         fitted = model if model is not None else LogisticRegression(C=C, random_state=random_state)
         self.estimator("fit", model_obj, fitted, train_ready, Y[TRAIN])
         fitted.fit(train_ready, Y[TRAIN])
-        predictions = fitted.predict(rows_ready)
+        predictions = fitted.predict(rows_ready) if predictions is None else np.asarray(predictions)
         self.estimator("predict", model_obj, fitted, rows_ready, out=predictions, values=True)
         value = None
         if score:
@@ -98,8 +98,8 @@ def test_k3_ok_when_both_scored_models_are_the_registered_arms():
 
 def test_k3_fires_b04_on_a_hyperparameter_that_is_not_registered():
     trace = Trace()
-    trace.arm(1.0)
-    trace.arm(10.0)  # registered C is 0.1 (treatment) or 1.0 (control)
+    _, predictions, _ = trace.arm(1.0)
+    trace.arm(10.0, predictions=1 - predictions)  # registered C is 0.1 (treatment) or 1.0 (control)
     check = tw.check_k3_registered_arm(trace.context(), inputs([0.5], [0.5]))
     assert (check.status, check.bug_class) == (tw.FIRED, "B04")
     assert "1 differences" in check.evidence and "C=10.0 (registered 1.0)" in check.evidence
@@ -107,8 +107,8 @@ def test_k3_fires_b04_on_a_hyperparameter_that_is_not_registered():
 
 def test_k3_fires_on_a_random_state_that_is_not_the_seed():
     trace = Trace()
-    trace.arm(1.0)
-    trace.arm(0.1, random_state=5)
+    _, predictions, _ = trace.arm(1.0)
+    trace.arm(0.1, random_state=5, predictions=1 - predictions)
     check = tw.check_k3_registered_arm(trace.context(), inputs([0.5], [0.5]))
     assert check.status == tw.FIRED and "random_state=5 (registered 0)" in check.evidence
 
@@ -329,3 +329,29 @@ def test_advisory_a1_is_the_control_mean_minus_no_skill_and_never_changes_the_ve
     flagged = {"S1": tw.Check(tw.FIRED, "rows", "B07")}
     assert tw.summarize(flagged, {}, {"no_skill_margin": 0.4})["verdict"] == "flag"
     assert tw.advisory_a1(None, run) == {"no_skill_margin": None, "reason": "needs the replay's test labels"}
+
+
+# ---- Equal predictions from both arms (found on task-dev-2, plan step 7) ----
+
+def test_both_arms_making_the_same_predictions_on_differently_scaled_rows_is_not_ambiguous():
+    """Trees and naive Bayes ignore scaling, so two arms with different scalers often predict exactly the same values
+    on the test rows, whose fingerprints differ per arm. Every candidate is on the test rows, so nothing is unknown."""
+    registered = {**REGISTERED, "treatment": {**REGISTERED["treatment"], "preprocessing": ["minmax_scaler"]}}
+    trace = Trace()
+    _, predictions, control = trace.arm(1.0)
+    trace.arm(0.1, scaler=MinMaxScaler, score=False)
+    trace.events[-1]["out"] = D(np.asarray(predictions), values=True)  # the treatment predicts the same values
+    trace.metric(Y[TEST], predictions, control)
+    context, run = trace.context(), inputs([control], [control], registered=registered)
+    assert trace.events[2]["out"]["fp"] != trace.events[-4]["out"]["fp"]  # the two arms' test rows differ in content
+    for check in (tw.check_k3_registered_arm(context, run), tw.check_k4_test_use(context),
+                  tw.check_k5_scoring(context), tw.check_k6_report(context, run)):
+        assert check.status == tw.OK, check
+
+
+def test_k3_is_unverifiable_when_equal_values_came_from_a_registered_and_an_unregistered_model():
+    trace = Trace()
+    _, predictions, _ = trace.arm(1.0)
+    trace.arm(10.0, predictions=predictions)  # the same values as the control's: which model was scored is unknown
+    check = tw.check_k3_registered_arm(trace.context(), inputs([0.5], [0.5]))
+    assert check.status == tw.UNVERIFIABLE and "2 prediction calls, of which 1 are registered" in check.evidence
