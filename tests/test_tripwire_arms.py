@@ -294,3 +294,38 @@ def test_the_first_fired_check_along_the_chain_names_the_class():
     record = tw.summarize({"K6": fired("B06"), "L1": fired("B06"), "K0": tw.Check(tw.OK, "")}, {})
     assert (record["verdict"], record["bug_class"]) == ("flag", "B06") and record["evidence"].startswith("K6:")
     assert set(tw.CHAIN) == set(tw.STATIC_CHECKS) | set(tw.REPLAY_CHECKS)
+
+
+# ---- Advisory A1 (plan step 6): the control's margin above no skill ----
+
+@pytest.mark.parametrize("metric,counts,expected", [
+    ("accuracy", {0: 6, 1: 2}, 0.75),  # the larger class's share
+    ("balanced_accuracy", {0: 6, 1: 2}, 0.5),  # 1 / 2 classes
+    ("balanced_accuracy", {0: 2, 1: 1, 2: 1}, 1 / 3),
+    ("roc_auc", {0: 6, 1: 2}, 0.5),
+    ("f1", {0: 6, 1: 2}, 0.4),  # p = 0.25: 2p / (1 + p) = 0.5 / 1.25
+    ("f1", {0: 2, 1: 1, 2: 1}, 2 / 9),  # best class p = 0.5: (1 / 1.5) / 3 classes
+])
+def test_no_skill_value_matches_hand_computed_values(metric, counts, expected):
+    assert math.isclose(tw.no_skill_value(metric, Counter(counts)), expected)
+
+
+@pytest.mark.parametrize("metric", ["accuracy", "balanced_accuracy", "f1"])
+@pytest.mark.parametrize("counts", [{0: 6, 1: 2}, {0: 2, 1: 1, 2: 1}, {0: 1, 1: 4}])
+def test_no_skill_value_is_the_best_constant_prediction_scikit_learn_scores(metric, counts):
+    """An independent check: score every constant prediction with scikit-learn and take the best."""
+    y_true = [label for label, n in counts.items() for _ in range(n)]
+    best = max(tw.registered_metric(metric, y_true, [c] * len(y_true), len(counts)) for c in counts)
+    assert math.isclose(tw.no_skill_value(metric, Counter(counts)), best)
+
+
+def test_advisory_a1_is_the_control_mean_minus_no_skill_and_never_changes_the_verdict():
+    trace, run = honest()  # test labels [1, 0]: binary f1 of always predicting 1 is 2/3
+    advisory = tw.advisory_a1(trace.context(), run)
+    assert advisory["no_skill"] == [pytest.approx(2 / 3)]
+    assert advisory["no_skill_margin"] == pytest.approx(run.results["control"][0] - 2 / 3)
+    checks = {"S1": tw.Check(tw.OK, "fine")}
+    assert tw.summarize(checks, {}, advisory)["verdict"] == tw.summarize(checks, {}, {})["verdict"] == "pass"
+    flagged = {"S1": tw.Check(tw.FIRED, "rows", "B07")}
+    assert tw.summarize(flagged, {}, {"no_skill_margin": 0.4})["verdict"] == "flag"
+    assert tw.advisory_a1(None, run) == {"no_skill_margin": None, "reason": "needs the replay's test labels"}

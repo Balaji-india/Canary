@@ -357,6 +357,7 @@ def test_clean_sham_and_padded_scripts_pass_every_built_check(config, kind, reco
     record = records[_key("clean", (config, kind))]["record"]
     assert record["verdict"] == "pass", record
     assert all(record["checks"][n]["status"] == tw.OK for n in BUILT), record
+    assert isinstance(record["advisory"]["no_skill_margin"], float), record  # A1 is recorded (plan step 6)
 
 
 @pytest.mark.slow
@@ -382,3 +383,4 @@ def test_the_static_tier_runs_without_executing_anything(records):
     record = tw.run_tripwires(run_dir, replay=False)
     assert record["replay"]["status"] == tw.SKIPPED and "K0" not in record["checks"] and record["tier"] == "static"
     assert record["checks"]["S1"]["status"] == tw.FIRED and record["bug_class"] == "B07"
+    assert record["advisory"]["no_skill_margin"] is None  # A1 needs the replay's test labels

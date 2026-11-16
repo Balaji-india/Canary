@@ -933,6 +933,54 @@ def check_l1_metric_rule(inputs: RunInputs) -> Check:
     return Check(OK, f"{metric} on a class ratio of {ratio:.2f}:1")
 
 
+# ---- Advisory A1: the control's margin above no skill (never part of the verdict) ---------------------------------
+
+def no_skill_value(metric: str, label_counts: Counter) -> float:
+    """The best score a constant prediction reaches on test labels with these counts, for the registered metric.
+
+    accuracy: the largest class's share. balanced_accuracy: 1 / classes present (recall 1 on one class, 0 on the
+    rest). roc_auc: 0.5 (a constant score ranks nothing). f1 on two classes (binary F1 of label 1): predicting 1
+    everywhere gives precision p (the share of label 1) and recall 1, so 2p / (1 + p); predicting 0 gives 0. Macro
+    F1 on more classes: the best class c gives 2p_c / (1 + p_c) for c and 0 for the others, divided by the classes.
+    """
+    total = sum(label_counts.values())
+    shares = {label: n / total for label, n in label_counts.items()}
+    k = len(shares)
+    if metric == "accuracy":
+        return max(shares.values())
+    if metric == "balanced_accuracy":
+        return 1.0 / k
+    if metric == "roc_auc":
+        return 0.5
+    if metric == "f1":
+        if k == 2:
+            p = shares.get(1, 0.0)
+            return 2 * p / (1 + p)
+        return max(2 * p / (1 + p) for p in shares.values()) / k
+    raise ValueError(f"unknown metric {metric!r}")
+
+
+def advisory_a1(context: TraceContext | None, inputs: RunInputs) -> dict:
+    """A1 (plan section 5): control mean minus the mean, over seeds, of the no-skill value on each seed's test labels.
+    A record of how far the control is above doing nothing; it never changes the verdict (B09 has no tripwire)."""
+    if context is None or not context.seeds:
+        return {"no_skill_margin": None, "reason": "needs the replay's test labels"}
+    control = (inputs.results or {}).get("control")
+    if not isinstance(control, list) or not control:
+        return {"no_skill_margin": None, "reason": "results.json has no control numbers"}
+    per_seed = []
+    for seed in context.seeds:
+        split_test = [s for s in seed.side(SIDE_TEST) if s.space == SPLIT_SPACE]
+        if not split_test:
+            return {"no_skill_margin": None, "reason": f"seed {seed.index}: the test labels were not recorded"}
+        labels = Counter()
+        for (_, label), n in split_test[0].pairs.items():
+            labels[label] += n
+        per_seed.append(no_skill_value(inputs.registered["metric"], labels))
+    above_no_skill = sum(control) / len(control) - sum(per_seed) / len(per_seed)
+    return {"no_skill_margin": above_no_skill, "no_skill": per_seed}
+
+
 # ---- The record ------------------------------------------------------------------------------------------------
 
 def source_version() -> str:
@@ -983,7 +1031,8 @@ def run_tripwires(run_dir: Path, replay: bool = True, timeout_s: float = sandbox
     except Exception as exc:  # a missing or unreadable file is a link that cannot be observed
         reason = f"the run folder's files could not be read: {exc!r}"[:300]
         names = STATIC_CHECKS + (REPLAY_CHECKS if replay else ())
-        return _with_tier(summarize({n: Check(UNVERIFIABLE, reason) for n in names}, replay_info), replay)
+        return _with_tier(summarize({n: Check(UNVERIFIABLE, reason) for n in names}, replay_info,
+                                    {"no_skill_margin": None, "reason": "the run folder could not be read"}), replay)
     checks: dict[str, Check] = {"S1": _guarded(check_s1_split_sizes, inputs),
                                 "S2": _guarded(check_s2_class_balance, inputs),
                                 "L1": _guarded(check_l1_metric_rule, inputs)}
@@ -1007,7 +1056,11 @@ def run_tripwires(run_dir: Path, replay: bool = True, timeout_s: float = sandbox
         else:
             for name in REPLAY_CHECKS[1:]:
                 checks[name] = Check(UNVERIFIABLE, "no trustworthy replay (see K0)")
-    return _with_tier(summarize(checks, replay_info), replay)
+    try:
+        advisory = advisory_a1(context, inputs)
+    except Exception as exc:  # advisory only: an error here is recorded, never a crash and never a verdict change
+        advisory = {"no_skill_margin": None, "reason": f"could not be computed: {exc!r}"[:300]}
+    return _with_tier(summarize(checks, replay_info, advisory), replay)
 
 
 def _guarded(check, *args) -> Check:
@@ -1040,6 +1093,9 @@ def main(argv: list[str] | None = None) -> int:
         check = record["checks"].get(name)
         if check:
             print(f"  {name:3s} {check['status']:13s} {check['evidence']}")
+    above_no_skill = record["advisory"].get("no_skill_margin")
+    print("advisory A1 (never part of the verdict): no-skill margin "
+          + (f"{above_no_skill:+.4f}" if above_no_skill is not None else f"not computed ({record['advisory'].get('reason')})"))
     seconds = record["replay"]["seconds"]
     print(f"replay: {record['replay']['status']}" + (f" in {seconds:.1f} s" if seconds is not None else ""))
     print(f"version: {record['version'][:19]}")
