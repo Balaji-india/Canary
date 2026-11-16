@@ -61,8 +61,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
   - **Sitting A built 2026-11-14 (plan steps 0-2):** test-suite room, `canary/probe.py` + `canary/replay.py` proven
     transparent (go), pair arithmetic in `canary/tripwires.py`.
   - **Sitting B built 2026-11-14 (plan steps 3-4):** checks S1, S2, K0, K1, K2, K5, `run_tripwires`,
-    `python -m canary.tripwires`; guard tests. K3, K4, K6, L1 (sitting C), the dev loop and the locked test
-    (sitting D) and step 11 remain.
+    `python -m canary.tripwires`; guard tests.
+  - **Sitting C built 2026-11-16 (plan steps 5-7):** K3, K4, K6, L1, the verdict with all ten checks, advisory A1,
+    `python -m eval.tripwires_dev`. The dev loop on the three batches, the locked test (sitting D) and step 11 remain.
 - [ ] 5.2 Skeptic B and jury
 - [ ] 5.3 Replication gate
 - [ ] 5.4 RQ2 and RQ3
@@ -86,9 +87,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Mission 5.1 tripwires, sitting C next; then sitting D, then Mission 4.1 sitting 1 (designs ready)
+**Current focus:** Mission 5.1 tripwires, sitting D next (dev loop on rq1-full, task-dev-1, task-dev-2; lock; the test once); then Mission 4.1 sitting 1 (designs ready)
 
-**Stopped at:** design session 2 complete; next step Mission 5.1 sitting C (Opus).
+**Stopped at:** Mission 5.1 sitting C complete (plan steps 5-7, 2026-11-16); next step sitting D, plan step 8 (Opus).
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -425,6 +426,75 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Mission 5.1 sitting C (2026-11-16, Opus): plan steps 5-7 built
+- **Step 5, the remaining checks and the verdict** (`canary/tripwires.py`): K3 registered arm (every scored model is
+  a registered arm's: class, every hyperparameter the config's value or the library default, `random_state` = the
+  seed, the scalers its rows went through in order and at their defaults, fitted by the script); K4 test use (per
+  seed at most 2 fitted models predict the test rows and at most 2 scorings of them; extra models B04, the same
+  predictions scored again B06); K6 report (one number per seed and arm, equal to a metric return of that seed for
+  that arm's registered model, and to the registered metric recomputed with scikit-learn from the metric name and
+  the dataset's classes; a changed number B05, another metric B06); L1 (accuracy above 3:1, `IMBALANCE_LINE` = 3.0,
+  equal to the catalog's). The verdict uses all ten checks; nothing is `not_built` any more. `probe.py`: settings
+  are recorded 12 levels deep (was 6), so the scaler inside the preprocessor's pipeline is visible to K3.
+  - Fast: `tests/test_tripwire_arms.py` (hand-written traces made with real scikit-learn objects; K6's
+    recomputation against hand-computed binary F1 0.8, macro F1 0.6, balanced accuracy 5/6, ROC AUC 0.75, accuracy
+    0.8; L1 silent at 30:10, firing at 31:10; the registered names equal codegen's and the template's classes).
+  - Slow, `pytest -m slow tests/test_tripwires.py` (three configs, 2 seeds): both tiers of B04 (obvious K2, subtle
+    K4), B05 (K6) and B06 (obvious L1 only, subtle K4) fire with the class named and nothing `unverifiable`; the 6 B09
+    canaries pass (expected, documented in the test); clean, sham, padded and all 60 decoy runs are `ok` on every
+    check. 157 passed, 3 skipped (B06 variants not applicable to wine or breast).
+  - Done-when evidence (scratch runs, not `data/runs/`): clean blood run `verdict: pass`, all ten checks ok; B05
+    subtle `flag (suspected B05)`, K6 "treatment seed 0: results.json reports 0.399884, which no metric call of that
+    seed returned"; B06 subtle `flag (suspected B06)`, K4 "4 scorings of the test rows for 2 reported numbers; 2 score
+    predictions already scored", K6 "reports 0.549345 ... {'average': 'macro'}, but the registered metric f1 ... is
+    0.226415".
+  - Decided while building: a scored model that predicted at script level but was never fitted by the script (the
+    B04 obvious grid search's internal refit) is `fired` (B04), not `unverifiable`: every script-level fit of a
+    wrapped class is recorded, so the missing fit is observed. K6's number comparison uses a 1e-12 rounding tolerance
+    (stated in the code; see decisions below).
+- **Step 6, advisory A1:** per seed, the best score a constant prediction reaches on that seed's test labels for the
+  registered metric; `advisory.no_skill_margin` = control mean minus its mean. Never changes the verdict. Fast tests
+  against hand-computed values and against scikit-learn scoring every constant prediction; the slow suite's verdicts
+  unchanged, clean runs carry the number.
+- **Step 7, development runner** (`eval/tripwires_dev.py`): accepts only `rq1-full`, `task-dev-1`, `task-dev-2`;
+  lists run IDs from the sealed table, calls `run_tripwires` with the folder path only, stores
+  `data/tripwires/v1/<run_id>.json` (resumes on the same version), logs `data/tripwires/dev.log`, loads no audit and
+  never opens the ledger (a source test). Scoring goes through `trust.Observation` / `trust.summarize`;
+  base-level intervals use `eval.ceiling.cluster_labels` at 90%. 16 fast tests on synthetic records and a temporary
+  sealed table, every number hand-computed.
+  - **Found on task-dev-2 and fixed:** the first run flagged 12 of 20 clean runs `unverifiable` ("predicted on
+    different rows by different calls"). Cause: trees and naive Bayes ignore scaling, so two arms with different
+    scalers predict exactly the same values on test rows whose fingerprints differ per arm; sitting B's link rule
+    called that ambiguous. Now every candidate prediction is judged: K5 is `unverifiable` only when the candidates
+    disagree on how the scored rows relate to the split (the constant-classifier case stays `unverifiable`); K3 needs
+    every candidate to be a registered arm's model (`unverifiable` if only some are); K6 needs the arm's model among
+    them. A new slow test (decision tree, no scaler against standard scaler, equal outputs) fails on the old code and
+    passes now. Not a threshold: no number was moved.
+  - **Done-when:** `python -m eval.tripwires_dev --batch task-dev-2` (40 replays, 4 workers) printed the table and
+    wrote `eval/results/tripwires/dev_task-dev-2.json`. **Known shapes (development)**, from the script's output:
+    headline recall (fired) 17/19 (Beta 90% 0.72-0.96, base-level 0.75-1.00, 16 clusters); specificity 20/20
+    (controls 10/10, shams 10/10, every decoy class 1/1); Youden's J +0.895 (base-level +0.750 to +1.000);
+    unverifiable 0; right class named 17/19; B06 obvious (L1 rule, outside the headline) 1/1; misses: the 2 B09
+    canaries (not covered); gold-twin reference recall 19/19 (reference only: the 2 B09); replays reproducing the
+    stored numbers 40/40; no-op canaries 0; A1 AUC 1.000 on 2 B09 against 20 clean runs (advisory, meaningless at
+    this size). Held-out shapes: not measured (Mission 6.2). B09: not covered.
+- **Own /challenge, fixed:** (1) a long run (79 s originally, 120 s timeout) replayed in 69 s under 4 workers: a
+  replay that times out under load is now made again once, alone, and logged (it says nothing about the run), with a
+  test; (2) the K6 tolerance comment claimed a bound that holds only for ratio metrics; corrected (for macro F1 the
+  tolerance can only cause a coincidental miss, never a false alarm); (3) the slow suite had no config whose arms
+  differ in scaler, the shape that broke on task-dev-2; added (above). Stated, not changed: seconds per replay are
+  measured under 4 workers, so they overstate a single replay; development numbers are close to guaranteed by
+  construction (plan section 7.3); rq1-full and task-dev-1 are not run yet (sitting D).
+- **For the student before sitting D (defaults apply unless changed; none needs an answer before step 8):**
+  (1) K6's 1e-12 rounding tolerance vs the plan's "no check except L1 has a threshold": keep it as rounding only
+  (default) or require exact equality; (2) K3 is stricter than the plan's wording (every unregistered setting must be
+  the library default, scalers at their defaults): keep (default); (3) "never fitted by the script" counts as
+  `fired` B04 (default) rather than `unverifiable`; (4) the equal-predictions rule above (K3 all candidates, K6 any).
+  All four are inside the tripwire code that step 9 hashes, so they freeze with the lock.
+- **End checks:** `pytest -q` 829 passed in 18.6 s and 17.7 s; `pytest -m slow` 264 passed, 3 skipped in 225 s; `eval.ceiling_lock --check` "Lock check: OK"
+  at the start and "Lock check: OK, every hash matches" at the end; `ledger verify` OK (2072 entries, unchanged). No write in `data/runs/`, no ledger write, no
+  audit loaded, no cloud or Ollama call, no frozen file edited.
 
 ## Mission 5.1 sitting B (2026-11-14, Opus): plan steps 3-4 built
 - **Step 3, checks and record** (`canary/tripwires.py`): S1 split sizes, S2 class balance (static, from
