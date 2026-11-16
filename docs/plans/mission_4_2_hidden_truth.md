@@ -95,6 +95,8 @@ adds something, and all are fixed before any review exists.
 5. **Before pool 3 is built (step 1b):** the local decisive-share check on the clean runs already made, and the
    student's decision on the campaign grid and `seeds_per_arm`. The number of seeds is visible in every
    `results.json`; changing it after the bank exists would make real runs differ from the bank's clones.
+   Default: question q1 and the same focus grid stay, as section 2a says. If the student's decision changes the
+   question or the grid, section 2a is amended first, before pool 3 is built (roadmap finding 24).
 
 ## 3. Sample size per level (from the simulations)
 - **100 audited runs per level.** Simulated with independent runs, 20 canaries per class and 100 clean runs for
@@ -197,6 +199,9 @@ step 11: build pool 3 (section 2a); `calibrate --runs 360 --batch rq4-bank-1 --p
 --seed <new> --no-audit`; build `rq4-b09`; run the locked tripwires on both batches; `ledger verify`.
 **Done when:** both batches exist with 0 audits and one tripwire record per run, and the pool file names the
 guard version.
+Proposed in section 2b, pending the student's OK: the decisive-share check and the student's decision on the
+grid and `seeds_per_arm` come before this step (item 5), and the top-up batch also holds the 10 B06-subtle
+canaries (item 2).
 
 **Step 2 (Opus).** `eval/rq4.py` (re-splits, the five measures, pass marks, `--dry`, refuses partial data) and
 `eval/rq4_lock.py` (or `ceiling_lock` generalised: hashes of `canary/trust.py`, `eval/rq4.py`, the tripwire
@@ -219,6 +224,8 @@ Sessions 1 and 7 also run the sentinel (`rescore --sample`, the repeat-pass comm
 `eval/results/rq4/rq4.json` with per-re-split rows; `eval/figures/rq4_estimate_vs_truth.png` (re-split 0 with
 intervals, the spread of the others behind it, one panel per kind); `/evaluate`; `PROGRESS.md`.
 **Done when:** the JSON holds every pass mark as passed or failed and the figure exists.
+Proposed (roadmap second read, 2026-11-16, finding 21): the RQ3 plan is locked before `python -m eval.rq4` runs,
+because RQ3 uses re-splits of this same bank and measure 5 above already shows the gate on them.
 
 **After RQ4:** the same 360 reviewed runs become the first calibration set for real campaigns (Mission 4.1,
 section 4), under the same reviewer snapshot.
@@ -262,4 +269,5 @@ section 4), under the same reviewer snapshot.
 
 **Open (roadmap pass, 2026-11-15; section 2b):** kind D; the B06-subtle top-up; the bound's median upper end and
 the naive baselines; the decisive-share check and the `seeds_per_arm` decision before pool 3. Recommended: yes to
-each. They are decisions 2, 3 and 4 of `docs/plans/roadmap_challenge_2026-11-15.md`.
+each. They are decisions 2, 3 and 4 of `docs/plans/roadmap_challenge_2026-11-15.md`; its decision 11 (the RQ3
+lock before step 4) was added in the second read of 2026-11-16.

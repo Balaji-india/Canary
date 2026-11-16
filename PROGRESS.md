@@ -148,17 +148,27 @@ campaigns until its test passed and RQ4 is analysed. All of it is local: no clou
 
 **4. Roadmap challenge (`roadmap_challenge_2026-11-15.md`).** 20 findings. The ones that change the order of work:
 - The findings ledger may be almost empty: both real runs were inconclusive, and more seeds narrow the interval
-  by about a quarter to a third at most. **A local decisive-share check and the `seeds_per_arm` decision come
-  before pool 3.**
+  by about 27% at 10 seeds and 36% at 20 (never more than about 44%). **A local decisive-share check and the
+  `seeds_per_arm` decision come before pool 3.**
 - RQ3 as "gate on against off" cannot fail: it needs four acceptance rules, contamination and yield.
 - RQ4 never tests the support real campaigns use: **kind D** proposed (no extra review).
 - The bank has 10 B06-subtle canaries, the gate needs 12: **a top-up of 10** proposed (10 reviews).
 - The jury with `phi4-mini` is obsolete; Mission 6 needs a design pass before any build.
+- **Second read, 2026-11-16 (section 2a of that file, findings 21 to 29).** Every number and claim was checked
+  against the plans and this file; nothing contradicts an approved decision. What changed: (1) RQ3 uses
+  re-splits of the same bank as RQ4, so **its plan is locked before `python -m eval.rq4` runs** (new decision
+  11; rows 16 and 18 below); (2) the second naive baseline is the Rogan-Gladen point formula, as the Mission 4.2
+  plan says, and decision 3 now asks for the baselines; (3) the seeds figure above (it said "a quarter to a
+  third at most"); (4) decision 2 keeps question q1 and the pool's grid by default, and another grid is an
+  amendment to the Mission 4.2 plan before pool 3; (5) the decisive-share check covers at most 35 comparisons
+  and reads pool-1 batches and real runs only until sitting D; (6) the ledger anchor checks that the anchored
+  hash is still in the chain, and edits no frozen file; (7) the shorter path differs from the full one in row
+  15 before the campaign; (8) decision 5 says that the common batch brings `llama3.1:8b` back as a measured row.
 
 **Decisions waiting for the student (recommended defaults in each file's last section):** Mission 4.3: 9;
-Mission 4.4: 6; Missions 3.1 and 3.2: 8; roadmap: 10. The ones that gate the next builds: roadmap 2 (check
-before pool 3), 3 (kind D), 4 (B06 top-up); Mission 4.3 decision 1 (sentinel size) and 8 (identity before the RQ4
-lock).
+Mission 4.4: 6; Missions 3.1 and 3.2: 8; roadmap: 11 (34 in all). The ones that gate the next builds: roadmap 2
+(check before pool 3), 3 (kind D), 4 (B06 top-up); Mission 4.3 decision 1 (sentinel size) and 8 (identity before
+the RQ4 lock). None changes anything in Mission 5.1 sittings C or D.
 
 ## Design session 2026-11-15 (Fable): baseline guard, Mission 4.1, Mission 4.2
 Design only. The simulations are design tools with **assumed** reviewer rates
@@ -213,7 +223,7 @@ one bank cover more often than 90% even when all is well.
 | 2 | Opus + student's window | 5.1 sitting D: lock, 360-run tripwire test, `ceiling-ext`; ceiling files unfreeze | steps 8-10 | 1 |
 | 3 | Opus | 5.1 step 11: `canary.cli tripwires`, ledger role `tripwire_v1`; then one DESIGN.md sync sitting | step 11; roadmap finding 17 | 2 |
 | 4 | Opus, any day, local only | Guard sitting 1: `canary/baseline_guard.py`, wired into the Scientist | `b09_proposal_guard.md` steps 1-4 | nothing |
-| 5 | Opus, any day, local, short | Decisive-share check on the clean runs already made (no reviewer data); the student then fixes the campaign grid and `seeds_per_arm`; the ledger anchor | roadmap findings 2 and 14 | nothing |
+| 5 | Opus, any day, local, short | Decisive-share check on the clean runs already made (no reviewer data; pool-1 batches and real runs only until row 2 is done); the student then fixes the campaign grid and `seeds_per_arm`; the ledger anchor (in `canary/ledger.py`, no frozen file) | roadmap findings 2, 14, 25 and 26 | nothing |
 | 6 | Opus, any day, new files only | 4.3 sitting 1: `canary/drift.py` limits and rules, `eval/drift_power.py`, chart state | `mission_4_3_drift.md` steps 1-3 | nothing (the measured re-run needs 2) |
 | 7 | Opus | 4.1 sitting 1: `eval/rq4_power.py`, prevalence, contamination, support, `trust.estimate`, union observations | `mission_4_1_trust.md` steps 1-4, 6 | 3 |
 | 8 | Opus | 4.3 steps 4-5: identity in `canary/llm.py`, cache key, epochs; before the RQ4 lock | `mission_4_3_drift.md` steps 4-5 | 2 |
@@ -224,11 +234,13 @@ one bank cover more often than 90% even when all is well.
 | 13 | Opus, in the review week | 4.1 sitting 2: `canary/gate.py`, real runs padded with decoys, ledger decisions | `mission_4_1_trust.md` steps 5, 7, 8 | 7 |
 | 14 | Opus, in the review week | 4.3 steps 6-8 on fakes (sentinel runner, alarm, hold, regression check, drill); 4.4 sittings 1-2 (policy, block and trace on a fake provider) | `mission_4_3_drift.md`; `mission_4_4_campaign.md` steps 1-6 | 6, 8, 13 |
 | 15 | Opus + student's window, local, in the review week | Missions 3.1 and 3.2: three sittings, then the variety test and RQ6 (about 4 to 8 laptop hours) | `mission_3_1_3_2_memory_calibration.md` | 2, or the new prompt file |
-| 16 | Opus, then `/evaluate` | `python -m eval.rq4` once; RQ4 table and figure | `mission_4_2_hidden_truth.md` step 4 | 11 |
+| 16 | Opus, then `/evaluate` | `python -m eval.rq4` once; RQ4 table and figure | `mission_4_2_hidden_truth.md` step 4 | 11; proposed: the RQ3 lock of row 18 first |
 | 17 | Student's window | Sentinel drawn from the bank and its opening pass; then the real 3-day campaign (cold start) | `mission_4_3_drift.md` step 6; `mission_4_4_campaign.md` step 7 | 14, 16 |
-| 18 | Fable or Opus | Plans for Mission 5.4 (RQ2 in two labelled parts, RQ3 with baselines, both from the bank), Mission 6 (design pass) and Mission 8.1 (RQ1 on one common batch); then `/priorities` | `roadmap_challenge_2026-11-15.md` section 4 | 16 |
+| 18 | Fable or Opus | Plans for Mission 5.4 (RQ2 in two labelled parts, RQ3 with baselines, both from the bank), Mission 6 (design pass) and Mission 8.1 (RQ1 on one common batch); then `/priorities` | `roadmap_challenge_2026-11-15.md` section 4 | 16; proposed: the RQ3 part is written and locked in the review week, after 13 and before 16 |
 
 Rows 12 to 15 fit into the review week of row 11: they make no cloud call and touch no file the RQ4 lock freezes.
+Proposed in the second read (roadmap finding 21, decision 11): the RQ3 part of row 18 is locked in that week too,
+before row 16 reads the bank's reviews.
 No campaign makes a review call while the bank's reviews are open. `tripwire-test-1` (row 2) is tripwires-only for
 good: no LLM ever reviews it. Rows 5 and 9 carry proposals that wait for the student (kind D, the B06-subtle top-up,
 the decisive-share check): see design session 2 above.
@@ -825,7 +837,7 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
 
 ## Next actions (next session)
 The order is the build order table (section "Design session 2026-11-15"); rows in brackets.
-1. **Student: the open decisions** of the four new plans and the roadmap (33, each with a recommended default).
+1. **Student: the open decisions** of the four new plans and the roadmap (34, each with a recommended default).
    Needed first: roadmap decisions 2, 3 and 4 (they shape pool 3 and the bank), Mission 4.3 decisions 1 and 8.
 2. **Opus: Mission 5.1 sitting C** [row 1] (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the
    development runner `eval/tripwires_dev.py` on `task-dev-2`). New files only; lock check before and after.
@@ -835,6 +847,7 @@ The order is the build order table (section "Design session 2026-11-15"); rows i
    anchor; Mission 4.3 sitting 1 (new files only).
 5. **Then** [rows 3, 7, 8, 9]: tripwire wiring and the DESIGN.md sync, Mission 4.1 sitting 1, identity in
    `canary/llm.py`, pool 3 and the bank.
+6. **After the student's OK (roadmap decision 8):** `/novelty`, one short session with web search, any day.
 
 Done 2026-11-15 (Fable, design only, two sessions): baseline guard, Missions 4.1 and 4.2 (approved); Missions 4.3,
 4.4, 3.1 and 3.2 and the roadmap challenge (decisions open).
