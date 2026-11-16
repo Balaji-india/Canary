@@ -1,8 +1,8 @@
 """Tripwires: deterministic checks of a run's chain of custody (Mission 5.1; design in
 docs/plans/mission_5_1_tripwires.md).
 
-Built so far (plan section 10, steps 2-3): the pair arithmetic every check uses, the checks S1, S2, K0, K1, K2 and
-K5, and `run_tripwires`. K3, K4, K6 and L1 come in step 5; until then the record lists them as `not_built`.
+Built (plan section 10, steps 2-6): the pair arithmetic every check uses, the ten checks S1, S2, L1 (static) and
+K0 to K6 (on the replay's trace), the verdict, the advisory number A1, and `run_tripwires`.
 
 Usage: `python -m canary.tripwires <run_dir> [--no-replay] [--json]` prints the record of one run (it writes nothing).
 
@@ -26,7 +26,9 @@ output. This module imports none of them (guard tests, plan step 4).
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
+import importlib
 import json
 import math
 import sys
@@ -91,6 +93,7 @@ class Stage:
     space: tuple
     pairs: Counter  # never changed after the stage is made, so the two counts below are computed once
     origin: int  # seq of the event that produced this stage
+    parent: "Stage | None" = None  # the stage this one was pushed forward from (None for the split's own stages)
     fps: Counter = field(init=False, repr=False)  # the same rows, labels left out
     size: int = field(init=False, repr=False)
 
@@ -130,10 +133,14 @@ class SeedContext:
 
 @dataclass
 class TraceContext:
-    """A whole trace, cut into seeds. `preamble` holds the events before the first split."""
+    """A whole trace, cut into seeds. `preamble` holds the events before the first split. `spaces` maps each
+    estimator event (by seq) to ("call", object, fit generation); `fits` maps (object, generation) to the fit event
+    that started that generation, so the model behind any prediction can be traced to its fit."""
 
     preamble: list[dict]
     seeds: list[SeedContext]
+    spaces: dict = field(default_factory=dict)
+    fits: dict = field(default_factory=dict)
 
 
 def _split_stages(event: dict) -> tuple[list[Stage], list[str]]:
@@ -215,11 +222,13 @@ def build_context(trace: dict) -> TraceContext:
                 moved: Counter = Counter()
                 for (fp, label), n in stage.pairs.items():
                     moved[(mapping[fp], label)] += n
-                new = Stage(stage.side, spaces[event["seq"]], moved, event["seq"])
+                new = Stage(stage.side, spaces[event["seq"]], moved, event["seq"], parent=stage)
                 if not any(_same_stage(new, s) for s in seed.stages):
                     seed.stages.append(new)
         seeds.append(seed)
-    return TraceContext(preamble, seeds)
+    fits = {spaces[e["seq"]][1:]: e for e in events
+            if e.get("kind") == "estimator" and e.get("method") in FIT_METHODS}
+    return TraceContext(preamble, seeds, spaces, fits)
 
 
 def _counts(stage: Stage, labelled: bool) -> Counter:
@@ -270,13 +279,31 @@ def relate(seed: SeedContext, pairs: list[tuple] | None) -> Relation:
 # `fired` (a link of the chain is broken, with evidence that has counts) or `unverifiable` (the link could not be
 # observed). None describes what a planted bug looks like, and none reads the script's text.
 
-OK, FIRED, UNVERIFIABLE, NOT_BUILT, SKIPPED = "ok", "fired", "unverifiable", "not_built", "skipped"
+OK, FIRED, UNVERIFIABLE, SKIPPED = "ok", "fired", "unverifiable", "skipped"
 VERSION = "v1"
 SOURCE_FILES = ("probe.py", "replay.py", "tripwires.py")
 # Order along the chain of custody: the first fired check in this order names the run's suspected class.
 CHAIN = ("K1", "S1", "K2", "K3", "K4", "K5", "K6", "L1", "S2", "K0")
-PENDING = ("K3", "K4", "K6", "L1")  # plan step 5
+STATIC_CHECKS = ("S1", "S2", "L1")
+REPLAY_CHECKS = ("K0", "K1", "K2", "K3", "K4", "K5", "K6")
 PREDICTION_METHODS = ("predict", "predict_proba", "decision_function", "fit_predict")
+ARMS = ("control", "treatment")  # the two arms a config registers; results.json reports one number per arm and seed
+
+# L1: DESIGN.md section 6 draws the line for accuracy at a 3:1 class ratio (largest class over smallest). Above it a
+# constant classifier already scores 0.75 or more, so accuracy hides a model that ignores the minority class.
+IMBALANCE_LINE = 3.0
+
+# What a config's names mean in scikit-learn (K3). The experiment language is codegen.MODELS and codegen.SCALERS;
+# these are the classes those names stand for, matched by class name in a `sklearn.` module. A test checks that the
+# keys equal codegen's names and that the template builds exactly these classes.
+REGISTERED_MODELS = {
+    "logistic_regression": "LogisticRegression", "random_forest": "RandomForestClassifier",
+    "gradient_boosting": "GradientBoostingClassifier", "svm": "SVC", "knn": "KNeighborsClassifier",
+    "decision_tree": "DecisionTreeClassifier", "gaussian_nb": "GaussianNB",
+}
+REGISTERED_SCALERS = {"standard_scaler": "StandardScaler", "minmax_scaler": "MinMaxScaler",
+                      "robust_scaler": "RobustScaler"}
+SCALER_CLASSES = frozenset(REGISTERED_SCALERS.values())
 
 
 @dataclass(frozen=True)
@@ -540,6 +567,372 @@ def check_k5_scoring(context: TraceContext) -> Check:
     return Check(OK, f"{n_metrics} metric calls, each on exactly the test pairs of its seed")
 
 
+# ---- Evaluations: which model made the values a metric call scored (K3, K4, K6) ------------------------------------
+
+@dataclass
+class Evaluation:
+    """One scoring in a seed: a metric call (with the prediction call that made its scored values) or an estimator's
+    own `score` call (which predicts and scores in one). `placement` says how the scored rows, labels left out, relate to
+    the split; `problem` says why the prediction could not be found (then `prediction` is None)."""
+
+    seed: SeedContext
+    event: dict
+    prediction: dict | None
+    placement: Relation
+    problem: str | None = None
+
+    @property
+    def what(self) -> str:
+        name = self.event.get("func") or f"{_short(self.event.get('cls', '?'))}.score"
+        return f"{name} (call {self.event['seq']}, seed {self.seed.index})"
+
+    @property
+    def returned(self):
+        """The number the call returned, or None when it is not a plain number."""
+        out = self.event.get("out")
+        return float(out) if isinstance(out, (int, float)) and not isinstance(out, bool) else None
+
+
+def _rows_relation(seed: SeedContext, event: dict) -> Relation:
+    fps = (event.get("X") or {}).get("fp")
+    return relate(seed, None if fps is None else [(fp, None) for fp in fps])
+
+
+def _touches_test(relation: Relation) -> bool:
+    """True when rows include test rows (all of them, some of them, or test rows besides training rows)."""
+    return relation.kind in (TEST, TEST_SUBSET, NEEDS_TEST_ROWS)
+
+
+def evaluations(context: TraceContext) -> list[Evaluation]:
+    """Every metric call and every estimator `score` call of every seed, with the prediction behind it."""
+    found = []
+    for seed in context.seeds:
+        for event in seed.events:
+            if "raised" in event:
+                continue
+            if event.get("kind") == "metric":
+                prediction = _linked_prediction(seed, event)
+                if prediction is None:
+                    found.append(Evaluation(seed, event, None, Relation(UNKNOWN),
+                                            "the scored values match no recorded prediction call"))
+                elif prediction == AMBIGUOUS_LINK:
+                    found.append(Evaluation(seed, event, None, Relation(UNKNOWN),
+                                            "the scored values were predicted on different rows by different calls"))
+                else:
+                    found.append(Evaluation(seed, event, prediction, _rows_relation(seed, prediction)))
+            elif event.get("kind") == "estimator" and event.get("method") == "score":
+                found.append(Evaluation(seed, event, event, _rows_relation(seed, event)))
+    return found
+
+
+def _json_copy(item):
+    """The same value as it looks after a JSON round trip (tuples become lists), so settings compare like for like."""
+    return json.loads(json.dumps(item))
+
+
+@functools.lru_cache(maxsize=None)
+def _library_defaults_text(class_path: str) -> str | None:
+    """JSON text of a scikit-learn class's constructor defaults (cached), or None when it cannot be built bare."""
+    module_name, _, class_name = class_path.rpartition(".")
+    if not module_name.startswith("sklearn."):
+        return None
+    try:
+        klass = getattr(importlib.import_module(module_name), class_name)
+        return json.dumps(probe.plain(klass().get_params(False)))
+    except Exception:
+        return None
+
+
+def library_defaults(class_path: str) -> dict | None:
+    text = _library_defaults_text(class_path)
+    return None if text is None else json.loads(text)
+
+
+def _same_setting(a, b) -> bool:
+    if isinstance(a, bool) or isinstance(b, bool):
+        return a is b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return float(a) == float(b)
+    return a == b
+
+
+def _setting_differences(recorded: dict, expected: dict) -> list[str]:
+    """`name=recorded (registered expected)` for every setting that differs, in name order."""
+    missing = "<not set>"
+    return [f"{name}={recorded.get(name, missing)!r} (registered {expected.get(name, missing)!r})"
+            for name in sorted(set(recorded) | set(expected))
+            if not _same_setting(recorded.get(name, missing), expected.get(name, missing))]
+
+
+def _scalers_in(class_path: str, params) -> list[tuple[str, dict]]:
+    """The registered scaler classes inside a fitted object (the object itself, or nested in its settings: a
+    ColumnTransformer's pipelines, say), in the order its settings list them, with their own settings."""
+    found = []
+    if _short(class_path) in SCALER_CLASSES:
+        found.append((class_path, params if isinstance(params, dict) else {}))
+
+    def walk(item):
+        if isinstance(item, dict):
+            inner = item.get("params")
+            if isinstance(item.get("estimator"), str) and isinstance(inner, dict):
+                if _short(item["estimator"]) in SCALER_CLASSES:
+                    found.append((item["estimator"], inner))
+                walk(inner)
+                return
+            for part in item.values():
+                walk(part)
+        elif isinstance(item, list):
+            for part in item:
+                walk(part)
+
+    walk(params)
+    return found
+
+
+def _lineage_fits(context: TraceContext, stage: Stage) -> list[dict] | None:
+    """The fit events of the objects whose transforms carried these rows from the split to this stage, earliest
+    first. None when a transform's object was never fitted at script level (its settings cannot be read)."""
+    chain = []
+    while stage is not None and stage.space != SPLIT_SPACE:
+        fit = context.fits.get(stage.space[1:])
+        if fit is None:
+            return None
+        chain.append(fit)
+        stage = stage.parent
+    return chain[::-1]
+
+
+def _arm_differences(fit: dict, scalers: list[tuple[str, dict]], arm: dict, seed_value: int) -> list[str]:
+    """How a fitted model and the scalers its rows went through differ from one registered arm ([] = they match)."""
+    wanted = REGISTERED_MODELS.get(arm.get("model"))
+    if not fit["cls"].startswith("sklearn.") or _short(fit["cls"]) != wanted:
+        return [f"class {_short(fit['cls'])} (registered {wanted})"]
+    expected = library_defaults(fit["cls"])
+    if expected is None:
+        return [f"the defaults of {_short(fit['cls'])} could not be read"]
+    expected.update(_json_copy(arm.get("params") or {}))
+    if "random_state" in expected:
+        expected["random_state"] = seed_value
+    problems = _setting_differences(_json_copy(fit.get("params") or {}), expected)
+    names = [_short(path) for path, _ in scalers]
+    wanted_scalers = [REGISTERED_SCALERS.get(s, s) for s in arm.get("preprocessing") or []]
+    if names != wanted_scalers:
+        problems.append(f"scalers {names} (registered {wanted_scalers})")
+    else:
+        for path, settings in scalers:
+            defaults = library_defaults(path)
+            changed = ["?"] if defaults is None else _setting_differences(_json_copy(settings), defaults)
+            problems += [f"{_short(path)} {c}" for c in changed]
+    return problems
+
+
+def match_arms(context: TraceContext, evaluation: Evaluation, registered: dict) -> dict[str, list[str]] | str:
+    """For each registered arm, how the model behind this evaluation differs from it ([] = it is that arm's model).
+
+    A model that predicted at script level but was never fitted there (a search's internal refit, an unpickled model)
+    is no arm's model: the probe records every script-level fit of a wrapped class, so the missing fit is observed,
+    not unobserved. Returns a reason (a string) when the model cannot be judged: no linked prediction, its rows cannot
+    be placed in the split, or they went through a transform whose object was never fitted at script level.
+    """
+    if evaluation.prediction is None:
+        return evaluation.problem or "no prediction call"
+    space = context.spaces.get(evaluation.prediction["seq"])
+    if space is None:
+        return "the prediction call is not an estimator call"
+    if space[2] == 0:
+        unfitted = f"the {_short(evaluation.prediction.get('cls', '?'))} that made the scored values was never fitted by the script"
+        return {arm: [unfitted] for arm in ARMS}
+    fit = context.fits[space[1:]]
+    stage = evaluation.placement.stage
+    if stage is None:
+        return "the scored rows could not be placed in the split"
+    seeds = registered["seeds"]
+    if evaluation.seed.index >= len(seeds):
+        return f"seed {evaluation.seed.index} has no registered seed"
+    # Two arms with the same scalers give identical rows, so several stages can hold the predicted rows equally well;
+    # each is a path the rows may have taken, and an arm matches when one of those paths matches it.
+    predicted = Counter((evaluation.prediction.get("X") or {}).get("fp", []))
+    candidates = [s for s in evaluation.seed.stages if s.side == stage.side and _is_sub(predicted, s.fps)] or [stage]
+    chains = [c for c in (_lineage_fits(context, s) for s in candidates) if c is not None]
+    if not chains:
+        return "the scored rows went through a transform whose object was never fitted at script level"
+    model_scalers = _scalers_in(fit["cls"], fit.get("params"))
+    verdicts = {}
+    for arm in ARMS:
+        options = [_arm_differences(fit, [s for f in chain for s in _scalers_in(f["cls"], f.get("params"))]
+                                    + model_scalers, registered[arm], seeds[evaluation.seed.index])
+                   for chain in chains]
+        verdicts[arm] = min(options, key=len)
+    return verdicts
+
+
+def check_k3_registered_arm(context: TraceContext, inputs: RunInputs) -> Check:
+    """Invariant: every model whose output is scored (by a metric call, or by its own `score` on test rows) is a
+    registered arm's model, fitted at script level: its class is the arm's, every hyperparameter is the config's
+    value or the library default, random_state is the seed of its split, and the rows it predicted went through
+    exactly the arm's scalers, in order, at their library defaults."""
+    if not context.seeds:
+        return Check(UNVERIFIABLE, "no split was recorded")
+    n_scored = 0
+    for evaluation in evaluations(context):
+        if evaluation.event.get("kind") != "metric" and not _touches_test(evaluation.placement):
+            continue
+        n_scored += 1
+        verdicts = match_arms(context, evaluation, inputs.registered)
+        if isinstance(verdicts, str):
+            return Check(UNVERIFIABLE, f"{evaluation.what}: {verdicts}")
+        if not any(not problems for problems in verdicts.values()):
+            arm, problems = min(verdicts.items(), key=lambda item: len(item[1]))
+            return Check(FIRED, f"{evaluation.what} scores a model that is no registered arm: {len(problems)} "
+                                f"differences from the {arm} arm ({'; '.join(problems[:3])})", "B04")
+    if n_scored == 0:
+        return Check(UNVERIFIABLE, "no scored model was recorded")
+    return Check(OK, f"{n_scored} scorings, each of a registered arm's model (class, hyperparameters, random_state = "
+                     f"seed, scalers)")
+
+
+def _model_key(context: TraceContext, event: dict) -> tuple | None:
+    space = context.spaces.get(event["seq"])
+    return None if space is None else space[1:]
+
+
+def check_k4_test_use(context: TraceContext) -> Check:
+    """Invariant: per seed, the test rows are predicted by at most one fitted model per registered arm (two models),
+    and test rows are scored at most once per reported number (two: control and treatment). More models on the test
+    rows is choosing a model on the test set (B04); more scorings of the same predictions is choosing a metric or an
+    averaging on the test set (B06). A second prediction by the same fitted model is allowed."""
+    if not context.seeds:
+        return Check(UNVERIFIABLE, "no split was recorded")
+    all_evaluations = evaluations(context)
+    for seed in context.seeds:
+        models = set()
+        for event in seed.events:
+            if (event.get("kind") == "estimator" and event.get("method") in PREDICTION_METHODS + ("score",)
+                    and "raised" not in event and _touches_test(_rows_relation(seed, event))):
+                models.add(_model_key(context, event))
+        if len(models) > len(ARMS):
+            return Check(FIRED, f"seed {seed.index}: {len(models)} fitted models predict the test rows, the config "
+                                f"registers {len(ARMS)} arms", "B04")
+        scorings = []
+        for evaluation in (e for e in all_evaluations if e.seed is seed):
+            if evaluation.prediction is None:
+                return Check(UNVERIFIABLE, f"{evaluation.what}: {evaluation.problem}, so its rows are unknown")
+            if _touches_test(evaluation.placement):
+                scorings.append(evaluation)
+        if len(scorings) > len(ARMS):
+            scored = Counter((_model_key(context, e.prediction), json.dumps((e.event.get("second") or {}).get("values")))
+                             for e in scorings)
+            repeated = sum(n - 1 for n in scored.values())
+            if repeated:
+                return Check(FIRED, f"seed {seed.index}: {len(scorings)} scorings of the test rows for {len(ARMS)} "
+                                    f"reported numbers; {repeated} score predictions already scored", "B06")
+            return Check(FIRED, f"seed {seed.index}: {len(scorings)} scorings of the test rows for {len(ARMS)} "
+                                f"reported numbers", "B04")
+    return Check(OK, f"{len(context.seeds)} seeds: at most {len(ARMS)} models predict the test rows and at most "
+                     f"{len(ARMS)} scorings of them per seed")
+
+
+def registered_metric(metric: str, y_true: list, scored: list, n_classes: int) -> float:
+    """The registered metric computed here with scikit-learn, from the metric's name and the dataset's number of
+    classes (not from the template's own scoring code, so a mistake shared with it cannot hide). f1 is binary F1 of
+    label 1 (the minority class, which K1 checks) on two classes and macro F1 on more; roc_auc takes the scores of
+    label 1."""
+    from sklearn import metrics as sk_metrics
+
+    if metric == "accuracy":
+        return float(sk_metrics.accuracy_score(y_true, scored))
+    if metric == "balanced_accuracy":
+        return float(sk_metrics.balanced_accuracy_score(y_true, scored))
+    if metric == "f1":
+        return float(sk_metrics.f1_score(y_true, scored, average="binary" if n_classes == 2 else "macro"))
+    if metric == "roc_auc":
+        return float(sk_metrics.roc_auc_score(y_true, scored))
+    raise ValueError(f"unknown metric {metric!r}")
+
+
+# Floating-point rounding only: the same metric computed along another code path can differ in the last bits. Any
+# two different values of these metrics on our test sets differ by far more (at least 1 / (test rows)^2).
+_ROUNDING = 1e-12
+
+
+def _same_number(a: float, b: float) -> bool:
+    return math.isclose(a, b, rel_tol=_ROUNDING, abs_tol=_ROUNDING)
+
+
+def check_k6_report(context: TraceContext, inputs: RunInputs) -> Check:
+    """Invariant: results.json holds one number per registered seed and arm; each equals the value a metric call of
+    that seed returned on predictions of that arm's registered model, and equals the registered metric recomputed here
+    with scikit-learn from that call's labels and scored values. A number no evaluation of its arm returned is a
+    reported value that was changed (B05); a returned value that is not the registered metric is metric misuse (B06)."""
+    results, seeds = inputs.results or {}, inputs.registered["seeds"]
+    for arm in ARMS:
+        reported = results.get(arm)
+        if not isinstance(reported, list) or len(reported) != len(seeds):
+            return Check(FIRED, f"results.json reports {len(reported) if isinstance(reported, list) else 'no'} {arm} "
+                                f"numbers for {len(seeds)} registered seeds", "B05")
+    if len(context.seeds) != len(seeds):
+        return Check(UNVERIFIABLE, f"{len(context.seeds)} splits recorded for {len(seeds)} seeds (see K1)")
+    n_classes = int(inputs.target.astype(str).nunique())
+    metric = inputs.registered["metric"]
+    scorings = [e for e in evaluations(context) if e.event.get("kind") == "metric"]
+    for seed in context.seeds:
+        for arm in ARMS:
+            reported = results[arm][seed.index]
+            if not isinstance(reported, (int, float)) or isinstance(reported, bool):
+                return Check(FIRED, f"{arm} seed {seed.index}: results.json reports {reported!r}, not a number", "B05")
+            same = [e for e in scorings if e.seed is seed and e.returned is not None
+                    and float(e.returned) == float(reported)]
+            if not same:
+                return Check(FIRED, f"{arm} seed {seed.index}: results.json reports {reported:.6f}, which no metric call "
+                                    f"of that seed returned", "B05")
+            by_arm, other_arm = [], False
+            for evaluation in same:
+                verdicts = match_arms(context, evaluation, inputs.registered)
+                if isinstance(verdicts, str):
+                    return Check(UNVERIFIABLE, f"{arm} seed {seed.index}: {evaluation.what}: {verdicts}")
+                if not verdicts[arm]:
+                    by_arm.append(evaluation)
+                elif any(not problems for problems in verdicts.values()):
+                    other_arm = True
+            if not by_arm:
+                # The other arm's registered model: a number moved between arms or seeds (B05). A model of no arm:
+                # another model was scored (B04, which K3 names first along the chain).
+                return Check(FIRED, f"{arm} seed {seed.index}: {reported:.6f} was returned only for "
+                                    f"{'the other arm' if other_arm else 'a model of no registered arm'} "
+                                    f"({len(same)} calls)", "B05" if other_arm else "B04")
+            recomputed = []
+            for evaluation in by_arm:
+                y_true = (evaluation.event.get("y_true") or {}).get("values")
+                scored = (evaluation.event.get("second") or {}).get("values")
+                if y_true is None or scored is None:
+                    return Check(UNVERIFIABLE, f"{evaluation.what}: its labels or scored values were not recorded")
+                recomputed.append(registered_metric(metric, y_true, scored, n_classes))
+            if not any(_same_number(number, float(reported)) for number in recomputed):
+                first = by_arm[0]
+                return Check(FIRED, f"{arm} seed {seed.index}: reports {reported:.6f} from {first.what} with "
+                                    f"{first.event.get('kwargs') or {}}, but the registered metric {metric} on the same "
+                                    f"labels and values is {recomputed[0]:.6f}", "B06")
+    return Check(OK, f"{len(seeds) * len(ARMS)} reported numbers, each returned for its arm's registered model and "
+                     f"equal to the registered {metric} recomputed")
+
+
+def class_ratio(target: pd.Series) -> float:
+    """Rows of the largest class over rows of the smallest."""
+    counts = target.astype(str).value_counts()
+    return float(counts.max() / counts.min())
+
+
+def check_l1_metric_rule(inputs: RunInputs) -> Check:
+    """Invariant: accuracy is not the registered metric when the dataset's class ratio (largest class over smallest)
+    is above 3:1 (DESIGN.md section 6). This is a design rule, the same one the saboteur plants for B06 obvious, so
+    its recall is true by definition and is reported outside the headline recall."""
+    ratio = class_ratio(inputs.target)
+    metric = inputs.registered["metric"]
+    if metric == "accuracy" and ratio > IMBALANCE_LINE:
+        return Check(FIRED, f"accuracy on a class ratio of {ratio:.2f}:1, above the {IMBALANCE_LINE:g}:1 line", "B06")
+    return Check(OK, f"{metric} on a class ratio of {ratio:.2f}:1")
+
+
 # ---- The record ------------------------------------------------------------------------------------------------
 
 def source_version() -> str:
@@ -558,20 +951,23 @@ def _first_fired(checks: dict) -> tuple[str | None, Check | None]:
     return None, None
 
 
-def summarize(checks: dict[str, Check], replay_info: dict) -> dict:
-    """The record of plan section 2.4 from the checks: verdict, suspected class, one evidence sentence."""
+def summarize(checks: dict[str, Check], replay_info: dict, advisory: dict | None = None) -> dict:
+    """The record of plan section 2.4 from the checks: verdict, suspected class, one evidence sentence.
+
+    Verdict: `flag` if any check is `fired` or `unverifiable` (fail closed), else `pass`. The suspected class is the
+    one the first fired check along the chain of custody names (CHAIN order), with that check's sub-diagnosis; `null`
+    when nothing fired (only `unverifiable`) or the first fired check names no class. `advisory` never changes either.
+    """
     name, first = _first_fired(checks)
     verdict = "flag" if any(c.status in (FIRED, UNVERIFIABLE) for c in checks.values()) else "pass"
     if first is not None:
         evidence = f"{name}: {first.evidence}"
     else:
         doubtful = [f"{n}: {c.evidence}" for n, c in checks.items() if c.status == UNVERIFIABLE]
-        evidence = doubtful[0] if doubtful else "every built check is ok"
-    record_checks = {n: c.as_dict() for n, c in checks.items()}
-    for pending in PENDING:
-        record_checks[pending] = {"status": NOT_BUILT, "evidence": "built in plan step 5", "bug_class": None}
+        evidence = doubtful[0] if doubtful else "every check is ok"
     return {"verdict": verdict, "bug_class": first.bug_class if first else None, "evidence": evidence,
-            "checks": record_checks, "advisory": {}, "replay": replay_info, "version": source_version()}
+            "checks": {n: c.as_dict() for n, c in checks.items()}, "advisory": dict(advisory or {}),
+            "replay": replay_info, "version": source_version()}
 
 
 def run_tripwires(run_dir: Path, replay: bool = True, timeout_s: float = sandbox.DEFAULT_TIMEOUT_S) -> dict:
@@ -582,20 +978,20 @@ def run_tripwires(run_dir: Path, replay: bool = True, timeout_s: float = sandbox
     Without `replay` only the static checks run and the record says the replay was skipped.
     """
     replay_info = {"status": SKIPPED, "seconds": None}
-    replay_checks = ("K0", "K1", "K2", "K5")
     try:
         inputs = load_inputs(run_dir)
     except Exception as exc:  # a missing or unreadable file is a link that cannot be observed
         reason = f"the run folder's files could not be read: {exc!r}"[:300]
-        names = ("S1", "S2") + (replay_checks if replay else ())
+        names = STATIC_CHECKS + (REPLAY_CHECKS if replay else ())
         return _with_tier(summarize({n: Check(UNVERIFIABLE, reason) for n in names}, replay_info), replay)
     checks: dict[str, Check] = {"S1": _guarded(check_s1_split_sizes, inputs),
-                                "S2": _guarded(check_s2_class_balance, inputs)}
+                                "S2": _guarded(check_s2_class_balance, inputs),
+                                "L1": _guarded(check_l1_metric_rule, inputs)}
+    context = None
     if replay:
         result = replay_module.replay(Path(run_dir), timeout_s)
         replay_info = {"status": result.status, "seconds": result.seconds}
         checks["K0"] = _guarded(check_k0_replay, inputs.results, result)
-        context = None
         if checks["K0"].status == OK:
             try:
                 context = build_context(result.trace)
@@ -604,9 +1000,12 @@ def run_tripwires(run_dir: Path, replay: bool = True, timeout_s: float = sandbox
         if context is not None:
             checks["K1"] = _guarded(check_k1_data_in, context, inputs)
             checks["K2"] = _guarded(check_k2_fit_scope, context)
+            checks["K3"] = _guarded(check_k3_registered_arm, context, inputs)
+            checks["K4"] = _guarded(check_k4_test_use, context)
             checks["K5"] = _guarded(check_k5_scoring, context)
+            checks["K6"] = _guarded(check_k6_report, context, inputs)
         else:
-            for name in replay_checks[1:]:
+            for name in REPLAY_CHECKS[1:]:
                 checks[name] = Check(UNVERIFIABLE, "no trustworthy replay (see K0)")
     return _with_tier(summarize(checks, replay_info), replay)
 

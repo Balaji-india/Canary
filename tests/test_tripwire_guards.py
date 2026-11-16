@@ -121,7 +121,8 @@ def test_no_identifier_or_text_the_saboteur_adds_appears_in_tripwire_code(name):
 
 
 @pytest.mark.parametrize("name", ["check_s1_split_sizes", "check_s2_class_balance", "check_k0_replay",
-                                  "check_k1_data_in", "check_k2_fit_scope", "check_k5_scoring"])
+                                  "check_k1_data_in", "check_k2_fit_scope", "check_k3_registered_arm",
+                                  "check_k4_test_use", "check_k5_scoring", "check_k6_report", "check_l1_metric_rule"])
 def test_every_check_states_its_invariant(name):
     assert getattr(tripwires, name).__doc__.startswith("Invariant:")
 

@@ -58,7 +58,7 @@ ESTIMATOR_METHODS = ("fit", "fit_transform", "fit_predict", "transform", "predic
 # Outputs of these methods are kept as values, so a metric's arguments can later be linked to the call that made them.
 VALUE_OUTPUTS = ("predict", "fit_predict", "predict_proba", "decision_function")
 ERROR_TAIL_CHARS = 2000
-_PARAM_DEPTH = 6
+_PARAM_DEPTH = 12  # deep enough for a ColumnTransformer > Pipeline > steps > scaler and its settings (check K3)
 _WRAPPED = "_probe_original"  # attribute set on every wrapper, so nothing is wrapped twice
 
 # ---- Row fingerprints -------------------------------------------------------------------------------------------

@@ -1,10 +1,12 @@
-"""The tripwire checks S1, S2, K0, K1, K2, K5 and `run_tripwires` (Mission 5.1, plan step 3).
+"""The tripwire checks S1, S2, K0, K1, K2, K5 and `run_tripwires` (Mission 5.1, plan step 3), and on real runs all
+ten checks (plan step 5; K3, K4, K6 and L1 on hand-written traces are in `tests/test_tripwire_arms.py`).
 
 Fast tests: each check on small hand-written traces, one `ok`, one `fired` and (where it applies) one `unverifiable`,
 with the evidence counts asserted. Slow tests (`pytest -m slow tests/test_tripwires.py`): real runs on three configs
-(natural duplicates and imbalance, multi-class, a scaler with roc_auc): both tiers of B01, B02, B03, B07, B08 and B10
-fire on the check the design names, with the class named and nothing unverifiable; the clean script, a sham, a padded
-clean script and all 20 decoys pass every built check; the same run always gives the same record.
+(natural duplicates and imbalance, multi-class, a scaler with roc_auc): both tiers of every class but B09 fire on the
+check the design names (B04 obvious K2, subtle K4; B05 K6; B06 obvious L1 only, subtle K4), with the class named and
+nothing unverifiable; B09 canaries pass (no B09 tripwire, plan section 5); the clean script, a sham, a padded clean
+script and all 20 decoys pass every check; the same run always gives the same record.
 
 Tests may import the saboteur, decoys and padding (tests are on the scoring side); the tripwire code may not.
 """
@@ -231,7 +233,7 @@ def test_the_verdict_fails_closed_and_the_first_link_names_the_class():
     doubtful = tw.summarize({"S1": ok, "K0": tw.Check(tw.UNVERIFIABLE, "replay crashed")}, {})
     assert (doubtful["verdict"], doubtful["bug_class"], doubtful["evidence"]) == ("flag", None, "K0: replay crashed")
     clean = tw.summarize({"S1": ok, "S2": ok}, {})
-    assert clean["verdict"] == "pass" and clean["checks"]["K3"]["status"] == tw.NOT_BUILT
+    assert clean["verdict"] == "pass" and set(clean["checks"]) == {"S1", "S2"}  # nothing is listed as not built
     assert clean["version"].startswith("v1:") and len(clean["version"]) == 3 + 64
 
 
@@ -251,12 +253,16 @@ CONFIGS = {
                "treatment": {"model": "logistic_regression", "params": {"C": 0.5, "max_iter": 1000},
                              "preprocessing": ["standard_scaler"]}},
 }
-# The check plan section 4 names for each class built in this step.
-EXPECTED_CHECK = {"B01": "K2", "B02": "K1", "B03": "K5", "B07": "K1", "B08": "K5", "B10": "K5"}
-CANARIES = [(c, b, t) for c in CONFIGS for b in EXPECTED_CHECK for t in classes.TIERS]
+# The check plan section 4 names for each variant (B09 has none: plan section 5).
+EXPECTED_CHECK = {(b, t): check for b, check in {"B01": "K2", "B02": "K1", "B03": "K5", "B05": "K6", "B07": "K1",
+                                                 "B08": "K5", "B10": "K5"}.items() for t in classes.TIERS}
+EXPECTED_CHECK |= {("B04", "obvious"): "K2", ("B04", "subtle"): "K4", ("B06", "obvious"): "L1",
+                   ("B06", "subtle"): "K4"}
+CANARIES = [(c, b, t) for c in CONFIGS for (b, t) in sorted(EXPECTED_CHECK)]
+B09_CANARIES = [(c, "B09", t) for c in CONFIGS for t in classes.TIERS]
 CLEAN = [(c, kind) for c in CONFIGS for kind in ("clean", "sham", "padded")]
 DECOYS = [(c, b, t) for c in CONFIGS for (b, t) in sorted(transforms.TRANSFORMS)]
-BUILT = ("S1", "S2", "K0", "K1", "K2", "K5")
+BUILT = tw.CHAIN  # every check
 
 
 def _clean_script(name, kind):
@@ -277,7 +283,8 @@ def _key(kind, case):
 def records(tmp_path_factory):
     """Run every case once (in parallel threads: each is its own subprocess), then its tripwire record."""
     runs = tmp_path_factory.mktemp("tripwire-runs")
-    cases = [_key("canary", c) for c in CANARIES] + [_key("clean", c) for c in CLEAN] + [_key("decoy", c) for c in DECOYS]
+    cases = ([_key("canary", c) for c in CANARIES + B09_CANARIES] + [_key("clean", c) for c in CLEAN]
+             + [_key("decoy", c) for c in DECOYS])
 
     def one(key):
         kind, case = key[0], key[1:]
@@ -285,7 +292,10 @@ def records(tmp_path_factory):
         if kind == "canary":
             if not classes.applicable(case[1], case[2], config):
                 return key, None
-            sabotaged = transforms.sabotage(config, case[1], case[2])
+            try:
+                sabotaged = transforms.sabotage(config, case[1], case[2])
+            except classes.NotApplicable:  # B09 subtle: no setting lowers this control by the minimum effect
+                return key, None
             run_config, script = sabotaged.config, sabotaged.script
         elif kind == "decoy":
             run_config, script = config, decoys.decoy_script(config, case[1], case[2])
@@ -310,11 +320,35 @@ def test_each_built_class_fires_on_its_check_with_the_class_named(config, bug, t
     result = records[_key("canary", (config, bug, tier))]
     if result is None:
         pytest.skip(f"{bug} {tier} is not applicable to {config}")
+    if bug == "B05" and _numbers(result["run_dir"]) == _numbers(records[_key("clean", (config, "clean"))]["run_dir"]):
+        pytest.skip(f"B05 {tier} is a no-op on {config}: the treatment's seeds tie, so nothing was changed")
     record = result["record"]
     assert record["verdict"] == "flag", record
-    assert record["checks"][EXPECTED_CHECK[bug]]["status"] == tw.FIRED, record
+    assert record["checks"][EXPECTED_CHECK[bug, tier]]["status"] == tw.FIRED, record
     assert record["bug_class"] == bug, record
     assert not _not_unverifiable(record), record
+    if (bug, tier) == ("B06", "obvious"):  # a design rule: only L1 sees it, the chain of custody is intact
+        assert [n for n, c in record["checks"].items() if c["status"] != tw.OK] == ["L1"], record
+
+
+def _numbers(run_dir):
+    import json
+
+    stored = json.loads((run_dir / sandbox.RESULTS_NAME).read_text(encoding="utf-8"))
+    return stored["control"], stored["treatment"]
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("config,bug,tier", B09_CANARIES)
+def test_b09_canaries_pass_because_no_tripwire_covers_a_weak_baseline(config, bug, tier, records):
+    """Expected and documented (plan section 5): a crippled control is in the config and the pre-registration, so the
+    chain of custody is intact. B09 belongs to the LLM reviewer, the human queue and the proposal-time guard."""
+    result = records[_key("canary", (config, bug, tier))]
+    if result is None:
+        pytest.skip(f"B09 {tier} is not applicable to {config}")
+    record = result["record"]
+    assert record["verdict"] == "pass", record
+    assert all(record["checks"][n]["status"] == tw.OK for n in BUILT), record
 
 
 @pytest.mark.slow
