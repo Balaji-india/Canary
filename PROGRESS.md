@@ -89,7 +89,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 **Current focus:** Mission 5.1 tripwires, sitting D next (dev loop on rq1-full, task-dev-1, task-dev-2; lock; the test once); then Mission 4.1 sitting 1 (designs ready)
 
-**Stopped at:** Mission 5.1 sitting D part 1 done (2026-11-18): step 8 (no fix needed) and a DRAFT of the step 9 lock (`docs/plans/tripwire_test.md`, not locked). Next: the student checks the draft and its section 9 and says "OK to lock"; then step 9 lock, then step 10 in the student's window.
+**Stopped at:** Mission 5.1 sitting D part 2 done (2026-11-18): the step 9 DRAFT amended with the student's six points and an own /challenge; still NOT locked. Next: the student says "OK to lock"; then step 9 exactly as the plan's section 6 lists it (gitattributes, `--sync-lf`, renormalize, lock, tag), then step 10 in the student's window.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -426,6 +426,41 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Mission 5.1 sitting D, part 2 (2026-11-18, Opus): step 9 draft amended, still NOT locked
+- **Student's points, built into `docs/plans/tripwire_test.md` (DRAFT):**
+  1. Line endings: section 3 has a table of each frozen file (in git?, `-text` now?). Six need `-text` (probe, replay,
+     tripwires, trust, tripwires_test, tripwires_dev); `eval/ceiling.py` and `config/bug_classes.yaml` have it;
+     `pool-2.json` is outside git. Found: the working copies of `canary/probe.py` and `canary/replay.py` are CRLF while
+     their blobs are LF (content identical). Step 9 now: `.gitattributes` lines, then `eval.tripwires_test --sync-lf`
+     (working copy := HEAD blob when only line endings differ; refuses a content difference, writing nothing), then
+     `git add --renormalize .`, `git diff --cached` only `.gitattributes`, `--git-check` "Line endings: OK".
+  2. `pool-2.json` is gitignored: stated; its LF hash kept, and the ceiling plan's raw-bytes hash (the file is CRLF on
+     disk) named beside it; step 10 backs up `data/` with `Compress-Archive` after the build.
+  3. Freeze until both step 10 result files exist and are committed; `git tag tripwire-test-1-lock` after the lock
+     commit (the student pushes it); Mission 4.1 sitting 1 (changes `canary/trust.py`) only after step 10.
+  4. Exact batch: slot-list lock (SHA-256 of the plan's seed, runs, split, padding, decoys, bases, slots):
+     `tripwire-test-1` cf348112... (dry plan), `ceiling-ext` 39ffcae8... (stored plan; `mixer.plan_batch` today
+     reproduces it exactly). Every planned slot is scored: the latest sealed run of the slot, or a stand-in with no
+     record for a slot never built; a sandbox crash gives `unverifiable` (checked on a copy); both count against.
+     Resume command `calibrate --batch tripwire-test-1 --resume --no-audit`; stored role `skeptic_a` (length gate's
+     context size only); no LLM ever audits the batch (`no_audit` required by the script).
+  5. Write-once: already tested for the primary; the test is now parametrized over both batches and checks the file is
+     unchanged after the refused second call.
+  6. Section 9 records the answers (a)-(d).
+- **Own /challenge, fixed:** the old exact-count check would have refused a batch where a crash left two sealed runs
+  in one slot (361 rows) and would have stopped on any skipped slot; `--check` now re-plans the batch so a change in
+  the planning code shows before an hour of building; the building code (controls, saboteur, padding, sandbox) was not
+  pinned, so step 10 starts with `git diff --stat tripwire-test-1-lock -- canary eval config`; the claim states that
+  the Beta bars ignore clustering; reproduction recipe and commit of the result files (deleting one to rerun would
+  show in git); the stored role's context fits pool-2 prompts.
+- **Code:** `eval/tripwires_test.py` (slot lock, `slot_truths`, `--git-check`, `--sync-lf`; refusals: no stored plan,
+  slot mismatch, planned with audits, build unfinished, length gate failed, wrong type in a slot, stray run);
+  `tests/test_tripwires_locked.py` 16 -> 22 (5 new, 1 parametrized; none deleted; two existing tests adapted to the
+  new refusals).
+- **End checks:** `pytest -q` 851 passed in 19.9 s and 18.7 s; `pytest -m slow` 264 passed, 3 skipped in 224 s;
+  `eval.tripwires_test --check` "hashes OK, plan NOT LOCKED (draft)"; `eval.ceiling_lock --check` "Lock check: OK" at
+  start and end. No frozen file edited, no write in `data/`, no ledger write, no Ollama or cloud call.
 
 ## Mission 5.1 sitting D, part 1 (2026-11-18, Opus): step 8 done; step 9 drafted, NOT locked
 - **Step 0:** `eval.ceiling_lock --check` "Lock check: OK, every hash matches". Decisions of 2026-11-16 and the history

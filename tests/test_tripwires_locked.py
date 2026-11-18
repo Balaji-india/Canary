@@ -13,7 +13,8 @@ from tests.test_tripwires_dev import record
 
 
 def world_plan(root: Path, draft: bool = False) -> Path:
-    """A plan listing every required file (copies with known text) in section 3."""
+    """A plan listing every required file (copies with known text) in section 3 and both slot-list locks in section 4
+    (the hashes of `PLANS`, the stored batch plans the tests build)."""
     lines = []
     for name in tt.MUST_FREEZE:
         file = root / name
@@ -23,8 +24,21 @@ def world_plan(root: Path, draft: bool = False) -> Path:
     plan = root / "docs" / "plans" / "tripwire_test.md"
     plan.parent.mkdir(parents=True, exist_ok=True)
     title = "# Pre-registration: tripwire test" + (" (DRAFT)" if draft else "")
-    plan.write_bytes((title + "\n\n## 3. Frozen inputs\n" + "\n".join(lines) + "\n\n## 4. Data\n").encode())
+    slots = "".join(f"- Slot list `{b}` {tt.slots_sha256(PLANS[b])}\n" for b in tt.TEST_BATCHES)
+    plan.write_bytes((title + "\n\n## 3. Frozen inputs\n" + "\n".join(lines) + "\n\n## 4. Data\n" + slots).encode())
     return plan
+
+
+def store_plan(root: Path, batch: str, batch_plan: dict, gate: bool | None = True) -> None:
+    """The stored batch plan `calibrate` writes, and its length-gate file (None: the build has not finished)."""
+    plans = root / tt.PLANS_SUBDIR
+    plans.mkdir(parents=True, exist_ok=True)
+    (plans / f"{batch}.json").write_text(json.dumps(batch_plan), encoding="utf-8")
+    gate_file = plans / f"{batch}.length_check.json"
+    if gate is None:
+        gate_file.unlink(missing_ok=True)
+    else:
+        gate_file.write_text(json.dumps({"passes": gate}), encoding="utf-8")
 
 
 def test_lf_hash_ignores_line_endings_only(tmp_path):
@@ -67,17 +81,35 @@ def test_chain_classes_leave_out_b09_and_b06_obvious_only():
 
 
 def truths_of(canaries: list[tuple[str, str]], clean: int, batch: str = tt.PRIMARY) -> list[sealed.Truth]:
-    """Truth rows as the sealed table returns them (built directly: sealing 360 rows per test is too slow)."""
-    rows = [sealed.Truth(f"c{i:03d}", sealed.CANARY_MEASURE, bug, tier, f"t{i}", f"pool:{i % 17}", {"batch": batch}, "")
-            for i, (bug, tier) in enumerate(canaries)]
+    """Truth rows as the sealed table returns them (built directly: sealing 360 rows per test is too slow). Slot
+    numbers run over the canaries first, then the clean runs."""
+    rows = [sealed.Truth(f"c{i:03d}", sealed.CANARY_MEASURE, bug, tier, f"t{i}", f"pool:{i % 17}",
+                         {"batch": batch, "slot": i}, "2026-11-20T00:00:00") for i, (bug, tier) in enumerate(canaries)]
     rows += [sealed.Truth(f"k{i:03d}", sealed.CONTROL if i % 2 else sealed.SHAM, None, None, None, f"pool:{i % 17}",
-                          {"batch": batch}, "") for i in range(clean)]
+                          {"batch": batch, "slot": len(canaries) + i}, "2026-11-20T00:00:00") for i in range(clean)]
     return rows
 
 
 def full_batch():
     """The planned test batch: 10 per variant (200 canaries), 160 clean runs."""
     return truths_of([(f"B{i:02d}", t) for i in range(1, 11) for t in ("obvious", "subtle") for _ in range(10)], 160)
+
+
+def secondary_batch():
+    """The ceiling-ext shape: 2 per variant (40 canaries), 40 clean runs."""
+    return truths_of([(f"B{i:02d}", t) for i in range(1, 11) for t in ("obvious", "subtle") for _ in range(2)], 40,
+                     batch=tt.SECONDARY)
+
+
+def batch_plan_of(truths: list[sealed.Truth], no_audit: bool = True) -> dict:
+    """A stored batch plan whose slots are exactly these runs."""
+    slots = [{"slot": t.details["slot"], "run_type": t.run_type, "bug_id": t.bug_id, "tier": t.tier,
+              "candidates": [int(t.source.split(":")[1])]} for t in truths]
+    return {"batch": truths[0].details["batch"], "seed": 7, "runs": len(truths), "role": "skeptic_a",
+            "slots": sorted(slots, key=lambda s: s["slot"]), "no_audit": no_audit}
+
+
+PLANS = {tt.PRIMARY: batch_plan_of(full_batch()), tt.SECONDARY: batch_plan_of(secondary_batch())}
 
 
 class FakeTable:
@@ -148,14 +180,30 @@ def test_secondary_batch_decides_nothing(tmp_path):
 
 def test_preflight_refusals_in_order(tmp_path):
     plan = world_plan(tmp_path)
-    table = FakeTable(truths_of([("B01", "obvious")] * 10, 10))
+    table = FakeTable(truths_of([("B01", "obvious")] * 10, 10))  # slots 10-19 clean, but planned as B01 subtle
     out, arm_l = tmp_path / "out", tmp_path / "arm_L.json"
     with pytest.raises(tt.Refused, match="not a test batch"):
         tt.preflight("task-dev-2", table, plan, tmp_path, out, arm_l)
     with pytest.raises(tt.Refused, match="NOT LOCKED"):
         tt.preflight(tt.PRIMARY, table, plan, tmp_path, out, arm_l)
     tt.write_lock(plan, tmp_path)
-    with pytest.raises(tt.Refused, match="20 scored runs, the plan says 360"):
+    with pytest.raises(tt.Refused, match="no stored batch plan"):
+        tt.preflight(tt.PRIMARY, table, plan, tmp_path, out, arm_l)
+    other = {**PLANS[tt.PRIMARY], "slots": list(reversed(PLANS[tt.PRIMARY]["slots"]))}
+    store_plan(tmp_path, tt.PRIMARY, other)
+    with pytest.raises(tt.Refused, match="stored batch plan differs from the locked one"):
+        tt.preflight(tt.PRIMARY, table, plan, tmp_path, out, arm_l)
+    store_plan(tmp_path, tt.PRIMARY, {**PLANS[tt.PRIMARY], "no_audit": False})  # no_audit is outside the slot hash
+    with pytest.raises(tt.Refused, match="planned with audits"):
+        tt.preflight(tt.PRIMARY, table, plan, tmp_path, out, arm_l)
+    store_plan(tmp_path, tt.PRIMARY, PLANS[tt.PRIMARY], gate=None)
+    with pytest.raises(tt.Refused, match="has not finished.*--resume --no-audit"):
+        tt.preflight(tt.PRIMARY, table, plan, tmp_path, out, arm_l)
+    store_plan(tmp_path, tt.PRIMARY, PLANS[tt.PRIMARY], gate=False)
+    with pytest.raises(tt.Refused, match="length gate failed"):
+        tt.preflight(tt.PRIMARY, table, plan, tmp_path, out, arm_l)
+    store_plan(tmp_path, tt.PRIMARY, PLANS[tt.PRIMARY])
+    with pytest.raises(tt.Refused, match="not the slot's planned type"):
         tt.preflight(tt.PRIMARY, table, plan, tmp_path, out, arm_l)
     with pytest.raises(tt.Refused, match="arm L"):
         tt.preflight(tt.SECONDARY, table, plan, tmp_path, out, arm_l)
@@ -166,10 +214,15 @@ def test_preflight_refusals_in_order(tmp_path):
     assert tt.main(["--batch", "rq1-full"]) == 2
 
 
-def test_the_run_once_writes_the_result_and_refuses_a_second(tmp_path, monkeypatch):
+@pytest.mark.parametrize("batch", [tt.PRIMARY, tt.SECONDARY])
+def test_the_run_once_writes_the_result_and_refuses_a_second(tmp_path, monkeypatch, batch):
+    """Write-once for both test batches: the second call is refused and writes nothing."""
     plan = world_plan(tmp_path)
     tt.write_lock(plan, tmp_path)
-    truths = full_batch()
+    truths = full_batch() if batch == tt.PRIMARY else secondary_batch()
+    store_plan(tmp_path, batch, PLANS[batch])
+    arm_l = tmp_path / "arm_L.json"
+    arm_l.write_text("{}", encoding="utf-8")
     runs = tmp_path / "runs"
     for t in truths:
         (runs / t.run_id).mkdir(parents=True)
@@ -181,14 +234,19 @@ def test_the_run_once_writes_the_result_and_refuses_a_second(tmp_path, monkeypat
                 "version": tripwires.source_version()}
 
     kwargs = dict(table=FakeTable(truths), inspect=fake, runs_dir=runs, records_dir=tmp_path / "rec", log_path=tmp_path / "log",
-                  plan=plan, root=tmp_path, out_dir=tmp_path / "out", arm_l=tmp_path / "none", workers=2, draws=100)
-    result = tt.run_test(tt.PRIMARY, **kwargs)
-    assert result["label"] == "known shapes, fresh bases" and result["bars"]["outcome"] == "PASSED"
+                  plan=plan, root=tmp_path, out_dir=tmp_path / "out", arm_l=arm_l, workers=2, draws=100)
+    result = tt.run_test(batch, **kwargs)
+    assert result["label"] == "known shapes, fresh bases"
+    assert result["bars"]["outcome"] == ("PASSED" if batch == tt.PRIMARY else "reported only")
     assert result["bars"]["base_level_beside"]["clusters"] == 17
-    assert json.loads(tt.out_path(tt.PRIMARY, tmp_path / "out").read_text(encoding="utf-8"))["runs"] == 360
+    assert result["slot_list_sha256"] == tt.slots_sha256(PLANS[batch]) and result["not_built_slots"] == []
+    written = tt.out_path(batch, tmp_path / "out")
+    assert json.loads(written.read_text(encoding="utf-8"))["runs"] == tt.EXPECTED_RUNS[batch]
     assert not any(any(p.iterdir()) for p in runs.iterdir())  # nothing written inside run folders
+    before = written.read_bytes()
     with pytest.raises(tt.Refused, match="runs once"):
-        tt.run_test(tt.PRIMARY, **kwargs)
+        tt.run_test(batch, **kwargs)
+    assert written.read_bytes() == before  # the refused second call wrote nothing
 
 
 def test_the_test_script_loads_no_audit_never_opens_the_ledger_and_calls_no_model():
@@ -205,3 +263,70 @@ def test_the_batch_listing_keeps_only_that_batch_s_scored_runs():
     rows = truths_of([("B01", "obvious")], 1) + truths_of([("B02", "subtle")], 0, batch="ceiling-ext")
     rows.append(sealed.Truth("r1", sealed.REAL, None, None, None, None, {"batch": tt.PRIMARY}, ""))
     assert [t.run_id for t in tt.batch_truths(FakeTable(rows), tt.PRIMARY)] == ["c000", "k000"]
+
+
+def test_slot_hash_covers_the_runs_not_the_name_role_or_audit_flag():
+    base = PLANS[tt.PRIMARY]
+    same = {**base, "batch": "dry-check", "role": "skeptic_d", "no_audit": False, "pool": "elsewhere.json"}
+    assert tt.slots_sha256(same) == tt.slots_sha256(base)
+    moved = {**base, "slots": [{**base["slots"][0], "candidates": [16]}] + base["slots"][1:]}
+    assert tt.slots_sha256(moved) != tt.slots_sha256(base)
+    assert tt.slots_sha256({**base, "seed": 8}) != tt.slots_sha256(base)
+
+
+def test_slot_locks_must_be_listed_for_both_batches(tmp_path):
+    plan = world_plan(tmp_path)
+    text = plan.read_text(encoding="utf-8")
+    plan.write_text("\n".join(l for l in text.splitlines() if f"`{tt.SECONDARY}`" not in l) + "\n", encoding="utf-8")
+    assert f"slot list of {tt.SECONDARY}: not listed in section 4" in tt.lock_problems(plan, tmp_path)
+    with pytest.raises(tt.Refused, match="not listed in section 4"):
+        tt.write_lock(plan, tmp_path)
+
+
+def test_unbuilt_slots_count_against_and_a_crash_leftover_is_superseded():
+    truths = full_batch()
+    chain = [t for t in truths if t.run_type == sealed.CANARY_MEASURE and tt.in_chain(t.bug_id, t.tier)]
+    clean = [t for t in truths if t.run_type != sealed.CANARY_MEASURE]
+    gone = {chain[0].run_id, chain[1].run_id, clean[0].run_id}
+    leftover = sealed.Truth("old", clean[1].run_type, None, None, None, clean[1].source, dict(clean[1].details),
+                            "2026-11-19T00:00:00")  # sealed earlier, before a crash; the slot ran again later
+    table = FakeTable([t for t in truths if t.run_id not in gone] + [leftover])
+    scored, not_built, superseded = tt.slot_truths(tt.PRIMARY, table, PLANS[tt.PRIMARY])
+    assert len(scored) == 360 and len(not_built) == 3 and superseded == ["old"]
+    assert clean[1].run_id in {t.run_id for t in scored} and "old" not in {t.run_id for t in scored}
+    records = {t.run_id: record("flag", fired=["K2"]) for t in scored if t.run_type == sealed.CANARY_MEASURE}
+    records.update({t.run_id: record("pass") for t in scored if t.run_type != sealed.CANARY_MEASURE})
+    records.update({run_id: None for run_id in not_built})
+    b = tt.bars(records, scored, {}, decides=True, draws=100)
+    assert b["recall_fired_chain"]["successes"] == 168 and b["recall_fired_chain"]["n"] == 170
+    assert b["specificity"]["successes"] == 159 and b["specificity"]["n"] == 160
+    stray = sealed.Truth("stray", sealed.SHAM, None, None, None, "pool:0", {"batch": tt.PRIMARY, "slot": 999}, "x")
+    with pytest.raises(tt.Refused, match="no planned slot"):
+        tt.slot_truths(tt.PRIMARY, FakeTable(truths + [stray]), PLANS[tt.PRIMARY])
+
+
+def test_line_endings_report_and_sync_against_the_git_blob(tmp_path):
+    plan = world_plan(tmp_path)  # writes each frozen file with CRLF; the "blob" is its LF form
+    blobs = {name: (tmp_path / name).read_bytes().replace(b"\r\n", b"\n") for name in tt.MUST_FREEZE}
+
+    def blob(name, root):
+        return blobs.get(name)
+
+    rows = tt.line_ending_rows(plan, tmp_path, blob=blob, attr=lambda name, root: "unspecified")
+    assert all(r["in_git"] and not r["minus_text"] and not r["working_is_blob"] and r["hash_is_blob"] for r in rows)
+    assert not tt.line_endings_ok(rows)
+    assert sorted(tt.sync_lf(plan, tmp_path, blob=blob)) == sorted(tt.MUST_FREEZE)
+    rows = tt.line_ending_rows(plan, tmp_path, blob=blob, attr=lambda name, root: "unset")
+    assert tt.line_endings_ok(rows) and tt.sync_lf(plan, tmp_path, blob=blob) == []
+    outside = tt.line_ending_rows(plan, tmp_path, blob=lambda n, r: None, attr=lambda n, r: "unset")
+    assert all(not r["in_git"] for r in outside) and tt.line_endings_ok(outside)
+
+
+def test_sync_lf_refuses_a_content_change_and_writes_nothing(tmp_path):
+    plan = world_plan(tmp_path)
+    blobs = {name: (tmp_path / name).read_bytes().replace(b"\r\n", b"\n") for name in tt.MUST_FREEZE}
+    (tmp_path / "canary" / "probe.py").write_bytes(b"# edited\r\n")
+    before = {name: (tmp_path / name).read_bytes() for name in tt.MUST_FREEZE}
+    with pytest.raises(tt.Refused, match="canary/probe.py: differs from HEAD in content"):
+        tt.sync_lf(plan, tmp_path, blob=lambda name, root: blobs.get(name))
+    assert {name: (tmp_path / name).read_bytes() for name in tt.MUST_FREEZE} == before
