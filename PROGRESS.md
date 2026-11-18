@@ -89,7 +89,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 **Current focus:** Mission 5.1 tripwires, sitting D next (dev loop on rq1-full, task-dev-1, task-dev-2; lock; the test once); then Mission 4.1 sitting 1 (designs ready)
 
-**Stopped at:** Mission 5.1 sitting C complete (plan steps 5-7, 2026-11-16); next step sitting D, plan step 8 (Opus).
+**Stopped at:** Mission 5.1 sitting D step 8 done (2026-11-18, no fix needed); step 9 lock being drafted (Opus), not locked.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -426,6 +426,40 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Mission 5.1 sitting D, part 1 (2026-11-18, Opus): step 8 done; step 9 drafted, NOT locked
+- **Step 0:** `eval.ceiling_lock --check` "Lock check: OK, every hash matches". Decisions of 2026-11-16 and the history
+  rewrite note recorded under Decisions (own commit).
+- **Step 8, development loop (known shapes, development), tripwire version `v1:765b9cc1ae237180`, unchanged since
+  sitting C.** Each batch reported alone (rq1-full and task-dev-1 have no padding and no decoys). Lines copied from
+  `python -m eval.tripwires_dev --batch <b>`; JSON in `eval/results/tripwires/dev_<b>.json`.
+  - **rq1-full** (180 replays, 4 workers, 4 min 40 s by `data/tripwires/dev.log`): "headline recall (fired): 85/95
+    (Beta 90% 0.83-0.93), base-level 90% 0.85-0.94 (18 clusters)"; "specificity: 80/80 (Beta 90% 0.96-1.00); controls
+    40/40 (Beta 90% 0.93-1.00); shams 40/40 (Beta 90% 0.93-1.00)"; "Youden's J: +0.895, base-level 90% +0.853 to
+    +0.935"; "any flag (fired or unverifiable): 90/100 (Beta 90% 0.84-0.94), unverifiable only: 0"; "B06 obvious (L1
+    rule, outside the headline): 5/5"; "gold-twin reference recall: 89/95 (Beta 90% 0.88-0.97) (tripwires only 6,
+    reference only 10; specificity not measured)"; "replays reproducing the stored numbers: 180/180; seconds per
+    replay mean 5.7, max 62.2"; "misses 10, unverifiable-only canaries 0, false alarms 0, no-op canaries 6"; right
+    class named 85/95; every class except B09 10/10 fired. "A1 (advisory): ... AUC 0.583 (10 B09, 80 clean)".
+  - **task-dev-1** (40 replays, 74 s): "headline recall (fired): 17/19 (Beta 90% 0.72-0.96), base-level 90% 0.79-1.00
+    (17 clusters)"; "specificity: 20/20 (Beta 90% 0.87-1.00); controls 10/10 ...; shams 10/10 ..."; "Youden's J:
+    +0.895, base-level 90% +0.789 to +1.000"; unverifiable only 0; "B06 obvious (L1 rule, outside the headline): 1/1";
+    "gold-twin reference recall: 18/19 (Beta 90% 0.78-0.98) (tripwires only 1, reference only 2 ...)"; "replays
+    reproducing the stored numbers: 40/40; seconds per replay mean 5.3, max 51.9"; "misses 2, unverifiable-only
+    canaries 0, false alarms 0, no-op canaries 1"; A1 AUC 0.550 (2 B09, 20 clean).
+  - **task-dev-2 again at the end**: same tripwire version as sitting C, so the runner reused its 40 records
+    ("made=0 reused=40") and printed the same table as sitting C (17/19 fired, 20/20 clean, every decoy class 1/1, J
+    +0.895, base-level +0.750 to +1.000, 0 unverifiable, 40/40 replays, misses = the 2 B09). As a check that today's
+    machine gives the same answers, all 40 were also replayed afresh into a scratch folder (not `data/`): 0 differences
+    in verdict, named class or any check's status. The JSON changed only in `generated_at` and `wall_seconds`.
+  - **Every miss explained:** 14 misses in all (10 + 2 + 2), every one a B09 canary whose numbers changed (B09 has no
+    tripwire, plan section 5). **0 false alarms, 0 unverifiable** on 140 clean runs, **260/260 replays reproduced**.
+    The 7 no-op canaries (rq1-full: B01 obvious 2, B01 subtle 3, B04 subtle 1; task-dev-1: 1) were all fired by a
+    tripwire: the broken link is in the run even though the numbers equal the twin's; they are the "tripwires only"
+    count of the reference row. "Reference only" = the B09 canaries.
+  - **Fixes: none.** No bug was found, so nothing changed in `probe.py`, `replay.py` or `tripwires.py`; no rule or
+    threshold moved. Stated, not changed: rq1-full and task-dev-1 have no decoys, so their specificity says nothing
+    about decoys (task-dev-2 does); development numbers are close to guaranteed by construction (plan section 7.3).
 
 ## Mission 5.1 sitting C (2026-11-16, Opus): plan steps 5-7 built
 - **Step 5, the remaining checks and the verdict** (`canary/tripwires.py`): K3 registered arm (every scored model is

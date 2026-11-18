@@ -1,8 +1,8 @@
 {
  "batch": "task-dev-2",
  "tripwire_version": "v1:765b9cc1ae2371806444f41d7fa7aa17393f368af1a6e2ca3094abbc487549e5",
- "generated_at": "2026-11-16T13:14:07.641808+00:00",
- "wall_seconds": 82.29906210000627,
+ "generated_at": "2026-11-18T14:02:03.152983+00:00",
+ "wall_seconds": 0.09583200002089143,
  "label": "known shapes (development)",
  "held_out_shapes": "not measured (Mission 6.2)",
  "b09": "not covered: no tripwire (plan section 5); B09 canaries count as misses in the headline",
