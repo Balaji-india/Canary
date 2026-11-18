@@ -1275,6 +1275,13 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   pass 20 of 20, `eval.ceiling --arm L` ran once (SOLVABLE). Nothing is running or interrupted.
 
 ## Decisions
+- **Mission 5.1 sitting C defaults kept (student, 2026-11-16):** all four as built: (1) K6 compares numbers with the
+  1e-12 rounding tolerance only; (2) K3 stays as strict as built; (3) a scored model the script never fitted is
+  `fired` B04; (4) the equal-predictions rule as built (K3 needs every candidate registered, K6 the arm's model among
+  them). They are inside the tripwire code that step 9 hashes, so they freeze with the lock.
+- **Git history rewritten 2026-11-17 (student):** Claude co-author lines removed from 5 commit messages of 2026-11-10;
+  file contents unchanged; commit IDs from 2026-11-10 onward changed; IDs cited before this note refer to the old
+  history, kept in the student's backup bundle canary-before-rewrite.bundle.
 - **Mission 4 reviewer (student, 2026-11-14):** the union of `openai/gpt-oss-120b` (`skeptic_d`) and the tripwires: a
   run is flagged if either flags it, and each is also logged alone. Plus a **drift sentinel set**: the same
   already-reviewed runs re-asked regularly with the cache bypassed (the repeat-pass mechanism), so a verdict change
