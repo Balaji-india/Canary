@@ -64,6 +64,12 @@ Claude updates this at the end of every mission. If a mission stops early, write
     `python -m canary.tripwires`; guard tests.
   - **Sitting C built 2026-11-16 (plan steps 5-7):** K3, K4, K6, L1, the verdict with all ten checks, advisory A1,
     `python -m eval.tripwires_dev`. The dev loop on the three batches, the locked test (sitting D) and step 11 remain.
+  - **Sitting D 2026-11-18 (plan steps 8-9):** step 8 dev loop on 3 batches (0 false alarms on 140 clean runs, 260/260
+    replays reproduced, every miss a B09 canary, no fix). Step 9 **LOCKED**: `docs/plans/tripwire_test.md` +
+    `.sha256` (6b07fe92...), commit `172bf95`, tag `tripwire-test-1-lock` (the student pushes it). Checks:
+    `eval.tripwires_test --check` "Tripwire lock check: OK"; `--git-check` "Line endings: OK"; `eval.ceiling_lock
+    --check` "Lock check: OK"; `pytest -q` 851 passed (19-20 s); `pytest -m slow` 264 passed, 3 skipped.
+    Remaining: step 10 (build `tripwire-test-1`, the test once on it and on `ceiling-ext`; student's window), step 11.
 - [ ] 5.2 Skeptic B and jury
 - [ ] 5.3 Replication gate
 - [ ] 5.4 RQ2 and RQ3
@@ -87,9 +93,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Mission 5.1 tripwires, sitting D next (dev loop on rq1-full, task-dev-1, task-dev-2; lock; the test once); then Mission 4.1 sitting 1 (designs ready)
+**Current focus:** Mission 5.1 tripwires, step 10 (the locked test, student's window); then step 11 (wiring); Mission 4.1 sitting 1 only after step 10 (it changes the frozen `canary/trust.py`)
 
-**Stopped at:** Mission 5.1 sitting D part 2 done (2026-11-18): the step 9 DRAFT amended with the student's six points and an own /challenge; still NOT locked. Next: the student says "OK to lock"; then step 9 exactly as the plan's section 6 lists it (gitattributes, `--sync-lf`, renormalize, lock, tag), then step 10 in the student's window.
+**Stopped at:** Mission 5.1 step 9 done and LOCKED (2026-11-18, commit `172bf95`, tag `tripwire-test-1-lock`, not pushed). Next: the student pushes the tag, then runs step 10 in their own PowerShell window exactly as `docs/plans/tripwire_test.md` section 6 lists it (about 1.2-2 h, no Ollama). `tripwire-test-1` is not built; nothing has run on `ceiling-ext`.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -426,6 +432,25 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Mission 5.1 sitting D, part 3 (2026-11-18, Opus): step 9 LOCKED
+- **Student's answers** (recorded in the plan's section 9, commit `c105763`): the freeze ends when both result files
+  exist and are committed; the latest sealed run of a slot counts and every earlier one is listed with its reason
+  (checked in the code: `calibrate --resume` rebuilds only slots without a ledger `RAN` entry, and every run gets one
+  whatever its status, so no outcome triggers a rebuild); the backup keeps the name
+  `data-2026-11-18-tripwire-test.zip` whatever day the build runs. Code: `superseded_runs` entries now carry slot,
+  sealed time, status, reason, replacing run and why; section 3 hash of `eval/tripwires_test.py` updated.
+- **Step 9 as the plan's section 6 lists it.** 1-2: lock checks OK, no tracked change. 3: six `-text` lines in
+  `.gitattributes`. 4: `--sync-lf` rewrote `canary/probe.py` and `canary/replay.py` with their HEAD bytes (CRLF on
+  disk, LF in git, same text). 5-6: **first pass stopped**: `git add --renormalize .` also staged
+  `docs/plans/review_task_screen.md` (already `-text`; CRLF working copy of an LF blob; git status had not re-read it
+  because its stat data had not changed). With the student's OK it was unstaged and restored from git (unchanged in
+  git); a scan of all 49 `-text` files found no other. Re-run: only `.gitattributes` staged. 6: "Line endings: OK".
+  7: commit `002de41`. 8: title and Status without DRAFT (LF; section 3 unchanged). 9: `--lock` wrote
+  `6b07fe92cc8acfe0db6838115a83e6090ddc57aa3168aa95bca3ac810ca501d5`; `--check` "Tripwire lock check: OK"; ceiling
+  lock OK. 10: commit `172bf95` (plan + `.sha256`), working tree clean, `--git-check` OK. 11: `git tag
+  tripwire-test-1-lock` on `172bf95`; the student pushes it (`git push origin tripwire-test-1-lock`).
+- Nothing built, replayed or analysed; no write in `data/`, no ledger write, no Ollama or cloud call.
 
 ## Mission 5.1 sitting D, part 2 (2026-11-18, Opus): step 9 draft amended, still NOT locked
 - **Student's points, built into `docs/plans/tripwire_test.md` (DRAFT):**
@@ -998,17 +1023,20 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-The order is the build order table (section "Design session 2026-11-15"); rows in brackets.
-1. **Student: the open decisions** of the four new plans and the roadmap (34, each with a recommended default).
-   Needed first: roadmap decisions 2, 3 and 4 (they shape pool 3 and the bank), Mission 4.3 decisions 1 and 8.
-2. **Opus: Mission 5.1 sitting C** [row 1] (plan steps 5-7: K3, K4, K6, L1 and the verdict; advisory A1; the
-   development runner `eval/tripwires_dev.py` on `task-dev-2`). New files only; lock check before and after.
-3. **Mission 5.1 sitting D** [row 2]: the locked 360-run tripwire test (`tripwire-test-1`, then `ceiling-ext`). No
-   LLM ever reviews `tripwire-test-1`.
+Updated 2026-11-18 (after the step 9 lock). The order is the build order table (section "Design session
+2026-11-15"); rows in brackets.
+1. **Student: push the tag** `git push origin tripwire-test-1-lock`.
+2. **Student's window: Mission 5.1 step 10** [row 2], exactly as `docs/plans/tripwire_test.md` section 6 lists it:
+   `git diff` against the tag, the three checks, build `tripwire-test-1` (`--no-audit`; resume with
+   `calibrate --batch tripwire-test-1 --resume --no-audit`), `--check`, back up `data/`, `--batch tripwire-test-1`,
+   `--batch ceiling-ext`, checks and `ledger verify`. No LLM ever reviews `tripwire-test-1`. About 1.2-2 h.
+3. **Opus, next session:** commit both result files, report them under "known shapes, fresh bases" (the bars ignore
+   clustering), tick Mission 5.1 if step 10 is complete; the frozen files unfreeze. Then step 11 (wiring) [row 3].
 4. **Opus, any day, local, in any order** [rows 4, 5, 6]: guard sitting 1; the decisive-share check and the ledger
-   anchor; Mission 4.3 sitting 1 (new files only).
-5. **Then** [rows 3, 7, 8, 9]: tripwire wiring and the DESIGN.md sync, Mission 4.1 sitting 1, identity in
-   `canary/llm.py`, pool 3 and the bank.
+   anchor; Mission 4.3 sitting 1 (new files only). **Mission 4.1 sitting 1 [row 7] only after step 10** (it changes
+   `canary/trust.py`, frozen by the tripwire lock).
+5. **Student: the open decisions** of the four new plans and the roadmap (34, each with a recommended default).
+   Needed first: roadmap decisions 2, 3 and 4 (they shape pool 3 and the bank), Mission 4.3 decisions 1 and 8.
 6. **After the student's OK (roadmap decision 8):** `/novelty`, one short session with web search, any day.
 
 Done 2026-11-15 (Fable, design only, two sessions): baseline guard, Missions 4.1 and 4.2 (approved); Missions 4.3,
@@ -1362,6 +1390,9 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
+- **2026-11-18:** none running or interrupted. `tripwire-test-1` is not built (step 10, student's window); nothing has
+  run on `ceiling-ext` for the tripwire test. If the step 10 build stops part way, resume it with
+  `.venv\Scripts\python.exe -m canary.cli calibrate --batch tripwire-test-1 --resume --no-audit` (never `--runs` again).
 - None running. `task-dev-1` finished 2026-11-08 at 05:59 UTC after two stops (a batch log bug and low RAM; see the
   review-task screen above). The last part ran from the student's own PowerShell window.
 - The task-dev-1 rescore is complete (360 of 360 records; llama passes took 566 s for the checklist alone, from the
@@ -1602,6 +1633,13 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - OpenML download crash on non-text labels (sklearn's pandas parser under pandas 3): now uses `parser="liac-arff"`.
 
 ## Known issues
+- **Line endings (2026-11-18):** `git add --renormalize .` touches every tracked file, and `git status` can hide a CRLF
+  working copy of a `-text` file whose stat data has not changed (happened with `docs/plans/review_task_screen.md`).
+  Before any renormalize, compare every `-text` file with its HEAD blob (`eval.tripwires_test --git-check` covers only
+  the tripwire plan's frozen files). `data/calibration/pool-2.json` is CRLF on disk and outside git: its only copies
+  are this disk and the step 10 backup.
+- **Frozen until both tripwire results are committed:** `canary/probe.py`, `replay.py`, `tripwires.py`, `trust.py`,
+  `eval/tripwires_test.py`, `tripwires_dev.py`, `ceiling.py`, `config/bug_classes.yaml`, `pool-2.json`.
 - **Real runs carry only the classes the LLM misses (student, 2026-11-14).** Real Scientist runs are rendered from the
   template, so they can carry only config-level bugs: B06 and B09. Those are exactly the classes `skeptic_d` missed
   on arm L (B06 0/6, B09 1/6). So for real runs: **B06** is covered by the tripwire rule (L1) on every run, not by
@@ -1629,9 +1667,8 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **The free route cannot give a P(flag) score**, so the cloud AUC is verdict-based and is not the same kind of
   number as llama's 0.643 (which used token probabilities). The paired comparison in the outline says so.
 - **Free tiers are one tier below the paid frontier.** A HARD result holds for the two named models only.
-- **`pytest -q` is at or over the 30 s target** (30.2-35 s on 2026-11-10, 607 tests; slower while other work runs;
-  one run on 2026-11-11 took 59 s for 609 passed with no code change, not re-timed).
-  Next step: mark a few more slow tests or lower draws further.
+- **`pytest -q` timing:** 851 passed in 18.7-20.4 s on 2026-11-18 (267 slow tests deselected; `pytest -m slow`
+  about 4 min). Was at or over the 30 s target on 2026-11-10/11 (607-609 tests); keep timing it twice.
 - **Base-level intervals over few bases run slightly narrow:** at 100 runs on 18 bases the bootstrap spread was 0.054
   against a true 0.058 (`eval/power_sim.py` check, 2026-11-10). Read borderline lower bounds with care.
 - **Reviewers are not fully repeatable at temperature 0, and the cache hides it.** phi4-mini repeated its stored reply
