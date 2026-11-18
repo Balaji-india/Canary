@@ -30,7 +30,7 @@ equal-predictions rule as built). Fail closed: `unverifiable` is a flag.
 - `canary/probe.py` 305b5482d970e14b6f1e5fe3ec3956ee62956b1d9737a2615e0bd86fef0c50e8  (tripwire code (plan step 9))
 - `canary/replay.py` 1638b1fcbb73d7589a3867b8e568234f2dbde144bddefa9a3eebb27230907fd7  (tripwire code (plan step 9))
 - `canary/tripwires.py` c9f7ea30671c09ac0f1543ca166d6d186608056ce79dfc002ca84dbb29b7cb27  (tripwire code (plan step 9))
-- `eval/tripwires_test.py` ff480f09824c37899a94349eb2ce739381f46391cac70d7288f257c859505a95  (the locked analysis, the bars and the slot-list lock (plan step 9))
+- `eval/tripwires_test.py` 6e83ae7ca398e54462a24d0953000d571f3f23116fbeb0853696fe72480cd9ab  (the locked analysis, the bars and the slot-list lock (plan step 9))
 - `eval/tripwires_dev.py` a8b0984e6428a87a3606b40901835f6b12e4874f0cdadaff1a043ccea539b092  (the scoring the analysis imports (`score`, `inspect_runs`, `base_bootstrap`); added)
 - `canary/trust.py` 019bc8ee3fc2f3c81b9ec9f77615a6798a15e864a638e2a96082130103a2c77f  (Beta posteriors and `summarize` used by the scoring; added)
 - `eval/ceiling.py` 894abf2de16dca53874f25f88e85a9463537ec8d69a15ed24cfc06bad9782085  (cluster rule and bootstrap weights; added (also frozen by the ceiling plan))
@@ -107,8 +107,9 @@ deterministic; step 8 replayed 40 runs afresh with 0 differences). **Mission 4.1
 - Slot list `tripwire-test-1` cf3481120cd536f2c55cd966d00df836344393037e8ffca101533ced20d0125b  (dry plan: pool 2, seed 1114, 360 runs)
 - Slot list `ceiling-ext` 39ffcae8c7ff7003800635ec1913fc7648abaf76dca01059a6ee82861f787542  (its stored plan, 2026-11-12)
 - **Every planned slot is scored; none is dropped.** For each of the 360 slots: its sealed run (if a crash left an
-  earlier sealed run of the slot behind, the latest one, which is the one `--resume` completed; the earlier ones are
-  listed as `superseded_runs`), or, if the slot has no sealed run (no base fitted, or the build failed), a stand-in
+  earlier sealed run of the slot behind, the latest one, which is the one `--resume` completed; each earlier one is
+  listed in `superseded_runs` with its slot, sealed time, its own status and reason, the run that replaced it and why),
+  or, if the slot has no sealed run (no base fitted, or the build failed), a stand-in
   with no record (`not_built_slots`). A run that crashed in the sandbox is inspected like any other: with no
   `results.json` its checks are `unverifiable` (checked 2026-11-18 on a copy), so it is a flag. Therefore a slot that
   fails to build or crashes counts against both bars: a chain canary as not fired, a clean run as a false alarm (B09
@@ -232,4 +233,16 @@ has one base near 81 s). In all about 1.2 to 2 hours.
 - (c) **Specificity pooled over controls and shams (160): yes**, also printed per type (80 each), deciding nothing.
 - (d) **Exactly 360 / 80 runs: yes, as made precise in point 4:** the batch is the locked slot list (section 4); every
   slot is scored, and a slot that fails to build or crashes counts against both bars, never dropped.
-- Still open: only the OK to lock.
+- **Three more answers (2026-11-18, with the OK to lock):**
+  1. **End of the freeze: yes**, it ends when both result files (`test_tripwire-test-1.json` and
+     `test_ceiling-ext.json`) exist and are committed (section 3).
+  2. **The latest sealed run of a slot counts: yes**, and every earlier one is listed with its reason, provided nothing
+     in the build re-runs a slot because of its outcome. Checked in the code on 2026-11-18: `calibrate --resume` runs
+     only the slots that `mixer.finished_slots` does not return, i.e. slots with no ledger `RAN` entry, and
+     `scientist.record_ran` writes that entry for every run whatever its status (ok, crash or timeout). So a slot is
+     rebuilt only if it never started, was interrupted between sealing and its ledger entry, or was skipped (no base
+     fitted; then it is tried again with the same seeded candidates and gives the same skip). No outcome triggers a
+     rebuild. `eval/tripwires_test.py` lists each superseded run with its slot, sealed time, status, reason, the run
+     that replaced it and why (section 4).
+  3. **Backup name: yes**, `data-2026-11-18-tripwire-test.zip` whatever day the build runs (step 10.5).
+- Nothing open: the student gave the OK to lock on 2026-11-18.

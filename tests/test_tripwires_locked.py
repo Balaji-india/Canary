@@ -288,11 +288,14 @@ def test_unbuilt_slots_count_against_and_a_crash_leftover_is_superseded():
     chain = [t for t in truths if t.run_type == sealed.CANARY_MEASURE and tt.in_chain(t.bug_id, t.tier)]
     clean = [t for t in truths if t.run_type != sealed.CANARY_MEASURE]
     gone = {chain[0].run_id, chain[1].run_id, clean[0].run_id}
-    leftover = sealed.Truth("old", clean[1].run_type, None, None, None, clean[1].source, dict(clean[1].details),
+    leftover = sealed.Truth("old", clean[1].run_type, None, None, None, clean[1].source,
+                            {**clean[1].details, "status": "ok", "reason": None},
                             "2026-11-19T00:00:00")  # sealed earlier, before a crash; the slot ran again later
     table = FakeTable([t for t in truths if t.run_id not in gone] + [leftover])
     scored, not_built, superseded = tt.slot_truths(tt.PRIMARY, table, PLANS[tt.PRIMARY])
-    assert len(scored) == 360 and len(not_built) == 3 and superseded == ["old"]
+    assert len(scored) == 360 and len(not_built) == 3 and [s["run_id"] for s in superseded] == ["old"]
+    assert superseded[0] == {"run_id": "old", "slot": clean[1].details["slot"], "sealed_at": "2026-11-19T00:00:00",
+                             "status": "ok", "reason": None, "why": tt.SUPERSEDED_WHY, "replaced_by": clean[1].run_id}
     assert clean[1].run_id in {t.run_id for t in scored} and "old" not in {t.run_id for t in scored}
     records = {t.run_id: record("flag", fired=["K2"]) for t in scored if t.run_type == sealed.CANARY_MEASURE}
     records.update({t.run_id: record("pass") for t in scored if t.run_type != sealed.CANARY_MEASURE})

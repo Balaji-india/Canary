@@ -294,19 +294,28 @@ def batch_truths(table: sealed.SealedTable, batch: str) -> list[sealed.Truth]:
                   key=lambda t: t.run_id)
 
 
-def slot_truths(batch: str, table: sealed.SealedTable, batch_plan: dict) -> tuple[list[sealed.Truth], list[str], list[str]]:
+SUPERSEDED_WHY = ("sealed, but the build stopped before its ledger entry, so `calibrate --resume` built the slot again "
+                  "(a slot whose run reached the ledger, crashed or not, is never rebuilt)")
+
+
+def slot_truths(batch: str, table: sealed.SealedTable, batch_plan: dict) -> tuple[list[sealed.Truth], list[str], list[dict]]:
     """One truth per planned slot, in slot order, plus (stand-ins for slots never built, superseded runs).
 
     A slot's sealed run is the latest one: a run sealed just before a crash never reached the ledger, so `calibrate
-    --resume` ran its slot again and the later run is the one the batch holds. A slot with no sealed run (no base
-    fitted, or the build failed) gets a stand-in with no run folder, so it has no record and counts against both bars.
+    --resume` ran its slot again and the later run is the one the batch holds. Resume rebuilds only slots with no
+    ledger entry (`mixer.finished_slots`), never because of a run's outcome. Each superseded run is listed with its
+    slot, its own sealed status and reason, and why it was superseded. A slot with no sealed run (no base fitted, or
+    the build failed) gets a stand-in with no run folder, so it has no record and counts against both bars.
     """
     latest: dict[int, sealed.Truth] = {}
     superseded = []
     for truth in sorted(batch_truths(table, batch), key=lambda t: t.created_at):
         slot = truth.details.get("slot")
         if slot in latest:
-            superseded.append(latest[slot].run_id)
+            old = latest[slot]
+            superseded.append({"run_id": old.run_id, "slot": slot, "sealed_at": old.created_at,
+                               "status": old.details.get("status"), "reason": old.details.get("reason"),
+                               "why": SUPERSEDED_WHY, "replaced_by": truth.run_id})
         latest[slot] = truth
     planned = {s["slot"]: s for s in batch_plan["slots"]}
     stray = sorted(t.run_id for slot, t in latest.items() if slot not in planned)
@@ -326,11 +335,11 @@ def slot_truths(batch: str, table: sealed.SealedTable, batch_plan: dict) -> tupl
         if (truth.run_type, truth.bug_id, truth.tier) != (slot["run_type"], slot["bug_id"], slot["tier"]):
             raise Refused(f"{batch}: run {truth.run_id} of slot {number} is not the slot's planned type")
         truths.append(truth)
-    return truths, not_built, sorted(superseded)
+    return truths, not_built, sorted(superseded, key=lambda s: (s["slot"], s["sealed_at"]))
 
 
 def preflight(batch: str, table: sealed.SealedTable, plan: Path = PLAN, root: Path = ROOT,
-              out_dir: Path = OUT_DIR, arm_l: Path = ARM_L_RESULT) -> tuple[list[sealed.Truth], list[str], list[str]]:
+              out_dir: Path = OUT_DIR, arm_l: Path = ARM_L_RESULT) -> tuple[list[sealed.Truth], list[str], list[dict]]:
     """Every refusal, before any replay. Returns `slot_truths` of the batch."""
     if batch not in TEST_BATCHES:
         raise Refused(f"{batch!r} is not a test batch; only {', '.join(TEST_BATCHES)}")
