@@ -1,10 +1,13 @@
-# Pre-registration: Mission 5.1 tripwire test, `tripwire-test-1` (primary) and `ceiling-ext` (secondary) -- DRAFT, NOT LOCKED
+# Pre-registration: Mission 5.1 tripwire test, `tripwire-test-1` (primary) and `ceiling-ext` (secondary)
 
-Status: DRAFT written 2026-11-18 by Claude (Opus) for review, amended the same day with the student's six points
-(line endings, the gitignored pool, the end of the freeze and the git tag, the exact batch, write-once, the answers in
-section 9) and an own strict review. Not locked: there is no `.sha256`, `eval.tripwires_test --lock` refuses while
-the title says DRAFT, and `eval.tripwires_test --batch ...` refuses while the plan is not locked. Hashes below were
-computed 2026-11-18 after the amendment; they are recomputed if any listed file changes before the lock.
+Status: LOCKED 2026-11-18. Written that day by Claude (Opus), amended with the student's six points (line endings,
+the gitignored pool, the end of the freeze and the git tag, the exact batch, write-once, the answers in section 9) and
+an own strict review; the student's three further answers are in section 9 and the student gave the OK to lock on
+2026-11-18. Locked by `eval.tripwires_test --lock` (`docs/plans/tripwire_test.md.sha256`) at the commit tagged
+`tripwire-test-1-lock`. Hashes below were computed 2026-11-18 and did not change before the lock. Step 9 ran as
+section 6 lists it; its first pass stopped at step 7 (renormalize also staged `docs/plans/review_task_screen.md`, a
+CRLF working copy of an LF blob, line endings only, not a frozen file); that file was restored from git and the step
+re-run with only `.gitattributes` staged. Any change to this file from now on needs an amendment and a new `.sha256`.
 Design and decisions: `docs/plans/mission_5_1_tripwires.md` (sections 7.2, 7.3, 10 steps 9-10, 12 and the student's
 answers of 2026-11-13); this file adds no new rule except the points of section 9 and the procedure of section 6.
 
