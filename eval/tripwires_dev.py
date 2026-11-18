@@ -89,9 +89,18 @@ def _log(path: Path, line: str, lock: threading.Lock) -> None:
 
 def inspect_batch(batch: str, run_ids: list[str], runs_dir: Path = sandbox.RUNS_DIR, records_dir: Path = RECORDS_DIR,
                   log_path: Path = LOG_PATH, workers: int = 4, inspect=tripwires.run_tripwires) -> dict:
-    """A tripwire record for every run ID (stored, or made now from the run folder's path alone). Returns
-    {run_id: record, or None when the run has no folder}. Nothing is written inside `runs_dir`."""
+    """A tripwire record for every run ID of a development batch (refuses any other batch); see `inspect_runs`."""
     check_batch(batch)
+    return inspect_runs(batch, run_ids, runs_dir, records_dir, log_path, workers, inspect)
+
+
+def inspect_runs(batch: str, run_ids: list[str], runs_dir: Path, records_dir: Path, log_path: Path, workers: int = 4,
+                 inspect=tripwires.run_tripwires) -> dict:
+    """A tripwire record for every run ID (stored, or made now from the run folder's path alone). Returns
+    {run_id: record, or None when the run has no folder}. Nothing is written inside `runs_dir`.
+
+    No batch check here: the caller decides which batches it accepts (`inspect_batch` development only,
+    `eval.tripwires_test` the locked test batches only, behind its hash lock)."""
     version = tripwires.source_version()
     records_dir.mkdir(parents=True, exist_ok=True)
     lock = threading.Lock()

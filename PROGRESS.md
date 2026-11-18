@@ -89,7 +89,7 @@ Claude updates this at the end of every mission. If a mission stops early, write
 ## In progress
 **Current focus:** Mission 5.1 tripwires, sitting D next (dev loop on rq1-full, task-dev-1, task-dev-2; lock; the test once); then Mission 4.1 sitting 1 (designs ready)
 
-**Stopped at:** Mission 5.1 sitting D step 8 done (2026-11-18, no fix needed); step 9 lock being drafted (Opus), not locked.
+**Stopped at:** Mission 5.1 sitting D part 1 done (2026-11-18): step 8 (no fix needed) and a DRAFT of the step 9 lock (`docs/plans/tripwire_test.md`, not locked). Next: the student checks the draft and its section 9 and says "OK to lock"; then step 9 lock, then step 10 in the student's window.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -460,6 +460,40 @@ same task; that the result holds for other prompts, settings, models or a later 
   - **Fixes: none.** No bug was found, so nothing changed in `probe.py`, `replay.py` or `tripwires.py`; no rule or
     threshold moved. Stated, not changed: rq1-full and task-dev-1 have no decoys, so their specificity says nothing
     about decoys (task-dev-2 does); development numbers are close to guaranteed by construction (plan section 7.3).
+- **Step 9, DRAFT only (not locked; no `.sha256`; `tripwire-test-1` not created; nothing run on `ceiling-ext`):**
+  - `docs/plans/tripwire_test.md` (DRAFT, LF): question and claim label "known shapes, fresh bases"; frozen version
+    `v1:765b9cc1ae237180`; section 3 lists LF SHA-256 of the plan's four files (`probe.py`, `replay.py`,
+    `tripwires.py`, `eval/tripwires_test.py`) plus, for the student's OK, `eval/tripwires_dev.py` (the scoring the test
+    imports), `canary/trust.py`, `eval/ceiling.py`, `config/bug_classes.yaml`, `data/calibration/pool-2.json`; data,
+    bars, procedure, stop rules, four points for the student (section 9).
+  - **Denominator, checked before writing:** dry plan on pool 2, seed 1114 (unused by any batch plan): 200 canaries
+    (10 per variant), 80 controls, 80 shams, each decoy variant on 8 clean runs. Chain classes = every canary except
+    B09 (20) and B06 obvious (10): **170**. Specificity over all **160** clean runs. Bars (decision 6): Beta 90% lower
+    bound >= 0.95 (clears with at most 3 false alarms: 3 gives 0.9525, 4 gives 0.9441) and >= 0.90 on chain `fired`
+    recall (at most 10 not fired: 10 gives 0.9028, 11 gives 0.8958). Base-level cluster intervals (ceiling rule, at most
+    17 clusters) printed beside, deciding nothing.
+  - **Dry length gate:** `canary.cli length-check --dry --pool data/calibration/pool-2.json --runs 360 --seed 1114`:
+    "Length gate PASSED: line_count AUC 0.500, base 90% [0.50, 0.50]; char_count AUC 0.500, base 90% [0.50, 0.50];
+    statement_count AUC 0.500, base 90% [0.48, 0.52]; helper_statements AUC 0.500, base 90% [0.45, 0.54]; helper_chars
+    AUC 0.488, base 90% [0.44, 0.53]; largest blinded script 6162 characters." "360 runs, 200 canaries."
+  - **`eval/tripwires_test.py`** (new): `--check`, `--lock` (refuses a DRAFT title, an existing lock, or any file
+    problem), `--batch` (only `tripwire-test-1` and `ceiling-ext`; refuses without the lock, after a result exists,
+    `ceiling-ext` before arm L's result, and a batch whose run count is not 360 / 80). Records in
+    `data/tripwires/test/<batch>/`; scoring by `eval.tripwires_dev.score`; a run with no record counts against both
+    bars; `unverifiable` is a false alarm and not `fired`. `eval/tripwires_dev.py`: `inspect_batch` split into the
+    batch check plus `inspect_runs` (behaviour unchanged; the development refusal test still passes). 16 fast tests in
+    `tests/test_tripwires_locked.py` (lock cycle, CRLF-insensitive hashes, chain set of 17 variants, bars against
+    scipy Beta values at the edges 10/11 misses and 3/4 false alarms, fail-closed missing records, run once, no
+    audit, ledger or model in the source).
+  - **Building the batch needs no Ollama:** `calibrate --no-audit` calls no model; its length gate reads only the
+    role's context size from `config/models.yaml`. **Forecast** (measured): build 55-90 min (pool 2, ceiling-ext:
+    1035 s for 80 slots, about 8.6 s per script run, 560 script runs about 80 min), replays 10-20 min for 360 and 3-5
+    for 80; about 1.2-2 hours in all.
+- **End checks:** `pytest -q` 845 passed (829 + 16 new, none deleted) in 17.1 s and 22.4 s; `pytest -m slow` 264
+  passed, 3 skipped in 205 s; `tests/test_tripwire_guards.py` passes; `eval.tripwires_test --check` "Tripwire lock
+  check: hashes OK, plan NOT LOCKED (draft)"; `eval.ceiling_lock --check` "Lock check: OK, every hash matches" at the
+  start and the end; `ledger verify` OK (2072 entries, unchanged). No write in `data/runs/`, no ledger write, no audit
+  loaded, no cloud or Ollama call, no frozen file edited, no `canary.cli` subcommand added.
 
 ## Mission 5.1 sitting C (2026-11-16, Opus): plan steps 5-7 built
 - **Step 5, the remaining checks and the verdict** (`canary/tripwires.py`): K3 registered arm (every scored model is
