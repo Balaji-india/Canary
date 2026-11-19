@@ -1,0 +1,816 @@
+{
+ "batch": "ceiling-ext",
+ "tripwire_version": "v1:765b9cc1ae2371806444f41d7fa7aa17393f368af1a6e2ca3094abbc487549e5",
+ "plan_sha256": "6b07fe92cc8acfe0db6838115a83e6090ddc57aa3168aa95bca3ac810ca501d5",
+ "generated_at": "2026-11-19T13:30:35.701693+00:00",
+ "wall_seconds": 140.6233598999679,
+ "slot_list_sha256": "39ffcae8c7ff7003800635ec1913fc7648abaf76dca01059a6ee82861f787542",
+ "not_built_slots": [],
+ "superseded_runs": [],
+ "label": "known shapes, fresh bases",
+ "held_out_shapes": "not measured (Mission 6.2)",
+ "b09": "not covered: no tripwire (plan section 5); B09 canaries count as misses in the headline",
+ "runs": 80,
+ "canaries": 40,
+ "clean": 40,
+ "missing_records": [],
+ "headline": {
+  "note": "fired only; B06 obvious (the L1 rule) left out; specificity counts fired and unverifiable",
+  "canaries": 38,
+  "fired": 34,
+  "recall_fired": {
+   "successes": 34,
+   "n": 38,
+   "raw": 0.8947368421052632,
+   "beta_mean": 0.875,
+   "beta_90": [
+    0.780476931676873,
+    0.9480964424815145
+   ]
+  },
+  "specificity": {
+   "successes": 40,
+   "n": 40,
+   "raw": 1.0,
+   "beta_mean": 0.9761904761904762,
+   "beta_90": [
+    0.9295388827298359,
+    0.9987497262835919
+   ]
+  },
+  "control_specificity": {
+   "successes": 20,
+   "n": 20,
+   "raw": 1.0,
+   "beta_mean": 0.9545454545454546,
+   "beta_90": [
+    0.8670540889734766,
+    0.9975604427403312
+   ]
+  },
+  "sham_specificity": {
+   "successes": 20,
+   "n": 20,
+   "raw": 1.0,
+   "beta_mean": 0.9545454545454546,
+   "beta_90": [
+    0.8670540889734766,
+    0.9975604427403312
+   ]
+  },
+  "youden_j": {
+   "observed_j": 0.8947368421052633,
+   "youden_j": 0.8516897536120581,
+   "interval": [
+    0.7484375833957219,
+    0.9323219505087154
+   ],
+   "p_recall_above_false_alarm": 1.0
+  },
+  "base_level": {
+   "clusters": 17,
+   "draws": 5000,
+   "level": "90%",
+   "recall_90": [
+    0.8292682926829268,
+    0.9666666666666667
+   ],
+   "specificity_90": [
+    1.0,
+    1.0
+   ],
+   "youden_j_90": [
+    0.8292682926829268,
+    0.9666666666666667
+   ],
+   "draws_used": 5000
+  },
+  "by_tier": {
+   "obvious": {
+    "successes": 16,
+    "n": 18,
+    "raw": 0.8888888888888888,
+    "beta_mean": 0.85,
+    "beta_90": [
+     0.7041979860249497,
+     0.9555351575544222
+    ]
+   },
+   "subtle": {
+    "successes": 18,
+    "n": 20,
+    "raw": 0.9,
+    "beta_mean": 0.8636363636363636,
+    "beta_90": [
+     0.7294483006954686,
+     0.9599004637025256
+    ]
+   }
+  },
+  "by_impact": {
+   "harmful": {
+    "successes": 28,
+    "n": 32,
+    "raw": 0.875,
+    "beta_mean": 0.8529411764705882,
+    "beta_90": [
+     0.743747308173882,
+     0.9383415269977432
+    ]
+   },
+   "harmless": {
+    "successes": 6,
+    "n": 6,
+    "raw": 1.0,
+    "beta_mean": 0.875,
+    "beta_90": [
+     0.6518363448688391,
+     0.9926991680209853
+    ]
+   },
+   "unmeasured": {
+    "successes": 0,
+    "n": 0,
+    "raw": null,
+    "beta_mean": 0.5,
+    "beta_90": [
+     0.05,
+     0.95
+    ]
+   }
+  },
+  "named_right": {
+   "successes": 34,
+   "n": 38,
+   "raw": 0.8947368421052632,
+   "beta_mean": 0.875,
+   "beta_90": [
+    0.780476931676873,
+    0.9480964424815145
+   ]
+  },
+  "worst_class": "B09"
+ },
+ "any_flag": {
+  "recall": {
+   "successes": 36,
+   "n": 40,
+   "raw": 0.9,
+   "beta_mean": 0.8809523809523809,
+   "beta_90": [
+    0.7904946972931759,
+    0.9506960782453687
+   ]
+  },
+  "unverifiable_only": 0,
+  "by_tier": {
+   "obvious": {
+    "successes": 18,
+    "n": 20,
+    "raw": 0.9,
+    "beta_mean": 0.8636363636363636,
+    "beta_90": [
+     0.7294483006954686,
+     0.9599004637025256
+    ]
+   },
+   "subtle": {
+    "successes": 18,
+    "n": 20,
+    "raw": 0.9,
+    "beta_mean": 0.8636363636363636,
+    "beta_90": [
+     0.7294483006954686,
+     0.9599004637025256
+    ]
+   }
+  }
+ },
+ "per_class": {
+  "B01": {
+   "canaries": 4,
+   "fired": 4,
+   "unverifiable_only": 0,
+   "missed": 0,
+   "headline_fired": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "any_flag": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "named_right": 4,
+   "rule_canaries_outside_headline": 0
+  },
+  "B02": {
+   "canaries": 4,
+   "fired": 4,
+   "unverifiable_only": 0,
+   "missed": 0,
+   "headline_fired": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "any_flag": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "named_right": 4,
+   "rule_canaries_outside_headline": 0
+  },
+  "B03": {
+   "canaries": 4,
+   "fired": 4,
+   "unverifiable_only": 0,
+   "missed": 0,
+   "headline_fired": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "any_flag": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "named_right": 4,
+   "rule_canaries_outside_headline": 0
+  },
+  "B04": {
+   "canaries": 4,
+   "fired": 4,
+   "unverifiable_only": 0,
+   "missed": 0,
+   "headline_fired": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "any_flag": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "named_right": 4,
+   "rule_canaries_outside_headline": 0
+  },
+  "B05": {
+   "canaries": 4,
+   "fired": 4,
+   "unverifiable_only": 0,
+   "missed": 0,
+   "headline_fired": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "any_flag": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "named_right": 4,
+   "rule_canaries_outside_headline": 0
+  },
+  "B06": {
+   "canaries": 4,
+   "fired": 4,
+   "unverifiable_only": 0,
+   "missed": 0,
+   "headline_fired": {
+    "successes": 2,
+    "n": 2,
+    "raw": 1.0,
+    "beta_mean": 0.75,
+    "beta_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "any_flag": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "named_right": 4,
+   "rule_canaries_outside_headline": 2
+  },
+  "B07": {
+   "canaries": 4,
+   "fired": 4,
+   "unverifiable_only": 0,
+   "missed": 0,
+   "headline_fired": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "any_flag": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "named_right": 4,
+   "rule_canaries_outside_headline": 0
+  },
+  "B08": {
+   "canaries": 4,
+   "fired": 4,
+   "unverifiable_only": 0,
+   "missed": 0,
+   "headline_fired": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "any_flag": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "named_right": 4,
+   "rule_canaries_outside_headline": 0
+  },
+  "B09": {
+   "canaries": 4,
+   "fired": 0,
+   "unverifiable_only": 0,
+   "missed": 4,
+   "headline_fired": {
+    "successes": 0,
+    "n": 4,
+    "raw": 0.0,
+    "beta_mean": 0.16666666666666666,
+    "beta_90": [
+     0.010206218313011495,
+     0.45071972834694096
+    ]
+   },
+   "any_flag": {
+    "successes": 0,
+    "n": 4,
+    "raw": 0.0,
+    "beta_mean": 0.16666666666666666,
+    "beta_90": [
+     0.010206218313011495,
+     0.45071972834694096
+    ]
+   },
+   "named_right": 0,
+   "rule_canaries_outside_headline": 0
+  },
+  "B10": {
+   "canaries": 4,
+   "fired": 4,
+   "unverifiable_only": 0,
+   "missed": 0,
+   "headline_fired": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "any_flag": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "named_right": 4,
+   "rule_canaries_outside_headline": 0
+  }
+ },
+ "rule_b06_obvious": {
+  "canaries": 2,
+  "caught_by_rule": 2,
+  "note": "L1 plants and detects the same thing: true by definition, not evidence"
+ },
+ "specificity_by_decoy": {
+  "B08 subtle": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B06 subtle": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B02 obvious": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B06 obvious": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B01 subtle": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B01 obvious": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B10 obvious": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B05 obvious": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B04 subtle": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B05 subtle": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B03 obvious": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B07 subtle": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B09 obvious": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B10 subtle": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B09 subtle": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B02 subtle": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B04 obvious": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B07 obvious": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B08 obvious": {
+   "runs": 2,
+   "passed": 2
+  },
+  "B03 subtle": {
+   "runs": 2,
+   "passed": 2
+  }
+ },
+ "reference_gold_twin": {
+  "note": "flag when either arm's mean differs from the clean twin's (sealed impact); clean runs have no twin, so its specificity is not measured (1 by construction)",
+  "recall": {
+   "successes": 35,
+   "n": 38,
+   "raw": 0.9210526315789473,
+   "beta_mean": 0.9,
+   "beta_90": [
+    0.8130204948995411,
+    0.9642007124578701
+   ]
+  },
+  "no_twin_numbers": 0,
+  "tripwires_only": 3,
+  "reference_only": 4,
+  "per_class": {
+   "B01": {
+    "successes": 2,
+    "n": 4,
+    "raw": 0.5,
+    "beta_mean": 0.5,
+    "beta_90": [
+     0.1892553774377708,
+     0.8107446225622291
+    ]
+   },
+   "B02": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "B03": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "B04": {
+    "successes": 3,
+    "n": 4,
+    "raw": 0.75,
+    "beta_mean": 0.6666666666666666,
+    "beta_90": [
+     0.3425916819988613,
+     0.923559608587671
+    ]
+   },
+   "B05": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "B06": {
+    "successes": 2,
+    "n": 2,
+    "raw": 1.0,
+    "beta_mean": 0.75,
+    "beta_90": [
+     0.3684031498640387,
+     0.9830475724915585
+    ]
+   },
+   "B07": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "B08": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "B09": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   },
+   "B10": {
+    "successes": 4,
+    "n": 4,
+    "raw": 1.0,
+    "beta_mean": 0.8333333333333334,
+    "beta_90": [
+     0.5492802716530588,
+     0.9897937816869885
+    ]
+   }
+  }
+ },
+ "replays": {
+  "reproduced": 80,
+  "runs": 80,
+  "seconds_mean": 5.700825,
+  "seconds_max": 49.498
+ },
+ "misses": [
+  {
+   "run_id": "2516dfe6-fa2a-404b-8901-c85a263fc6c4",
+   "bug_id": "B09",
+   "tier": "subtle",
+   "impact": "harmful",
+   "numbers_changed": true,
+   "not_ok": {}
+  },
+  {
+   "run_id": "024c19d3-374f-4dfd-ae1a-d4667eabd2b6",
+   "bug_id": "B09",
+   "tier": "obvious",
+   "impact": "harmful",
+   "numbers_changed": true,
+   "not_ok": {}
+  },
+  {
+   "run_id": "60a01813-ac74-4683-a7b1-3044d43f8e8a",
+   "bug_id": "B09",
+   "tier": "subtle",
+   "impact": "harmful",
+   "numbers_changed": true,
+   "not_ok": {}
+  },
+  {
+   "run_id": "22605395-b21e-488e-b4a0-58527c8c02f4",
+   "bug_id": "B09",
+   "tier": "obvious",
+   "impact": "harmful",
+   "numbers_changed": true,
+   "not_ok": {}
+  }
+ ],
+ "unverifiable_canaries": [],
+ "false_alarms": [],
+ "no_op_canaries": [
+  {
+   "run_id": "45035a26-c6de-4d7f-be58-ebd32d2f57a7",
+   "bug_id": "B01",
+   "tier": "subtle",
+   "flagged": true,
+   "reason": "numbers identical to the clean twin in both arms"
+  },
+  {
+   "run_id": "a796e502-73ba-45e9-9efe-4124bb8bc634",
+   "bug_id": "B04",
+   "tier": "subtle",
+   "flagged": true,
+   "reason": "numbers identical to the clean twin in both arms"
+  },
+  {
+   "run_id": "19e6f91d-ced5-403b-90d8-2cacca70e37c",
+   "bug_id": "B01",
+   "tier": "subtle",
+   "flagged": true,
+   "reason": "numbers identical to the clean twin in both arms"
+  }
+ ],
+ "advisory_a1": {
+  "b09_canaries": 4,
+  "clean_runs": 40,
+  "auc_low_margin_picks_b09": 0.8,
+  "note": "advisory only, development data; decides nothing (plan section 5)"
+ },
+ "bars": {
+  "decides": false,
+  "chain_classes": "every canary except B09 (both tiers) and B06 obvious",
+  "chain_canaries": 34,
+  "chain_by_variant": {
+   "B01 obvious": 2,
+   "B01 subtle": 2,
+   "B02 obvious": 2,
+   "B02 subtle": 2,
+   "B03 obvious": 2,
+   "B03 subtle": 2,
+   "B04 obvious": 2,
+   "B04 subtle": 2,
+   "B05 obvious": 2,
+   "B05 subtle": 2,
+   "B06 subtle": 2,
+   "B07 obvious": 2,
+   "B07 subtle": 2,
+   "B08 obvious": 2,
+   "B08 subtle": 2,
+   "B10 obvious": 2,
+   "B10 subtle": 2
+  },
+  "recall_fired_chain": {
+   "successes": 34,
+   "n": 34,
+   "raw": 1.0,
+   "beta_mean": 0.9722222222222222,
+   "beta_90": [
+    0.9179683641433295,
+    0.9985355506571947
+   ],
+   "bar": 0.9,
+   "meets_bar": true,
+   "missed_runs": []
+  },
+  "specificity": {
+   "successes": 40,
+   "n": 40,
+   "raw": 1.0,
+   "beta_mean": 0.9761904761904762,
+   "beta_90": [
+    0.9295388827298359,
+    0.9987497262835919
+   ],
+   "bar": 0.95,
+   "meets_bar": false,
+   "false_alarm_runs": []
+  },
+  "base_level_beside": {
+   "clusters": 17,
+   "draws": 5000,
+   "level": "90%",
+   "recall_90": [
+    1.0,
+    1.0
+   ],
+   "specificity_90": [
+    1.0,
+    1.0
+   ],
+   "youden_j_90": [
+    1.0,
+    1.0
+   ],
+   "draws_used": 5000
+  },
+  "outcome": "reported only"
+ }
+}
