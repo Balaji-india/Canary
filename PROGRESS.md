@@ -1498,6 +1498,15 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   pass 20 of 20, `eval.ceiling --arm L` ran once (SOLVABLE). Nothing is running or interrupted.
 
 ## Decisions
+- **Design session 2 decisions (student, 2026-11-19):** the 34 open decisions (the last sections of
+  `mission_4_3_drift.md`, `mission_4_4_campaign.md`, `mission_3_1_3_2_memory_calibration.md` and
+  `roadmap_challenge_2026-11-15.md`) take their recommended defaults, **except three that stay open** until Claude
+  explains them (Mission 5.1 step 11 session): Mission 4.3 decision 1 (sentinel of 60 runs, 20 a day: why not 20 runs
+  on a schedule, and its daily cost as a share of the Groq budget); Mission 4.4 decision 1 (the cold start's about
+  195 calls against the Mission 4.1 plan's about 228 reviews: reconcile); roadmap decision 5 (`llama3.1:8b` back as
+  an RQ1 row: confirm the plan keeps it labelled development / not confirmed). **Consequence of roadmap decision 9
+  (approved):** Mission 5.1 step 11 is the CLI and ledger wiring only; its `DESIGN.md` rewrite (sections 4, 6 and 10)
+  moves to the later DESIGN.md sync sitting.
 - **Mission 5.1 sitting C defaults kept (student, 2026-11-16):** all four as built: (1) K6 compares numbers with the
   1e-12 rounding tolerance only; (2) K3 stays as strict as built; (3) a scored model the script never fitted is
   `fired` B04; (4) the equal-predictions rule as built (K3 needs every candidate registered, K6 the arm's model among
