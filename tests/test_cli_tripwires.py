@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-from canary import cli, ledger, llm, sandbox, sealed, tripwire_ledger as tl, tripwires
+from canary import cli, ledger, llm, sandbox, sealed, skeptic, tripwire_ledger as tl, tripwires
 from tests.test_tripwire_ledger import _impact, ran, record, store
 
 
@@ -107,3 +107,42 @@ def test_inspect_is_the_tripwires_module_on_the_run_folder(world, capsys, monkey
     assert run(capsys, "tripwires", "inspect", "c1", "--json")[0] == 0
     assert run(capsys, "tripwires", "inspect", str(sandbox.RUNS_DIR / "c1"))[0] == 0
     assert seen == [[str(sandbox.RUNS_DIR / "c1"), "--json"], [str(sandbox.RUNS_DIR / "c1")]]
+
+
+# Guards added by the step 11 /challenge (2026-11-19)
+
+def test_audit_leaves_out_no_audit_batches_and_the_never_reviewed_batch(world, monkeypatch, capsys):
+    tmp_path, led = world
+    plans = tmp_path / "sealed_plans"
+    plans.mkdir()
+    monkeypatch.setattr(sealed, "PLANS_DIR", plans)
+    (plans / "b1.json").write_text(json.dumps({"batch": "b1", "no_audit": True}), encoding="utf-8")
+    (plans / "b1.length_check.json").write_text(json.dumps({"passes": True}), encoding="utf-8")
+    sealed.SealedTable().seal("t1", sealed.CONTROL, details={"batch": "tripwire-test-1"})  # no stored plan needed
+    ran(led, "h-t1", "t1")
+    ran(led, "h-real", "real-run")  # a run of no batch (a Scientist run) is still reviewed
+    asked = {}
+    monkeypatch.setattr(skeptic, "audit_pending", lambda client, l, **kw: asked.update(kw) or skeptic.AuditReport())
+    assert cli._run_audits(object(), led) == 0
+    assert asked["run_ids"] == {"other", "real-run"}  # b1 (no_audit) and tripwire-test-1 left out
+    assert "Left out: the runs of no-audit batches (b1, tripwire-test-1)" in capsys.readouterr().out
+    assert cli.no_audit_run_ids(plans) == ({"c1", "c2", "k1", "s1", "t1"}, ["b1", "tripwire-test-1"])
+
+
+def test_reaudit_and_rescore_refuse_the_never_reviewed_batch_before_any_model(world, capsys):
+    for argv in (["reaudit", "--batch", "tripwire-test-1", "--role", "skeptic_d"],
+                 ["rescore", "--batch", "tripwire-test-1", "--reviewer", "skeptic_d", "--sample", "20"]):
+        code, out = run(capsys, *argv)
+        assert code == 2 and out.startswith("Refused: no LLM ever reviews tripwire-test-1")
+
+
+def test_trust_says_when_a_crashed_run_holds_an_opinion_and_is_counted(world, capsys):
+    tmp_path, led = world
+    sealed.SealedTable().seal("k9", sealed.CONTROL, details={"batch": "b1"})
+    ran(led, "h-k9", "k9", status="timeout")
+    store(tl.TEST_RECORDS_DIR / "b1", record("k9", "flag", unverifiable=("K0",)))
+    run(capsys, "tripwires", "record", "--batch", "b1", "--write", "--db", str(tmp_path / "ledger.db"))
+    code, out = run(capsys, "trust", "--role", tl.ROLE, "--batch", "b1")
+    assert "controls                1 of 2" in out
+    assert "Note: 1 crashed or timed-out run(s) listed above as crashed hold an opinion from tripwire_v1 and ARE " \
+           "counted in the figures above: k9" in out

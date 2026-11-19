@@ -298,9 +298,42 @@ def cmd_science(args: argparse.Namespace) -> int:
     return code
 
 
+# Batches no LLM may ever review (student, 2026-11-13 and 2026-11-15; docs/plans/tripwire_test.md, section 4):
+# `reaudit` and `rescore` refuse them by name, and `audit` leaves them out with every other no-audit batch.
+NEVER_LLM_REVIEWED = frozenset({"tripwire-test-1"})
+
+
+def no_audit_run_ids(plans_dir: Path | None = None) -> tuple[set[str], list[str]]:
+    """(run IDs, batch names) of the batches `audit` must leave out: every batch planned with `--no-audit` (its stored
+    plan says `"no_audit": true`; such a batch is reviewed only by an explicit `reaudit`) and NEVER_LLM_REVIEWED.
+
+    Why: `audit` reviews every run still waiting for the default role, and a no-audit batch's runs all wait for it, so
+    one bare `audit` would have had a local model review all 360 runs of `tripwire-test-1` (found 2026-11-19). Reads the
+    stored batch plans and the sealed table (only to list a batch's run IDs), never from the reviewer's code path."""
+    plans_dir = plans_dir or sealed.PLANS_DIR
+    if not sealed.SEALED_DB_PATH.exists():  # opening a SealedTable would create the file
+        return set(), []
+    batches = set(NEVER_LLM_REVIEWED)
+    for path in plans_dir.glob("*.json"):
+        if path.name.endswith(".length_check.json"):
+            continue
+        plan = json.loads(path.read_text(encoding="utf-8"))
+        if plan.get("no_audit"):
+            batches.add(plan.get("batch", path.stem))
+    table = sealed.SealedTable(sealed.SEALED_DB_PATH)
+    runs = {t.run_id for t in table.all() if t.details.get("batch") in batches}
+    return runs, sorted(batches)
+
+
 def _run_audits(client: llm.LLM, led: ledger.Ledger) -> int:
-    """Review every run still waiting and print the outcome. Returns 1 if any could not be reviewed."""
-    report = skeptic.audit_pending(client, led)
+    """Review every run still waiting and print the outcome, leaving out no-audit batches (`no_audit_run_ids`).
+    Returns 1 if any could not be reviewed."""
+    left_out, batches = no_audit_run_ids()
+    run_ids = None
+    if left_out:
+        run_ids = {e.payload["run_id"] for e in led.entries(ledger.RAN) if "run_id" in e.payload} - left_out
+        print(f"Left out: the runs of no-audit batches ({', '.join(batches)}); only an explicit reaudit reviews them.")
+    report = skeptic.audit_pending(client, led, run_ids=run_ids)
     for item in report.audited:
         audit = item.get("decision") or item["audit"]  # the code's verdict, whatever the review task
         label = audit["verdict"] + (f" {audit['bug_class']}" if audit["bug_class"] else "")
@@ -458,6 +491,15 @@ def cmd_trust(args: argparse.Namespace) -> int:
         print(f"  {run_type:<15} {row['sealed']} sealed, {row['audited']} audited ({row['failed_then_recovered']} after a failure), "
               f"{row['never_reviewed_failed']} failed and unreviewed, {row['not_reached']} not reached, {row['crashed']} crashed, "
               f"kinds {row['failure_kinds'] or 'none'}")
+    # A tripwire record exists even for a run that crashed or timed out (fail closed: it flags), so such a run IS in the
+    # figures above for a tripwire role, although the table lists it as crashed. Say so instead of hiding it.
+    status = {e.payload["run_id"]: e.payload.get("run_status") for e in led.entries(ledger.RAN) if "run_id" in e.payload}
+    opinions = {e.payload["run_id"] for e in led.entries(ledger.AUDITED) if e.payload.get("role") == args.role}
+    batch_runs = {o.run_id for o in observations}
+    crashed_with_opinion = sorted(r for r in opinions & batch_runs if status.get(r) not in (None, "ok"))
+    if crashed_with_opinion:
+        print(f"  Note: {len(crashed_with_opinion)} crashed or timed-out run(s) listed above as crashed hold an opinion "
+              f"from {args.role} and ARE counted in the figures above: {', '.join(crashed_with_opinion[:5])}")
     return 0
 
 
@@ -604,6 +646,9 @@ def cmd_length_check(args: argparse.Namespace) -> int:
 
 def cmd_reaudit(args: argparse.Namespace) -> int:
     """Have another reviewer role review a finished batch again. Never runs an experiment. Safe to resume."""
+    if args.batch in NEVER_LLM_REVIEWED:
+        print(f"Refused: no LLM ever reviews {args.batch} (student's rule; docs/plans/tripwire_test.md, section 4).")
+        return 2
     client, led, table = llm.LLM(), ledger.Ledger(), sealed.SealedTable()
     if args.role not in client.cfg["roles"]:
         print(f"Unknown role {args.role}. Roles: {', '.join(client.cfg['roles'])}")
@@ -629,6 +674,9 @@ def cmd_reaudit(args: argparse.Namespace) -> int:
 
 def cmd_rescore(args: argparse.Namespace) -> int:
     """Token-probability scores for a batch's audits that have none. Same prompts; scored only if the reply repeats."""
+    if args.batch in NEVER_LLM_REVIEWED:
+        print(f"Refused: no LLM ever reviews {args.batch} (student's rule; docs/plans/tripwire_test.md, section 4).")
+        return 2
     client, led, table = llm.LLM(), ledger.Ledger(), sealed.SealedTable()
     if args.reviewer not in client.cfg["roles"] or "use_role" in client.cfg["roles"][args.reviewer]:
         print(f"Give a reviewer with its own model, e.g. skeptic_a, skeptic_b or skeptic_c (not {args.reviewer}).")
