@@ -220,3 +220,29 @@ word in any of the 120 prompts; trivial features at chance on the 120 runs; orde
 includes provider, endpoint, options and schema mode, and holds none of the 120 prompts; the repeat pass bypasses
 and never writes the cache; its sample uses run IDs only; a daily stop stores nothing; SOLVABLE and HARD cannot both
 hold; the analysis runs once per arm and refuses an unfinished arm.
+
+## 11. Amendment 1 (2026-11-19): reproducibility is checked at the lock commit, not in the working tree
+- Lock commit: tag `ceiling-check-lock`, plan SHA-256 at the tag 88cb6078cdbd6dff7926debde83e4e7a7cec5dfbcbc49f32fcb1b4b32682e8bc
+- **Date and who:** 2026-11-19, the student's decision (option C), written by Claude (Opus). Recorded in `PROGRESS.md`
+  (Decisions, and the Mission 5.1 step 11 entry).
+- **Reason:** the freeze ended when arm L's result (`eval/results/ceiling/arm_L.json`, SOLVABLE) was committed, as the
+  plan intended; nothing in this check runs again. Mission 5.1 step 11 and Mission 4.1 must change `canary/cli.py`, which
+  section 3 lists. Comparing working copies would then make `--check` fail for good, although every locked byte still
+  exists in git.
+- **The lock commit:** `2332136` ("Lock cloud ceiling check plan ...", 2026-11-12), the commit that added
+  `cloud_ceiling_check.md.sha256`. Its ID changed in the history rewrite of 2026-11-17 (commit messages only; file
+  contents identical). Checked 2026-11-19: the plan at this commit hashes to the original `.sha256`
+  (88cb6078...), and each of the 18 files of section 3 that git tracks hashes, as `git show 2332136:<path>`, to its
+  listed value. Tagged `ceiling-check-lock` (the student pushes the tag).
+- **What changes (only how reproducibility is checked):** `python -m eval.ceiling_lock --check` first checks this plan
+  against its `.sha256`, the tag (it must exist, the plan at the tag must hash to the value in the line above, and this
+  file must start with the plan's bytes at the tag), then each file of section 3 that git tracked at the tag as
+  `git show ceiling-check-lock:<path>`, never the working copy. Files outside git (`data/calibration/pool.json`,
+  `pool-2.json`, the sealed plans and length check, the first 3 lines of `data/cloud/calls.jsonl`) and the manifest
+  rebuilt from `data/` are checked on disk as before. Working copies that differ from the locked version are printed
+  for information only. `--check --working-tree` still gives the original check; `--amend-lock` writes the new
+  `.sha256` (it refuses unless this file at HEAD matches the old one and the change only adds text with an amendment
+  heading). Code: `eval/lock_git.py` (new) and `eval/ceiling_lock.py`.
+- **What does not change:** sections 1 to 10 above, byte for byte (the check enforces it); the locked analysis
+  (`eval/ceiling.py` at the tag), the rule, the bars and the design; the committed results (`arm_L.json`); the listed
+  hashes. Reproducing arm L's analysis means checking out `ceiling-check-lock` with `data/` restored from the backup.

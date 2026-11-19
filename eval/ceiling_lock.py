@@ -3,10 +3,18 @@
     python -m eval.ceiling_lock --write-manifest   the 120 runs and the exact prompt each will be sent (no run types)
     python -m eval.ceiling_lock --check            every hash in the plan, the manifest, the call log, counts per arm
     python -m eval.ceiling_lock --lock             write the plan's .sha256 (only if --check finds nothing else wrong)
+    python -m eval.ceiling_lock --check --working-tree   the check as it was before amendment 1 (working copies)
+    python -m eval.ceiling_lock --amend-lock       new .sha256 after a written amendment (prints old and new)
 
 Why a tool: the plan (docs/plans/cloud_ceiling_check.md, section 3) freezes code, config, data and prompts by SHA-256,
 and one of its stop rules is "any hash that no longer matches". A rule nobody can check in one command is not a rule.
 Run `--check` before every daily session and before `python -m eval.ceiling --arm L`.
+
+Amendment 1 (2026-11-19, plan section 11): the freeze ended when arm L's result was committed, and later missions must
+change frozen files (`canary/cli.py`). Since then `--check` verifies each listed file that git tracked at the lock
+against `git show ceiling-check-lock:<path>` (`eval.lock_git`), not the working copy; files outside git (pools, sealed
+plans, the call log) and the manifest rebuilt from `data/` are checked on disk as before. Working copies that differ
+from the locked version are printed for information only. `--working-tree` gives the original check.
 
 It prints counts only (answered, failed, waiting): never a verdict, a flag rate or a run type, so it is safe to run
 while an arm is unfinished. It calls no model and no network. It reads the sealed table only to list a batch's run
@@ -22,7 +30,7 @@ from pathlib import Path
 
 from canary import config, ledger, llm, mixer, review_tasks, sandbox, sealed, skeptic
 from canary.config import ROOT
-from eval import ceiling
+from eval import ceiling, lock_git
 
 PLAN = ROOT / "docs" / "plans" / "cloud_ceiling_check.md"
 MANIFEST = ceiling.OUT_DIR / "lock_manifest.json"
@@ -62,6 +70,21 @@ def file_problems(entries: list[tuple[str, int | None, str]], root: Path = ROOT)
         if sha256(data) != digest:
             problems.append(f"{path}: hash differs from the plan" + (f" (first {lines} lines)" if lines else ""))
     return problems
+
+
+def tagged_problems(plan: Path, entries: list[tuple[str, int | None, str]],
+                    root: Path = ROOT) -> tuple[list[str], list[str]]:
+    """(problems, information): the listed files checked at the plan's lock tag (amendment 1, `eval.lock_git`).
+
+    A file git tracked at the tag must hash there to the listed value (whole file; only the call log, outside git, has a
+    `first n lines` entry). A file git did not track is checked on disk exactly as `file_problems` does."""
+    lines_of = {path: lines for path, lines, _ in entries}
+
+    def on_disk(path: str, digest: str) -> str | None:
+        found = file_problems([(path, lines_of[path], digest)], root)
+        return found[0] if found else None
+
+    return lock_git.check_at_tag(plan, [(path, digest) for path, _, digest in entries], root, on_disk)
 
 
 def build_manifest(led: ledger.Ledger, table: sealed.SealedTable, models_cfg: dict, bugs: dict,
@@ -112,12 +135,27 @@ def write_lock(plan: Path) -> Path:
     return lock
 
 
-def check(plan: Path = PLAN, root: Path = ROOT, manifest_path: Path = MANIFEST) -> list[str]:
-    """Every problem found: the lock, the listed files, and the manifest rebuilt from the runs on disk."""
+def check(plan: Path = PLAN, root: Path = ROOT, manifest_path: Path = MANIFEST, working_tree: bool = False) -> list[str]:
+    """Every problem found: the lock, the listed files, and the manifest rebuilt from the runs on disk.
+
+    By default (amendment 1) the listed files git tracked are checked at the lock tag and differing working copies are
+    printed for information; `working_tree=True` is the original check of every working copy."""
     text = plan.read_bytes().decode("utf-8")
     entries = plan_entries(text)
-    problems = [p for p in (lock_problem(plan),) if p] + file_problems(entries, root)
-    print(f"{len(entries)} frozen files listed in {plan.name}, section 3")
+    problems = [p for p in (lock_problem(plan),) if p]
+    if working_tree:
+        problems += file_problems(entries, root)
+        print(f"{len(entries)} frozen files listed in {plan.name}, section 3 (working copies, the original check)")
+    else:
+        found, info = tagged_problems(plan, entries, root)
+        problems += found
+        tag = (lock_git.declared_lock(text) or ("(no tag declared)",))[0]
+        print(f"{len(entries)} frozen files listed in {plan.name}, section 3 (files in git checked at tag {tag}, "
+              f"the others on disk)")
+        for line in info:
+            print(f"  information only: {line}")
+        if not info:
+            print("  information only: every working copy equals its locked version")
     led, table = ledger.Ledger(), sealed.SealedTable()
     try:
         rebuilt = build_manifest(led, table, config.load_yaml("models.yaml"), config.load_yaml("bug_classes.yaml"))
@@ -149,7 +187,19 @@ def main(argv: list[str] | None = None) -> int:
     group.add_argument("--write-manifest", action="store_true")
     group.add_argument("--check", action="store_true")
     group.add_argument("--lock", action="store_true")
+    group.add_argument("--amend-lock", action="store_true", help="new .sha256 after a written amendment")
+    parser.add_argument("--working-tree", action="store_true",
+                        help="with --check: the original check of the working copies (before amendment 1)")
     args = parser.parse_args(argv)
+    if args.amend_lock:
+        try:
+            old, new = lock_git.amend_lock(PLAN, ROOT)
+        except ValueError as exc:
+            print(f"Not amended: {exc}")
+            return 1
+        print(f"AMENDED: {PLAN.name}.sha256 old {old}")
+        print(f"AMENDED: {PLAN.name}.sha256 new {new}")
+        return 0
     led, table = ledger.Ledger(), sealed.SealedTable()
     if args.write_manifest:
         if lock_problem(PLAN) != NOT_LOCKED:
@@ -159,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
         MANIFEST.write_bytes(manifest_bytes(manifest))
         print(f"Wrote {MANIFEST}: {len(manifest['runs'])} runs, SHA-256 {sha256(MANIFEST.read_bytes())}")
         return 0
-    problems = check()
+    problems = check(working_tree=args.working_tree or args.lock)
     if args.lock:
         if NOT_LOCKED not in problems:
             print("Already locked: a locked plan changes only by a written amendment.")

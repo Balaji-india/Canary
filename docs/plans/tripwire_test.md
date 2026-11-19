@@ -249,3 +249,27 @@ has one base near 81 s). In all about 1.2 to 2 hours.
      that replaced it and why (section 4).
   3. **Backup name: yes**, `data-2026-11-18-tripwire-test.zip` whatever day the build runs (step 10.5).
 - Nothing open: the student gave the OK to lock on 2026-11-18.
+
+## 10. Amendment 1 (2026-11-19): reproducibility is checked at the lock commit, not in the working tree
+- Lock commit: tag `tripwire-test-1-lock`, plan SHA-256 at the tag 6b07fe92cc8acfe0db6838115a83e6090ddc57aa3168aa95bca3ac810ca501d5
+- **Date and who:** 2026-11-19, the student's decision (option C), written by Claude (Opus). Recorded in `PROGRESS.md`
+  (Decisions, and the Mission 5.1 step 11 entry).
+- **Reason:** the freeze ended when both result files were committed (`b28e722`, section 3, "End of the freeze").
+  Mission 4.1 must change `canary/trust.py`, which section 3 lists. Comparing working copies would then make `--check`
+  fail for good, although every locked byte still exists in git at the tag.
+- **The lock commit:** `172bf95` ("Mission 5.1 step 9: tripwire test plan locked"), already tagged
+  `tripwire-test-1-lock` (pushed 2026-11-18). The plan at the tag hashes to the original `.sha256` (6b07fe92...).
+- **What changes (only how reproducibility is checked):** `python -m eval.tripwires_test --check` checks this plan
+  against its `.sha256`, the tag (it must exist, the plan at the tag must hash to the value in the line above, and this
+  file must start with the plan's bytes at the tag), each file of section 3 that git tracked at the tag as
+  `git show tripwire-test-1-lock:<path>` (LF bytes) instead of the working copy, and `data/calibration/pool-2.json`
+  (outside git) and both slot lists on disk as before. Working copies that differ from the locked version are printed
+  for information only. `--git-check` compares the listed hashes with the blobs at the tag (the `-text` and
+  working-copy columns are unchanged). `--check --working-tree` still gives the original check, and `--batch` still
+  requires it (and refuses anyway: both result files exist). `--amend-lock` writes the new `.sha256` (it refuses unless
+  this file at HEAD matches the old one and the change only adds text with an amendment heading). Code:
+  `eval/lock_git.py` (new) and `eval/tripwires_test.py`.
+- **What does not change:** sections 1 to 9 above, byte for byte (the check enforces it); the tripwire version
+  `v1:765b9cc1...` (its three files are not changed by this amendment); the locked analysis and the bars of section 5;
+  the committed results (`test_tripwire-test-1.json` PASSED, `test_ceiling-ext.json` reported only); the listed hashes.
+  Reproducing the result still means the clone at the tag with `data/` restored from the backup (section 3).

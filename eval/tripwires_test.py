@@ -5,6 +5,15 @@
     python -m eval.tripwires_test --batch tripwire-test-1     the test, once (then --batch ceiling-ext)
     python -m eval.tripwires_test --git-check                 line endings of the frozen files against git (step 9)
     python -m eval.tripwires_test --sync-lf                   working copies made byte-identical to git (step 9)
+    python -m eval.tripwires_test --check --working-tree      the check as it was before amendment 1
+    python -m eval.tripwires_test --amend-lock                new .sha256 after a written amendment
+
+Amendment 1 (2026-11-19, plan section 10): the freeze ended when both results were committed (b28e722), and Mission
+4.1 must change `canary/trust.py`. Since then `--check` verifies each listed file that git tracked at the lock against
+`git show tripwire-test-1-lock:<path>` (`eval.lock_git`) and checks `pool-2.json` (outside git) and the slot lists on
+disk as before; `--git-check` compares the listed hashes with the blobs at the tag. Working copies that differ from the
+locked version are printed for information only. `--batch` keeps the original strict check of the working copies: the
+locked analysis runs only on exactly the frozen code (it also refuses because both result files exist).
 
 Why (docs/plans/mission_5_1_tripwires.md, section 7.2 and step 9): the tripwires were built while looking at the
 development batches, so their numbers there say little. The test is the first look at runs the tripwire code has
@@ -48,7 +57,7 @@ from pathlib import Path
 from canary import sandbox, sealed, tripwires
 from canary.config import DATA_DIR, ROOT
 from canary.saboteur import classes
-from eval import ceiling, tripwires_dev as dev
+from eval import ceiling, lock_git, tripwires_dev as dev
 
 PRIMARY, SECONDARY = "tripwire-test-1", "ceiling-ext"
 TEST_BATCHES = (PRIMARY, SECONDARY)
@@ -159,6 +168,32 @@ def lock_problems(plan: Path = PLAN, root: Path = ROOT) -> list[str]:
     return problems
 
 
+def tagged_lock_problems(plan: Path = PLAN, root: Path = ROOT) -> tuple[list[str], list[str]]:
+    """(problems, information) for `--check` since amendment 1: like `lock_problems`, but each listed file git tracked
+    at the plan's lock tag is checked there (`eval.lock_git`), not in the working tree. Files outside git and the slot
+    lists are checked on disk as before; a differing working copy is information, not a problem."""
+    if not plan.exists():
+        return [f"{plan.name}: missing"], []
+    text = plan.read_text(encoding="utf-8")
+    entries = plan_entries(text)
+    problems = [f"{name}: not listed in section 3" for name in MUST_FREEZE if name not in dict(entries)]
+
+    def on_disk(name: str, digest: str) -> str | None:
+        file = root / name
+        if not file.exists():
+            return f"{name}: missing"
+        return None if lf_sha256(file) == digest else f"{name}: hash differs from the plan"
+
+    found, info = lock_git.check_at_tag(plan, entries, root, on_disk, lock_git.lf)
+    problems += found + slot_problems(text, root)
+    lock = lock_path(plan)
+    if not lock.exists():
+        problems.append(NOT_LOCKED)
+    elif lock.read_text(encoding="utf-8").split()[0] != lf_sha256(plan):
+        problems.append(f"{plan.name}: edited after it was locked (hash differs from {lock.name})")
+    return problems, info
+
+
 def write_lock(plan: Path = PLAN, root: Path = ROOT) -> str:
     """Write the plan's .sha256. Refuses a plan still marked DRAFT or any file problem: lock only what was checked."""
     problems = file_problems(plan, root)
@@ -194,19 +229,29 @@ def git_text_attr(name: str, root: Path = ROOT) -> str:
     return out.rsplit(": ", 1)[-1] if out else "unknown"
 
 
-def line_ending_rows(plan: Path = PLAN, root: Path = ROOT, blob=git_blob, attr=git_text_attr) -> list[dict]:
-    """Per frozen file: in git?, -text?, working copy byte-identical to the HEAD blob?, listed hash = SHA-256 of it?"""
+def line_ending_rows(plan: Path = PLAN, root: Path = ROOT, blob=git_blob, attr=git_text_attr,
+                     locked_blob=None) -> list[dict]:
+    """Per frozen file: in git?, -text?, working copy byte-identical to the HEAD blob?, listed hash = SHA-256 of the
+    locked blob? `locked_blob(name, root)` gives the bytes at the lock tag (amendment 1); without it, the HEAD blob."""
     rows = []
     for name, digest in plan_entries(plan.read_text(encoding="utf-8")):
         committed = blob(name, root)
         row = {"file": name, "in_git": committed is not None}
         if committed is not None:
             file = root / name
+            locked = committed if locked_blob is None else locked_blob(name, root)
             row.update(minus_text=attr(name, root) == "unset",
                        working_is_blob=file.exists() and file.read_bytes() == committed,
-                       hash_is_blob=hashlib.sha256(committed).hexdigest() == digest)
+                       hash_is_blob=locked is not None and hashlib.sha256(locked).hexdigest() == digest)
         rows.append(row)
     return rows
+
+
+def tag_blob_reader(plan: Path = PLAN, root: Path = ROOT):
+    """`locked_blob` for `line_ending_rows`: the file at the lock tag the amended plan names (None if no tag)."""
+    declared = lock_git.declared_lock(plan.read_text(encoding="utf-8"))
+    commit = lock_git.tag_commit(declared[0], root) if declared else None
+    return lambda name, r: lock_git.blob_at(commit, name, r) if commit else None
 
 
 def line_endings_ok(rows: list[dict]) -> bool:
@@ -397,10 +442,32 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--git-check", action="store_true", help="line endings of the frozen files against git HEAD")
     mode.add_argument("--sync-lf", action="store_true",
                       help="make frozen working copies byte-identical to git HEAD (line endings only)")
+    mode.add_argument("--amend-lock", action="store_true", help="new .sha256 after a written amendment")
     parser.add_argument("--workers", type=int, default=4, help="replays at the same time (each is its own process)")
+    parser.add_argument("--working-tree", action="store_true",
+                        help="with --check: the original check of the working copies (before amendment 1)")
     args = parser.parse_args(argv)
+    if args.amend_lock:
+        try:
+            old, new = lock_git.amend_lock(PLAN, ROOT, lock_git.lf)
+        except ValueError as exc:
+            print(f"Not amended: {exc}")
+            return 1
+        print(f"AMENDED: {PLAN.name}.sha256 old {old}")
+        print(f"AMENDED: {PLAN.name}.sha256 new {new}")
+        return 0
     if args.check:
-        problems = lock_problems()
+        if args.working_tree:
+            problems, info = lock_problems(), []
+            print("(working copies, the original check)")
+        else:
+            problems, info = tagged_lock_problems()
+            declared = lock_git.declared_lock(PLAN.read_text(encoding="utf-8"))
+            print(f"(files in git checked at tag {declared[0] if declared else '(no tag declared)'}, the others on disk)")
+        for line in info:
+            print(f"  information only: {line}")
+        if not args.working_tree and not info:
+            print("  information only: every working copy equals its locked version")
         for line in problems:
             print(f"  {line}")
         if problems == [NOT_LOCKED]:
@@ -409,11 +476,11 @@ def main(argv: list[str] | None = None) -> int:
         print("Tripwire lock check: OK" if not problems else "Tripwire lock check: FAILED")
         return 0 if not problems else 1
     if args.git_check:
-        rows = line_ending_rows()
+        rows = line_ending_rows(locked_blob=tag_blob_reader())
         for r in rows:
             print(f"  {r['file']}: " + ("outside git (hashed as on disk)" if not r["in_git"] else
                   f"-text {'yes' if r['minus_text'] else 'NO'}, working copy = HEAD blob "
-                  f"{'yes' if r['working_is_blob'] else 'NO'}, listed hash = SHA-256 of HEAD blob "
+                  f"{'yes' if r['working_is_blob'] else 'NO'}, listed hash = SHA-256 of the blob at the lock tag "
                   f"{'yes' if r['hash_is_blob'] else 'NO'}"))
         print("Line endings: OK" if line_endings_ok(rows) else "Line endings: NOT OK")
         return 0 if line_endings_ok(rows) else 1
