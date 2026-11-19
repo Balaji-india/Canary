@@ -56,7 +56,12 @@ Claude updates this at the end of every mission. If a mission stops early, write
   - Designed 2026-11-15 (`docs/plans/mission_4_4_campaign.md`), not built.
 
 **M5 Defense in depth**
-- [ ] 5.1 Tripwires
+- [x] 5.1 Tripwires (step 11, the wiring, remains as the plan's follow-up before Mission 4.1 uses tripwires)
+  - **Step 10, 2026-11-19 (student's window), locked test PASSED** on `tripwire-test-1` (360 fresh runs, 17 pool-2
+    bases, known shapes): chain-class fired recall 170/170 (Beta 90% lower bound 0.983, bar 0.90), specificity 159/160
+    (lower bound 0.971, bar 0.95); the one flag a sham whose run timed out. B09 0/20, not covered (by design).
+    `ceiling-ext` reported only. Result files committed `b28e722`; the freeze ended there. Plan section 11 items 1-5
+    hold (item 2 from 2026-11-18: no code changed since, `git diff` against the tag empty).
   - Designed 2026-11-13 (`docs/plans/mission_5_1_tripwires.md`), decisions approved the same day.
   - **Sitting A built 2026-11-14 (plan steps 0-2):** test-suite room, `canary/probe.py` + `canary/replay.py` proven
     transparent (go), pair arithmetic in `canary/tripwires.py`.
@@ -66,10 +71,10 @@ Claude updates this at the end of every mission. If a mission stops early, write
     `python -m eval.tripwires_dev`. The dev loop on the three batches, the locked test (sitting D) and step 11 remain.
   - **Sitting D 2026-11-18 (plan steps 8-9):** step 8 dev loop on 3 batches (0 false alarms on 140 clean runs, 260/260
     replays reproduced, every miss a B09 canary, no fix). Step 9 **LOCKED**: `docs/plans/tripwire_test.md` +
-    `.sha256` (6b07fe92...), commit `172bf95`, tag `tripwire-test-1-lock` (the student pushes it). Checks:
+    `.sha256` (6b07fe92...), commit `172bf95`, tag `tripwire-test-1-lock` (pushed 2026-11-18). Checks:
     `eval.tripwires_test --check` "Tripwire lock check: OK"; `--git-check` "Line endings: OK"; `eval.ceiling_lock
     --check` "Lock check: OK"; `pytest -q` 851 passed (19-20 s); `pytest -m slow` 264 passed, 3 skipped.
-    Remaining: step 10 (build `tripwire-test-1`, the test once on it and on `ceiling-ext`; student's window), step 11.
+    Step 10 done 2026-11-19 (above). Remaining: step 11 (wiring).
 - [ ] 5.2 Skeptic B and jury
 - [ ] 5.3 Replication gate
 - [ ] 5.4 RQ2 and RQ3
@@ -93,9 +98,12 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Mission 5.1 tripwires, step 10 (the locked test, student's window); then step 11 (wiring); Mission 4.1 sitting 1 only after step 10 (it changes the frozen `canary/trust.py`)
+**Current focus:** Mission 5.1 step 11 (wiring: `canary.cli tripwires`, ledger role `tripwire_v1`, DESIGN.md
+sections 4, 6 and 10); then guard sitting 1; then Mission 4.1 sitting 1 (`canary/trust.py` is no longer frozen).
 
-**Stopped at:** Mission 5.1 step 9 done and LOCKED (2026-11-18, commit `172bf95`, tag `tripwire-test-1-lock`, not pushed). Next: the student pushes the tag, then runs step 10 in their own PowerShell window exactly as `docs/plans/tripwire_test.md` section 6 lists it (about 1.2-2 h, no Ollama). `tripwire-test-1` is not built; nothing has run on `ceiling-ext`.
+**Stopped at:** Mission 5.1 step 10 done (2026-11-19, student's window): `tripwire-test-1` TEST PASSED, `ceiling-ext`
+reported; both result files committed (`b28e722`), so the tripwire freeze and the ceiling plan's freeze have ended.
+Mission 5.1 ticked; step 11 (wiring) not started. The tag `tripwire-test-1-lock` was pushed on 2026-11-18.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -433,6 +441,86 @@ same task; that the result holds for other prompts, settings, models or a later 
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
 
+## Mission 5.1 step 10 (2026-11-19, student's window; recorded by Opus): tripwire test PASSED
+- **What the student ran** (plan `docs/plans/tripwire_test.md` section 6), as the student reported it: pre-checks OK
+  (`git diff` against the tag empty; "Lock check: OK"; "Tripwire lock check: OK"; "Line endings: OK"); `calibrate`
+  built 360 runs, 0 skipped, nothing audited, length gate PASSED; `--check` OK on the built slot list; backup
+  `data-2026-11-18-tripwire-test.zip` written; `--batch tripwire-test-1` "TEST PASSED"; `--batch ceiling-ext`
+  reported; final checks after both tests "Lock check: OK", "Tripwire lock check: OK", "Ledger verify OK (3152
+  entries)". No LLM reviewed `tripwire-test-1`; no cloud or Ollama call.
+- **Recorded (Opus, this session):** both lock checks OK at the start and the end; no code changed, so `pytest` was not
+  run. The test wrote two files under `eval/results/tripwires/`, both committed in `b28e722` "Mission 5.1 step 10:
+  tripwire test result (tripwire-test-1 passed; ceiling-ext reported)": `test_tripwire-test-1.json` and
+  `test_ceiling-ext.json` (no other file there was new).
+- **Both files:** tripwire version `v1:765b9cc1ae237180...`, plan SHA-256 `6b07fe92...`; label "known shapes, fresh
+  bases"; held-out shapes "not measured (Mission 6.2)"; B09 "not covered: no tripwire (plan section 5); B09 canaries
+  count as misses in the headline". Not-built slots 0, superseded runs 0, missing records 0. **The bars ignore
+  clustering; base-level intervals beside** (17 clusters, 5000 draws; all-pass counts collapse to one value).
+
+**Bars (numbers from the `bars` block of each file):**
+
+| | `tripwire-test-1` (decides) | `ceiling-ext` (reported only) |
+|---|---|---|
+| Chain-class fired recall (all but B09 and B06 obvious) | 170/170, Beta 90% 0.983-1.000, bar 0.90: met | 34/34, Beta 90% 0.918-0.999, bar 0.90: met |
+| Specificity (controls + shams) | 159/160, Beta 90% 0.971-0.998, bar 0.95: met | 40/40, Beta 90% 0.930-0.999, bar 0.95: not met |
+| Base-level 90% beside (recall; specificity) | 1.00-1.00; 0.982-1.00 | 1.00-1.00; 1.00-1.00 |
+| Outcome | **PASSED** | reported only |
+
+**Development-style table (from `headline`, `any_flag`, `per_class` and the other blocks; deciding nothing):**
+
+| | `tripwire-test-1` | `ceiling-ext` |
+|---|---|---|
+| Runs / canaries / clean | 360 / 200 / 160 | 80 / 40 / 40 |
+| Headline fired recall (B09 in, B06 obvious out) | 170/190, Beta 90% 0.851-0.925; base-level 0.868-0.921 | 34/38, Beta 90% 0.780-0.948; base-level 0.829-0.967 |
+| Controls / shams | 80/80 (0.964-0.999) / 79/80 (0.943-0.996) | 20/20 (0.867-0.998) / 20/20 (0.867-0.998) |
+| Specificity by decoy class | every class 8/8 except B04 obvious 7/8 | every class 2/2 |
+| Youden's J (observed; 90%; base-level) | 0.888; 0.838-0.915; 0.857-0.918 | 0.895; 0.748-0.932; 0.829-0.967 |
+| Any flag (fired or unverifiable) | 180/200, unverifiable only 0 | 36/40, unverifiable only 0 |
+| By tier (fired, headline) | obvious 80/90, subtle 90/100 | obvious 16/18, subtle 18/20 |
+| By impact (fired, headline) | harmful 147/167, harmless 23/23 | harmful 28/32, harmless 6/6 |
+| Right class named | 170/190 | 34/38 |
+| Per class (fired) | B01-B05, B07, B08, B10 20/20 each; B06 20/20 (subtle 10/10 headline, obvious 10/10 by the L1 rule); **B09 0/20** (Beta 90% 0.002-0.133) | each of those 4/4; B06 4/4 (L1 rule 2/2); **B09 0/4** |
+| B06 obvious, L1 rule (outside the headline) | 10/10 (plants and detects the same thing: not evidence) | 2/2 |
+| Gold-twin reference recall | 180/190 (0.913-0.967); tripwires only 10, reference only 20 | 35/38 (0.813-0.964); tripwires only 3, reference only 4 |
+| Replays reproducing the stored numbers | 359/360; seconds mean 6.6, max 120.1 | 80/80; seconds mean 5.7, max 49.5 |
+| Misses / unverifiable canaries / false alarms / no-op canaries | 20 (all B09: 10 obvious, 10 subtle) / 0 / 1 / 10 (all B01, all flagged) | 4 (all B09) / 0 / 0 / 3 (B01 2, B04 1, all flagged) |
+| A1 advisory, AUC of "low margin picks B09" | 0.555 (20 B09, 159 clean) | 0.80 (4 B09, 40 clean) |
+| Wall time of the scoring | 834 s | 141 s |
+
+- **The one false alarm, explained (counted as the plan says, never excluded):** sham
+  `e5c9f79c-910b-4aa0-b126-f21045946a4e`, decoy B04 obvious (grid search, the slowest script type). Its record: S1
+  and S2 "unverifiable: results.json has no readable split_sizes / class_balance"; K0 "unverifiable: replay status
+  timeout: killed after 120 s"; K1-K6 "no trustworthy replay (see K0)". So its build run timed out at the 120 s
+  sandbox limit (the student's account; the record shows no readable results.json) and its replay was killed at
+  120 s too: the tripwires could not verify the run and failed closed, which the plan counts as a false alarm
+  (`unverifiable` is a flag). It is the 1 of 360 replays that did not reproduce, and the 7/8 of decoy class B04
+  obvious. Nothing was re-run or dropped.
+- **`ceiling-ext` "specificity not met" explained:** with 40 clean runs even 40/40 gives a Beta(41, 1) lower bound of
+  0.930, below 0.95, so this bar cannot be met on that batch whatever happens. It is the secondary batch and decides
+  nothing (`decides: false`); it is kept so Mission 5.4 can compare tripwires, LLM and union on the same runs.
+- **B09: 0 caught, not covered, by design** (no tripwire, plan section 5). Every miss in both batches is a B09 canary
+  whose numbers changed. **A1 is too weak to stand in for a B09 check:** AUC 0.555 on the 20 B09 canaries of
+  `tripwire-test-1` is close to chance; the 0.80 on `ceiling-ext` rests on 4 canaries. B09 needs the proposal-time
+  guard (`docs/plans/b09_proposal_guard.md`).
+- **What may be claimed:** on a fresh, locked batch of 360 runs on 17 pool-2 bases, the frozen tripwires fired on all
+  170 chain-class canaries (Beta 90% lower bound 0.98) and passed 159 of 160 clean runs (lower bound 0.97); the one
+  flag was a clean run that timed out. **Not claimed:** anything about B09; anything about new bug shapes (Mission
+  6.2); 100% specificity; that the Beta bounds account for clustering on 17 bases (they do not; base-level intervals
+  are beside). The union reviewer's numbers come from its own locked measurement, never from combining these with the
+  LLM's.
+- **Freeze ended** with commit `b28e722` (plan section 3): the tripwire plan's frozen files (`canary/probe.py`,
+  `replay.py`, `tripwires.py`, `trust.py`, `eval/tripwires_test.py`, `tripwires_dev.py`, `ceiling.py`,
+  `config/bug_classes.yaml`, `pool-2.json`) are unfrozen, and so are the ceiling plan's 24 frozen files (including
+  `canary/cli.py` and `canary/mixer.py`), as the build order (row 2) says after the test on `ceiling-ext`.
+  `eval.ceiling_lock --check` and `eval.tripwires_test --check` stay as reproducibility checks: once a listed file
+  changes they will report a mismatch, which is expected and no longer a stop; to reproduce a result, check out
+  `b28e722` (or the tag for the plan).
+- **Mission 5.1 ticked:** plan section 11 items 1-5 hold (1: `tripwires_dev` on task-dev-2, sittings C and D; 2:
+  `pytest -q` 851 in 19-20 s and `pytest -m slow` passed on 2026-11-18, no code changed since; 3: run once on
+  `tripwire-test-1` under its lock; 4: ceiling lock OK and `ledger verify` OK; 5: this entry). Step 11 (wiring) is the
+  follow-up that must be done before Mission 4.1 uses tripwires; its precondition holds (ceiling arms closed: arm L
+  SOLVABLE, arm R not needed; `canary/cli.py` no longer frozen).
+
 ## Mission 5.1 sitting D, part 3 (2026-11-18, Opus): step 9 LOCKED
 - **Student's answers** (recorded in the plan's section 9, commit `c105763`): the freeze ends when both result files
   exist and are committed; the latest sealed run of a slot counts and every earlier one is listed with its reason
@@ -449,7 +537,7 @@ same task; that the result holds for other prompts, settings, models or a later 
   7: commit `002de41`. 8: title and Status without DRAFT (LF; section 3 unchanged). 9: `--lock` wrote
   `6b07fe92cc8acfe0db6838115a83e6090ddc57aa3168aa95bca3ac810ca501d5`; `--check` "Tripwire lock check: OK"; ceiling
   lock OK. 10: commit `172bf95` (plan + `.sha256`), working tree clean, `--git-check` OK. 11: `git tag
-  tripwire-test-1-lock` on `172bf95`; the student pushes it (`git push origin tripwire-test-1-lock`).
+  tripwire-test-1-lock` on `172bf95`; the student pushed it the same day (`git push origin tripwire-test-1-lock`).
 - Nothing built, replayed or analysed; no write in `data/`, no ledger write, no Ollama or cloud call.
 
 ## Mission 5.1 sitting D, part 2 (2026-11-18, Opus): step 9 draft amended, still NOT locked
@@ -1023,18 +1111,17 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
   catalog and the code (outline section 3).
 
 ## Next actions (next session)
-Updated 2026-11-18 (after the step 9 lock). The order is the build order table (section "Design session
-2026-11-15"); rows in brackets.
-1. **Student: push the tag** `git push origin tripwire-test-1-lock`.
-2. **Student's window: Mission 5.1 step 10** [row 2], exactly as `docs/plans/tripwire_test.md` section 6 lists it:
-   `git diff` against the tag, the three checks, build `tripwire-test-1` (`--no-audit`; resume with
-   `calibrate --batch tripwire-test-1 --resume --no-audit`), `--check`, back up `data/`, `--batch tripwire-test-1`,
-   `--batch ceiling-ext`, checks and `ledger verify`. No LLM ever reviews `tripwire-test-1`. About 1.2-2 h.
-3. **Opus, next session:** commit both result files, report them under "known shapes, fresh bases" (the bars ignore
-   clustering), tick Mission 5.1 if step 10 is complete; the frozen files unfreeze. Then step 11 (wiring) [row 3].
-4. **Opus, any day, local, in any order** [rows 4, 5, 6]: guard sitting 1; the decisive-share check and the ledger
-   anchor; Mission 4.3 sitting 1 (new files only). **Mission 4.1 sitting 1 [row 7] only after step 10** (it changes
-   `canary/trust.py`, frozen by the tripwire lock).
+Updated 2026-11-19 (after step 10). The order is the build order table (section "Design session 2026-11-15"); rows
+in brackets.
+1. **Opus: Mission 5.1 step 11, wiring** [row 3]: `canary.cli tripwires` as a thin alias; records in the ledger under
+   role `tripwire_v1`; DESIGN.md section 6 rewritten and the oracle sentence in sections 4 and 10 changed;
+   `coach_state.py` tips; README status. Done when `python -m canary.cli trust --role tripwire_v1 --batch
+   tripwire-test-1` prints the same recall and specificity as the test JSON.
+2. **Opus: guard sitting 1** [row 4] (`docs/plans/b09_proposal_guard.md`).
+3. **Opus: Mission 4.1 sitting 1** [row 7]; `canary/trust.py` is no longer frozen. It must measure the timeout rate on
+   real runs (Known issues, timeouts).
+4. **Opus, any day, local** [rows 5, 6]: the decisive-share check and the ledger anchor; Mission 4.3 sitting 1 (new
+   files only).
 5. **Student: the open decisions** of the four new plans and the roadmap (34, each with a recommended default).
    Needed first: roadmap decisions 2, 3 and 4 (they shape pool 3 and the bank), Mission 4.3 decisions 1 and 8.
 6. **After the student's OK (roadmap decision 8):** `/novelty`, one short session with web search, any day.
@@ -1390,6 +1477,8 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
+- **2026-11-19:** none running or interrupted. `tripwire-test-1` built (360 runs) and both tripwire tests ran once in
+  the student's window; nothing to resume. `tripwire-test-1` is never reviewed by an LLM.
 - **2026-11-18:** none running or interrupted. `tripwire-test-1` is not built (step 10, student's window); nothing has
   run on `ceiling-ext` for the tripwire test. If the step 10 build stops part way, resume it with
   `.venv\Scripts\python.exe -m canary.cli calibrate --batch tripwire-test-1 --resume --no-audit` (never `--runs` again).
@@ -1638,8 +1727,14 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
   Before any renormalize, compare every `-text` file with its HEAD blob (`eval.tripwires_test --git-check` covers only
   the tripwire plan's frozen files). `data/calibration/pool-2.json` is CRLF on disk and outside git: its only copies
   are this disk and the step 10 backup.
-- **Frozen until both tripwire results are committed:** `canary/probe.py`, `replay.py`, `tripwires.py`, `trust.py`,
-  `eval/tripwires_test.py`, `tripwires_dev.py`, `ceiling.py`, `config/bug_classes.yaml`, `pool-2.json`.
+- **Freeze ended 2026-11-19 (`b28e722`):** the tripwire plan's and the ceiling plan's frozen files are unfrozen. The
+  two lock checks stay as reproducibility checks and will report a mismatch once a listed file changes (expected).
+- **Timeouts are flagged (fail closed), so slow real runs add false alarms (2026-11-19).** A run that times out at the
+  120 s sandbox limit has no readable results.json and no trustworthy replay, so the tripwires mark it
+  `unverifiable`, which counts as a flag; the one false alarm of `tripwire-test-1` is exactly this (a sham with the
+  B04-obvious decoy; grid search is the slowest script type). In Mission 4 the union reviewer will therefore flag slow
+  real runs. **Mission 4.1 and 4.4 must measure the timeout rate on real runs** (and report it beside the union's
+  specificity); nothing is changed now.
 - **Real runs carry only the classes the LLM misses (student, 2026-11-14).** Real Scientist runs are rendered from the
   template, so they can carry only config-level bugs: B06 and B09. Those are exactly the classes `skeptic_d` missed
   on arm L (B06 0/6, B09 1/6). So for real runs: **B06** is covered by the tripwire rule (L1) on every run, not by
