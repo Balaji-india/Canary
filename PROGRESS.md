@@ -74,8 +74,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
     `.sha256` (6b07fe92...), commit `172bf95`, tag `tripwire-test-1-lock` (pushed 2026-11-18). Checks:
     `eval.tripwires_test --check` "Tripwire lock check: OK"; `--git-check` "Line endings: OK"; `eval.ceiling_lock
     --check` "Lock check: OK"; `pytest -q` 851 passed (19-20 s); `pytest -m slow` 264 passed, 3 skipped.
-    Step 10 done 2026-11-19 (above). Step 11 (wiring) part 1 built 2026-11-19 (`canary/tripwire_ledger.py`);
-    the `canary.cli` part waits for the student (it would break `eval.ceiling_lock --check`; see the step 11 entry).
+    Step 10 done 2026-11-19 (above). Step 11 (wiring) built 2026-11-19: part 1 `canary/tripwire_ledger.py`, part 2
+    `canary.cli tripwires` after amendment 1 of both locked plans (lock checks at the lock tags). The real-ledger write
+    is the student's command (step 11 part 2 entry); the DESIGN.md text moves to the sync sitting (roadmap decision 9).
 - [ ] 5.2 Skeptic B and jury
 - [ ] 5.3 Replication gate
 - [ ] 5.4 RQ2 and RQ3
@@ -99,15 +100,12 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** B09 guard sitting 1 (touches no locked file); Mission 5.1 step 11's `canary.cli` part waits for
-the student's choice on the frozen `canary/cli.py` (step 11 entry below).
+**Current focus:** the student pushes the tag `ceiling-check-lock` and runs the real-ledger tripwire write (commands
+in the step 11 part 2 entry); then B09 guard sitting 1, then Mission 4.1 sitting 1 (which may now change
+`canary/trust.py` and `canary/cli.py`: both lock checks verify the locked versions at their tags).
 
-**Stopped at:** Mission 5.1 step 11, after part 1 (2026-11-19, Opus). Built and committed: `canary/tripwire_ledger.py`
-(records under role `tripwire_v1`) with 15 tests; checked on temporary copies of the ledger (parity with both test
-JSON files: SAME). **Stopped before editing `canary/cli.py`:** it is one of the ceiling plan's 24 hashed files, so
-adding `canary.cli tripwires` would make `eval.ceiling_lock --check` fail, and the student's rule says stop and ask
-first. Nothing was written to the real ledger (3152 entries). Next: the student chooses (step 11 entry, "Decision
-needed"), then the CLI part, then the real-ledger command (the student runs it).
+**Stopped at:** Mission 5.1 step 11 is built (2026-11-19, Opus, parts 1 and 2). Nothing was written to the real ledger
+(3152 entries); the record commands are printed for the student. Nothing pushed.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -444,6 +442,63 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Mission 5.1 step 11, part 2 (2026-11-19, Opus): amendment 1 of both locked plans, then `canary.cli tripwires`
+- **Decisions (student):** option C for the lock checks, then the CLI in `canary/cli.py`; the three open
+  design-session-2 decisions approved (Decisions section; commit `044186c`). The 4.3 plan now says the sentinel at 20
+  calls a day catches a collapse, not a slow drift.
+- **Before (the original checks, working copies):** `eval.ceiling_lock --check` "Lock check: OK, every hash matches"
+  (24 files, manifest 120 runs, arm L 120 answered, call log 143 attempts, only `openai/gpt-oss-120b`);
+  `eval.tripwires_test --check` "Tripwire lock check: OK"; `--git-check` "Line endings: OK".
+- **The ceiling lock commit:** `2332136` (2026-11-12, the commit that added `cloud_ceiling_check.md.sha256`; new ID
+  after the 2026-11-17 rewrite). The plan there hashes to the original `.sha256` and equals the working plan; all 18
+  files of section 3 that git tracks hash, as `git show 2332136:<path>`, to their listed values; the 6 data files are
+  not in git. Tagged **`ceiling-check-lock` -> 2332136** (local; the student pushes it). `tripwire-test-1-lock` ->
+  `172bf95` as before.
+- **Amendment 1** (appended as section 11 of `cloud_ceiling_check.md` and section 10 of `tripwire_test.md`; nothing
+  above it changed, which the check now enforces): reason (freeze over, Mission 4.1 changes `cli.py` and `trust.py`),
+  what changes (only how reproducibility is checked), what does not (locked analysis, bars, results, listed hashes).
+  New `.sha256` by `--amend-lock` (refuses unless the plan at HEAD matches the old hash and the change only appends
+  text with an amendment heading): ceiling **88cb6078cdbd6dff7926debde83e4e7a7cec5dfbcbc49f32fcb1b4b32682e8bc ->
+  f328939322e1382760f9d28685b60d4e2661b7dde1da397f8d2b032c5a41cdc8**; tripwire
+  **6b07fe92cc8acfe0db6838115a83e6090ddc57aa3168aa95bca3ac810ca501d5 ->
+  6057e4a2b2821e36211beefcf416934bb7c012df4082fb25a6e8d258be7a1cf1**. Code: `eval/lock_git.py` (new),
+  `eval/ceiling_lock.py`, `eval/tripwires_test.py` (`--check` at the tag by default, `--check --working-tree` the
+  original, `--amend-lock`; `--git-check` compares listed hashes with the tag's blobs; `--batch` still requires the
+  original strict check). Each plan names its tag and original hash in one line the code reads. Commit `3d5b96d`.
+- **After (the new way):** both checks OK; information lines: `eval/ceiling_lock.py` and `canary/cli.py` (ceiling),
+  `eval/tripwires_test.py` (tripwire) differ from their locked versions. `--git-check` "Line endings: OK". The original
+  ceiling check now fails on those two files, as expected.
+- **CLI (`canary.cli tripwires`, commit `98adf11`):** `inspect <run folder or ID>` (= `python -m canary.tripwires`,
+  replay in a temporary copy), `record --batch B [--write]` (dry run by default; uses the locked test's stored records
+  first; the run IDs come from the sealed table here, never in the ledger writer), `verify` (record files against the
+  hashes in the ledger). Tests `tests/test_cli_tripwires.py` (9) and `tests/test_lock_git.py` (12, 3 of them slow).
+- **Done when, on temporary copies only** (scratch script; real `data/canary.db` and `data/sealed.db` SHA-256
+  unchanged before and after; real ledger 3152 entries): copy verify OK (3152); `record --batch tripwire-test-1` dry
+  run 360 ready (flag 181, pass 179); `--write` 360 written, 0 made; repeat 360 already recorded; `ceiling-ext --write`
+  80 written (flag 36, pass 44); `verify` OK (440 entries); `trust --role tripwire_v1 --batch tripwire-test-1`: B01-B08
+  and B10 20 of 20, B09 0 of 20, controls 80 of 80, shams 79 of 80, combined 159 of 160 (90% [0.971, 0.998]): **the
+  same as `test_tripwire-test-1.json`** (any-flag per class and specificity; the bar's chain-class fired recall 170/170
+  is in the JSON only). `ceiling-ext`: per class 4 of 4, B09 0 of 4, specificity 40 of 40: **same as its JSON**. Copy
+  verify after: OK (3592 entries).
+- **Own /challenge, fixed (commit `4d4d8a0`):** (1) **a bare `canary.cli audit` would have had `skeptic_a` review all
+  360 runs of `tripwire-test-1`** (and ceiling-ext's 80): they wait for the default role. `audit` now leaves out every
+  batch planned `--no-audit` plus `tripwire-test-1`, and `reaudit` / `rescore` refuse `tripwire-test-1` by name, before
+  any model. (2) `trust` said crashed runs "count in no figure above", but a tripwire record of a timed-out run (the
+  sham) is counted; `trust` now prints a note naming such runs. **Stated, not changed:** the new check code is not
+  itself frozen (its info line shows it differs from the locked version; tests pin its behaviour); the ceiling manifest
+  rebuild and the tripwire dry plan still use the working code, so a later change to `skeptic.py`, `blinding.py`,
+  `review_tasks.py`, `prompts.py` or `mixer.py` will make a check fail although the locked bytes exist at the tag
+  (then run that part in a clone at the tag); `record --write` on a batch without stored records replays serially in
+  the foreground.
+- **Checks:** `pytest -q` 883 passed (15.1 s and 14.7 s; wall 17.0 s and 16.5 s); `pytest -m slow` 267 passed, 3
+  skipped; `ledger verify` OK (3152 entries).
+- **Real-ledger write (the student's commands, not run):**
+  `.venv\Scripts\python.exe -m canary.cli ledger verify`;
+  `Copy-Item data\canary.db "$HOME\canary-backups\canary-2026-11-19-before-tripwire-records.db"`;
+  `.venv\Scripts\python.exe -m canary.cli tripwires record --batch tripwire-test-1` (dry run: 360 ready, flag 181,
+  pass 179); `... tripwires record --batch tripwire-test-1 --write`; `... tripwires record --batch ceiling-ext --write`;
+  `... tripwires verify`; `... trust --role tripwire_v1 --batch tripwire-test-1`; `... ledger verify` (3592 entries).
 
 ## Mission 5.1 step 11, part 1 (2026-11-19, Opus): tripwire records in the ledger; CLI part waits for the student
 - **Scope (roadmap decision 9, approved):** CLI and ledger wiring only; the `DESIGN.md` rewrite of sections 4, 6 and 10
@@ -1526,6 +1581,7 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
+- **2026-11-19 (step 11 part 2):** none running or interrupted; nothing replayed, no model called.
 - **2026-11-19:** none running or interrupted. `tripwire-test-1` built (360 runs) and both tripwire tests ran once in
   the student's window; nothing to resume. `tripwire-test-1` is never reviewed by an LLM.
 - **2026-11-18:** none running or interrupted. `tripwire-test-1` is not built (step 10, student's window); nothing has
