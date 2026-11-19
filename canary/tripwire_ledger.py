@@ -67,13 +67,15 @@ def ledger_payload(run_id: str, record: dict) -> dict:
 
 
 def find_record(run_id: str, version: str, folders: list[Path]) -> dict | None:
-    """The first stored record of this run made by this exact tripwire version, searching `folders` in order."""
+    """The first stored replay-tier record of this run made by this exact tripwire version, searching `folders` in
+    order. A static-tier record is passed over here (not refused later), so a batch never stops half written."""
     for folder in folders:
         path = folder / f"{run_id}.json"
         if not path.exists():
             continue
         record = json.loads(path.read_text(encoding="utf-8"))
-        if record.get("version") == version and record.get("run_id", run_id) == run_id:
+        if (record.get("version") == version and record.get("run_id", run_id) == run_id
+                and record.get("tier") == REPLAY_TIER):
             return record
     return None
 

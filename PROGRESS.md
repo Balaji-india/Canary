@@ -74,7 +74,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
     `.sha256` (6b07fe92...), commit `172bf95`, tag `tripwire-test-1-lock` (pushed 2026-11-18). Checks:
     `eval.tripwires_test --check` "Tripwire lock check: OK"; `--git-check` "Line endings: OK"; `eval.ceiling_lock
     --check` "Lock check: OK"; `pytest -q` 851 passed (19-20 s); `pytest -m slow` 264 passed, 3 skipped.
-    Step 10 done 2026-11-19 (above). Remaining: step 11 (wiring).
+    Step 10 done 2026-11-19 (above). Step 11 (wiring) part 1 built 2026-11-19 (`canary/tripwire_ledger.py`);
+    the `canary.cli` part waits for the student (it would break `eval.ceiling_lock --check`; see the step 11 entry).
 - [ ] 5.2 Skeptic B and jury
 - [ ] 5.3 Replication gate
 - [ ] 5.4 RQ2 and RQ3
@@ -98,12 +99,15 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Mission 5.1 step 11 (wiring: `canary.cli tripwires`, ledger role `tripwire_v1`, DESIGN.md
-sections 4, 6 and 10); then guard sitting 1; then Mission 4.1 sitting 1 (`canary/trust.py` is no longer frozen).
+**Current focus:** B09 guard sitting 1 (touches no locked file); Mission 5.1 step 11's `canary.cli` part waits for
+the student's choice on the frozen `canary/cli.py` (step 11 entry below).
 
-**Stopped at:** Mission 5.1 step 10 done (2026-11-19, student's window): `tripwire-test-1` TEST PASSED, `ceiling-ext`
-reported; both result files committed (`b28e722`), so the tripwire freeze and the ceiling plan's freeze have ended.
-Mission 5.1 ticked; step 11 (wiring) not started. The tag `tripwire-test-1-lock` was pushed on 2026-11-18.
+**Stopped at:** Mission 5.1 step 11, after part 1 (2026-11-19, Opus). Built and committed: `canary/tripwire_ledger.py`
+(records under role `tripwire_v1`) with 15 tests; checked on temporary copies of the ledger (parity with both test
+JSON files: SAME). **Stopped before editing `canary/cli.py`:** it is one of the ceiling plan's 24 hashed files, so
+adding `canary.cli tripwires` would make `eval.ceiling_lock --check` fail, and the student's rule says stop and ask
+first. Nothing was written to the real ledger (3152 entries). Next: the student chooses (step 11 entry, "Decision
+needed"), then the CLI part, then the real-ledger command (the student runs it).
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -440,6 +444,49 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Mission 5.1 step 11, part 1 (2026-11-19, Opus): tripwire records in the ledger; CLI part waits for the student
+- **Scope (roadmap decision 9, approved):** CLI and ledger wiring only; the `DESIGN.md` rewrite of sections 4, 6 and 10
+  moves to the DESIGN.md sync sitting. Lock checks OK at the start; no cloud or Ollama call; nothing replayed; no
+  write in `data/runs/`, `data/tripwires/` or the real ledger.
+- **Built: `canary/tripwire_ledger.py`** (new file, in neither lock's list). `record_runs(run_ids, ledger, write=...)`
+  attaches each run's tripwire record as an `audited` entry under role `tripwire_v1`: `audit` (verdict, suspected
+  class, evidence: the shape `trust.collect_observations` reads), each check's status (fired and unverifiable stay
+  apart), the replay status, the full tripwire version and the SHA-256 of the whole record. Rules: **dry run unless
+  `write`**; the first record of a run stands (a repeat adds nothing); a stored record of the current version is
+  reused (the locked test's records in `data/tripwires/test/<batch>/`), otherwise one is made only when writing (replay
+  in a temporary copy) and stored in `data/tripwires/v1/`; only replay-tier records; **one version per role** (if
+  `tripwire_v1` holds records of another code version every write is refused, so `trust` can never pool two
+  versions); runs not in the ledger or already closed (accepted, escalated, graveyard) are reported, never forced.
+  `verify_records` checks the record files against the hashes in the ledger. The module opens no sealed table, sealed
+  plan or twin and reads no reviewer's opinion; choosing the runs is the caller's job.
+- **Tests (`tests/test_tripwire_ledger.py`, 15, fast):** payload shape; static-tier and wrong-run records refused or
+  passed over; dry run writes nothing; write and repeat; not-in-ledger, closed and no-record runs reported; another
+  version not used and blocks every write; a record made only when writing, nothing written in the run folder;
+  `verify_records` finds an edited and a lost file; a tripwire record does not stop the LLM from reviewing the run
+  (`skeptic._waiting`), as the union needs; **the trust join from the ledger equals `eval.tripwires_dev.score` on the
+  same records** (per class, pooled, specificity combined, controls and shams; hand counts beside); guards (imports,
+  no import chain to the sealed table, the saboteur or a reviewer; no sealed or twin names in the code).
+- **Done-when evidence, on temporary copies only** (scratch script; `data/canary.db` and the sealed table copied, the
+  copy written, the real files' SHA-256 unchanged before and after): `tripwire-test-1` 360 written (flag 181, pass 179),
+  0 made, chain OK, record files match their hashes; the trust join printed per class B01-B08 and B10 20 of 20, B09 0
+  of 20, controls 80 of 80, shams 79 of 80, combined 159 of 160 (90% [0.971, 0.998]); **parity with
+  `test_tripwire-test-1.json`: SAME**. `ceiling-ext`: 80 written (flag 36, pass 44), **parity SAME**. The real
+  done-when (`python -m canary.cli trust --role tripwire_v1 --batch tripwire-test-1`) needs the records in the real
+  ledger: the student's command, after the CLI part.
+- **Checks:** `pytest -q` 865 passed (14.7 s and 14.7 s; wall 16.5 s each); `pytest -m slow` 264 passed, 3 skipped
+  (before the last small fix, which touched only the new module and its tests); lock checks OK at the end;
+  `ledger verify` OK (3152 entries).
+- **Own /challenge, fixed:** a stored static-tier record would have raised in the middle of a batch after earlier
+  writes; static records are now passed over when searching (`no_record`), with a test. **Stated, not changed:** a
+  record file is trusted when it is first read (its hash goes into the ledger, so later edits are found); the parity
+  run is that check for the two test batches. A run accepted before its tripwire record cannot get one (the flow
+  allows no review after acceptance), so Mission 4 must record tripwires before the gate.
+- **Decision needed (the student):** `canary/cli.py` is hashed by the ceiling lock, and `canary/trust.py` by the
+  tripwire lock, so the CLI part of step 11 (and later Mission 4.1, which changes `trust.py` and `cli.py`) cannot be
+  built while both checks must stay exactly OK. Options are in this session's printout; recommended: keep the
+  working-tree checks for this step by putting the commands in a new module (`python -m canary.tripwire_cli`), and
+  decide before Mission 4.1 how the two checks verify against the locked commits instead of the working tree.
 
 ## Mission 5.1 step 10 (2026-11-19, student's window; recorded by Opus): tripwire test PASSED
 - **What the student ran** (plan `docs/plans/tripwire_test.md` section 6), as the student reported it: pre-checks OK
@@ -1113,7 +1160,9 @@ Details and trade-off tables: `docs/plans/cloud_ceiling_check_outline.md` and
 ## Next actions (next session)
 Updated 2026-11-19 (after step 10). The order is the build order table (section "Design session 2026-11-15"); rows
 in brackets.
-1. **Opus: Mission 5.1 step 11, wiring** [row 3]: `canary.cli tripwires` as a thin alias; records in the ledger under
+1. **Student: choose how step 11's CLI part may proceed** (the frozen `canary/cli.py`; step 11 entry). Then Opus
+   builds it, and the student runs the real-ledger command. Original row: **Mission 5.1 step 11, wiring** [row 3]:
+   `canary.cli tripwires` as a thin alias; records in the ledger under
    role `tripwire_v1`; DESIGN.md section 6 rewritten and the oracle sentence in sections 4 and 10 changed;
    `coach_state.py` tips; README status. Done when `python -m canary.cli trust --role tripwire_v1 --batch
    tripwire-test-1` prints the same recall and specificity as the test JSON.

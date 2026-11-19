@@ -101,12 +101,16 @@ def test_runs_outside_the_ledger_closed_runs_and_runs_without_a_record_are_repor
     assert "1 closed" in report.summary() and "1 not in the ledger" in report.summary()
 
 
-def test_a_record_of_another_version_is_not_used(led, tmp_path):
+def test_a_record_of_another_version_or_of_the_static_tier_is_not_used(led, tmp_path):
     ran(led, "h1", "r1")
+    ran(led, "h2", "r2")
+    ran(led, "h3", "r3")
     store(tmp_path / "found", record("r1", version="v1:old"))
-    report = tl.record_runs(["r1"], led, folders=[tmp_path / "found"], records_dir=tmp_path / "made",
-                            runs_dir=tmp_path / "runs", inspect=never)
-    assert report.no_record == ["r1"]
+    store(tmp_path / "found", record("r2", tier="static"))
+    store(tmp_path / "found", record("r3"))
+    report = tl.record_runs(["r1", "r2", "r3"], led, write=True, folders=[tmp_path / "found"],
+                            records_dir=tmp_path / "made", runs_dir=tmp_path / "runs", inspect=never)
+    assert report.no_record == ["r1", "r2"] and report.written == ["r3"]  # passed over, never a half-written batch
 
 
 def test_a_missing_record_is_made_from_the_folder_only_when_writing(led, tmp_path):
