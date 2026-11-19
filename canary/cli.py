@@ -698,6 +698,71 @@ def repeat_pass(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable, 
     return counts
 
 
+def cmd_tripwires(args: argparse.Namespace) -> int:
+    """Tripwires from the command line (Mission 5.1 step 11): a thin alias over `canary.tripwires` (inspect) and
+    `canary.tripwire_ledger` (record, verify). No model is called.
+
+    - inspect: print one run's tripwire record. The replay runs in a temporary copy; nothing is written anywhere.
+    - record: attach the tripwire record of every run of a batch to the ledger under role `tripwire_v1`, so `trust` and
+      the gate read it like any reviewer's opinion. A DRY RUN unless `--write`. Stored records of the current version
+      are used first (by default the locked test's records of that batch, `data/tripwires/test/<batch>/`); with
+      `--write`, a run without one is replayed in a temporary copy and its record stored in `data/tripwires/v1/`.
+    - verify: check every tripwire record file against the hash its ledger entry stores.
+    Choosing the runs (here: a batch's run IDs from the sealed table) is this command's job, not the ledger writer's,
+    which never opens the sealed table. Imports are local so other commands do not load the tripwire code.
+    """
+    from canary import tripwire_ledger, tripwires
+
+    if args.action == "inspect":
+        if not args.target:
+            print("inspect needs a run folder or a run ID")
+            return 2
+        run_dir = Path(args.target) if Path(args.target).is_dir() else sandbox.RUNS_DIR / args.target
+        if not run_dir.is_dir():
+            print(f"No run folder {args.target} (looked in {sandbox.RUNS_DIR})")
+            return 2
+        return tripwires.main([str(run_dir)] + ["--json"] * args.json)
+    led = ledger.Ledger(Path(args.db))
+    if args.action == "verify":
+        folders = ([Path(f) for f in args.records] if args.records else
+                   sorted(p for p in tripwire_ledger.TEST_RECORDS_DIR.glob("*") if p.is_dir())
+                   + [tripwire_ledger.RECORDS_DIR])
+        entries = [e for e in led.entries(ledger.AUDITED) if e.payload.get("role") == tripwire_ledger.ROLE]
+        problems = tripwire_ledger.verify_records(led, folders)
+        for problem in problems:
+            print(f"[FAIL] {problem}")
+        print(f"Tripwire records: {'FAILED' if problems else 'OK'} ({len(entries)} ledger entries under "
+              f"{tripwire_ledger.ROLE}, every record file {'checked' if not problems else 'checked, problems above'})")
+        return 1 if problems else 0
+    if not args.batch:
+        print("record needs --batch <name>")
+        return 2
+    if not sealed.SEALED_DB_PATH.exists():  # opening a SealedTable would create the file
+        print("No sealed table yet, so there is no batch to record.")
+        return 2
+    run_ids = sorted(mixer.batch_run_ids(sealed.SealedTable(sealed.SEALED_DB_PATH), args.batch))
+    if not run_ids:
+        print(f"Batch {args.batch} has no sealed runs.")
+        return 2
+    folders = [Path(f) for f in args.records] if args.records else [tripwire_ledger.TEST_RECORDS_DIR / args.batch]
+    try:
+        report = tripwire_ledger.record_runs(run_ids, led, write=args.write, folders=folders,
+                                             runs_dir=sandbox.RUNS_DIR, records_dir=tripwire_ledger.RECORDS_DIR)
+    except tripwire_ledger.TripwireLedgerError as exc:
+        print(f"Refused: {exc}")
+        return 1
+    print(f"Tripwire records for batch {args.batch} ({len(run_ids)} runs, role {tripwire_ledger.ROLE}, version "
+          f"{tripwires.source_version()[:19]}..., records from {', '.join(str(f) for f in folders)}):")
+    print(f"  {report.summary()}")
+    for label, runs in (("not in the ledger", report.not_in_ledger), ("closed", report.closed),
+                        ("without a record", report.no_record)):
+        if runs:
+            print(f"  {label}: {', '.join(runs[:5])}{' ...' if len(runs) > 5 else ''}")
+    if not args.write:
+        print(f"DRY RUN: nothing written. To write: python -m canary.cli tripwires record --batch {args.batch} --write")
+    return 0
+
+
 def cmd_ledger(args: argparse.Namespace) -> int:
     led = ledger.Ledger(Path(args.db))
     if args.action == "show":
@@ -785,6 +850,18 @@ def main(argv: list[str] | None = None) -> int:
     smoke_parser.add_argument("--dry", action="store_true", help="print the exact request bodies; no key, no network")
     smoke_parser.add_argument("--send", action="store_true", help="really send (needs the student's OK; 3 calls)")
     smoke_parser.set_defaults(func=cmd_cloud_smoke)
+    tripwires_parser = sub.add_parser("tripwires", help="inspect a run's tripwires, or record a batch's tripwire "
+                                                        "records in the ledger (dry run unless --write)")
+    tripwires_parser.add_argument("action", choices=["inspect", "record", "verify"])
+    tripwires_parser.add_argument("target", nargs="?", help="inspect: a run folder or run ID")
+    tripwires_parser.add_argument("--batch", help="record: the batch whose runs get their tripwire records")
+    tripwires_parser.add_argument("--write", action="store_true", help="record: append to the ledger (default: dry run)")
+    tripwires_parser.add_argument("--records", nargs="+",
+                                  help="folders of stored records to use first (default: the locked test's records "
+                                       "of the batch; verify: every test folder and data/tripwires/v1)")
+    tripwires_parser.add_argument("--json", action="store_true", help="inspect: print the whole record as JSON")
+    tripwires_parser.add_argument("--db", default=str(config.DB_PATH), help="ledger database file")
+    tripwires_parser.set_defaults(func=cmd_tripwires)
     args = parser.parse_args(argv)
     return args.func(args)
 
