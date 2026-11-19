@@ -326,6 +326,8 @@ mixed; a total failure of the LLM reviewer (passes everything, flags everything)
 review days with the simulated probabilities of section 4; findings accepted just before an alarm are held and
 reviewed again; the gate's union numbers are at most about 8 to 11 review days old.
 Campaign results are reported per epoch.
+**At the decided budget (60 sentinel runs, 20 calls a day; section 10, decision 1) the chart catches a collapse,
+not a slow drift.**
 **May not claim:** that Canary "detects reviewer drift" without the size of the change: a recall drop from 0.77
 to 0.60 is mostly not detected within two weeks; that any detection probability was observed on a real provider
 change (all are simulated with assumed rates until one happens); that the canary chart monitors the LLM; that a
@@ -360,6 +362,9 @@ quiet chart shows the model is unchanged; anything about bug shapes outside the 
 1. **Sentinel size and pace:** 60 runs, 20 a day (the rule's choice; 31% of a day's calls). Alternative: 40
    runs, 10 a day (15%), which fails criterion (b) as finding 8 shows. **Default: 60 and 20,** re-decided by the
    same rule when step 2 has measured rates.
+   **Decided (student, 2026-11-19): 60 runs, 20 calls a day, kept.** At this budget the chart catches a
+   collapse (the LLM passing or flagging everything), not a slow drift: a recall drop from 0.77 to 0.60 is
+   seen within a week in only 0.11 to 0.16 of simulated campaigns (section 4). Reports say so.
 2. **Replace DESIGN.md section 9's normal-approximation limits** by exact Beta-binomial limits at the same sigma
    levels, and add the cumulative rule R3: **yes.**
 3. **One kind of alarm for every rule:** pause auto-accept, new epoch, tau 0.05 until 3 in-control slices.

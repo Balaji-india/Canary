@@ -1547,6 +1547,18 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   pass 20 of 20, `eval.ceiling --arm L` ran once (SOLVABLE). Nothing is running or interrupted.
 
 ## Decisions
+- **The three open decisions, approved as explained (student, 2026-11-19, step 11 session):**
+  (1) **Mission 4.3 decision 1:** keep the sentinel at 60 runs, 20 calls a day; the 4.3 plan now says (decision 1 and
+  section 8) that at this budget the chart catches a collapse, not a slow drift. (2) **Mission 4.4 decision 1:** keep
+  the cold-start real proof (3 review days, about 195 calls); in the DESIGN.md sync sitting, the Mission 4.1 plan's
+  sentence on about 228 reviews becomes "without the lazy union", which reconciles the two numbers. (3) **Roadmap
+  decision 5:** keep as written: `llama3.1:8b` comes back only as a locked measurement on the common batch, never as a
+  reviewer in use, and its old confirmation is recorded as never run. All 34 design-session-2 decisions are now made.
+- **Lock checks against the locked commits, option C (student, 2026-11-19):** both locked plans
+  (`cloud_ceiling_check.md`, `tripwire_test.md`) get a written amendment: their `--check` verifies each frozen file in
+  git against `git show <tag>:<path>` at the plan's lock commit (tags `ceiling-check-lock`, `tripwire-test-1-lock`),
+  files outside git stay checked on disk, and working copies that differ are printed for information. Then the step 11
+  CLI goes in `canary/cli.py` as the plan says (`canary.cli tripwires`). Amendment details: step 11 entry.
 - **Design session 2 decisions (student, 2026-11-19):** the 34 open decisions (the last sections of
   `mission_4_3_drift.md`, `mission_4_4_campaign.md`, `mission_3_1_3_2_memory_calibration.md` and
   `roadmap_challenge_2026-11-15.md`) take their recommended defaults, **except three that stay open** until Claude
