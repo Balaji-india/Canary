@@ -1,0 +1,545 @@
+{
+ "rule": "docs/plans/roadmap_challenge_2026-11-15.md section 8 (approved 2026-11-20); base level decides",
+ "batches": [
+  "rq1-full",
+  "task-dev-1",
+  "task-dev-2",
+  "ceiling-ext",
+  "tripwire-test-1"
+ ],
+ "left_out": {
+  "run_not_ok": 1
+ },
+ "outcomes": {
+  "not_supported": 203,
+  "inconclusive": 71,
+  "supported": 45
+ },
+ "n_seeds": [
+  5
+ ],
+ "f10_range": [
+  0.7344214755369721,
+  0.7352100739339614
+ ],
+ "ratio_range": [
+  0.3333333333333333,
+  0.3383458646616541
+ ],
+ "pooled": {
+  "runs": 319,
+  "bases": 35,
+  "D": {
+   "base_level": {
+    "bases": 35,
+    "share": 0.771783533926391,
+    "interval_bootstrap": [
+     0.6684232513518227,
+     0.8645539856968428
+    ]
+   },
+   "run_level": {
+    "count": 248,
+    "n": 319,
+    "share": 0.7774294670846394,
+    "interval_beta": [
+     0.7365043059461429,
+     0.8129417234789276
+    ]
+   }
+  },
+  "G10": {
+   "base_level": {
+    "bases": 35,
+    "share": 0.07095674167102739,
+    "interval_bootstrap": [
+     0.04039346764346764,
+     0.1039990406418978
+    ]
+   },
+   "run_level": {
+    "count": 22,
+    "n": 319,
+    "share": 0.06896551724137931,
+    "interval_beta": [
+     0.049618288494199934,
+     0.09671773561117027
+    ]
+   }
+  },
+  "supported_only": {
+   "base_level": {
+    "bases": 35,
+    "share": 0.15362637362637363,
+    "interval_bootstrap": [
+     0.05934065934065933,
+     0.25362637362637364
+    ]
+   },
+   "run_level": {
+    "count": 45,
+    "n": 319,
+    "share": 0.14106583072100312,
+    "interval_beta": [
+     0.11249171907407486,
+     0.17664203655225127
+    ]
+   }
+  }
+ },
+ "per_batch": {
+  "rq1-full": {
+   "runs": 80,
+   "bases": 18,
+   "D": {
+    "base_level": {
+     "bases": 18,
+     "share": 0.7657407407407408,
+     "interval_bootstrap": [
+      0.6222222222222222,
+      0.8925925925925926
+     ]
+    },
+    "run_level": {
+     "count": 61,
+     "n": 80,
+     "share": 0.7625,
+     "interval_beta": [
+      0.6750897995879859,
+      0.8299639105064363
+     ]
+    }
+   },
+   "G10": {
+    "base_level": {
+     "bases": 18,
+     "share": 0.1,
+     "interval_bootstrap": [
+      0.022222222222222223,
+      0.1861111111111111
+     ]
+    },
+    "run_level": {
+     "count": 8,
+     "n": 80,
+     "share": 0.1,
+     "interval_beta": [
+      0.05920257521726151,
+      0.17115415080348526
+     ]
+    }
+   },
+   "supported_only": {
+    "base_level": {
+     "bases": 18,
+     "share": 0.175,
+     "interval_bootstrap": [
+      0.05555555555555555,
+      0.3194444444444444
+     ]
+    },
+    "run_level": {
+     "count": 13,
+     "n": 80,
+     "share": 0.1625,
+     "interval_beta": [
+      0.10762711092102914,
+      0.24300746787931504
+     ]
+    }
+   }
+  },
+  "task-dev-1": {
+   "runs": 20,
+   "bases": 15,
+   "D": {
+    "base_level": {
+     "bases": 15,
+     "share": 0.8666666666666667,
+     "interval_bootstrap": [
+      0.7333333333333333,
+      1.0
+     ]
+    },
+    "run_level": {
+     "count": 18,
+     "n": 20,
+     "share": 0.9,
+     "interval_beta": [
+      0.7294483006954686,
+      0.9599004637025256
+     ]
+    }
+   },
+   "G10": {
+    "base_level": {
+     "bases": 15,
+     "share": 0.0,
+     "interval_bootstrap": [
+      0.0,
+      0.0
+     ]
+    },
+    "run_level": {
+     "count": 0,
+     "n": 20,
+     "share": 0.0,
+     "interval_beta": [
+      0.0024395572596688573,
+      0.13294591102652337
+     ]
+    }
+   },
+   "supported_only": {
+    "base_level": {
+     "bases": 15,
+     "share": 0.2,
+     "interval_bootstrap": [
+      0.06666666666666667,
+      0.4
+     ]
+    },
+    "run_level": {
+     "count": 3,
+     "n": 20,
+     "share": 0.15,
+     "interval_beta": [
+      0.06780647293683403,
+      0.3292110194625513
+     ]
+    }
+   }
+  },
+  "task-dev-2": {
+   "runs": 20,
+   "bases": 13,
+   "D": {
+    "base_level": {
+     "bases": 13,
+     "share": 0.6923076923076923,
+     "interval_bootstrap": [
+      0.5,
+      0.8846153846153846
+     ]
+    },
+    "run_level": {
+     "count": 15,
+     "n": 20,
+     "share": 0.75,
+     "interval_beta": [
+      0.5630236839687343,
+      0.8675518144133786
+     ]
+    }
+   },
+   "G10": {
+    "base_level": {
+     "bases": 13,
+     "share": 0.11538461538461539,
+     "interval_bootstrap": [
+      0.0,
+      0.2692307692307692
+     ]
+    },
+    "run_level": {
+     "count": 2,
+     "n": 20,
+     "share": 0.1,
+     "interval_beta": [
+      0.040099536297474425,
+      0.2705516993045313
+     ]
+    }
+   },
+   "supported_only": {
+    "base_level": {
+     "bases": 13,
+     "share": 0.11538461538461539,
+     "interval_bootstrap": [
+      0.0,
+      0.2692307692307692
+     ]
+    },
+    "run_level": {
+     "count": 2,
+     "n": 20,
+     "share": 0.1,
+     "interval_beta": [
+      0.040099536297474425,
+      0.2705516993045313
+     ]
+    }
+   }
+  },
+  "ceiling-ext": {
+   "runs": 40,
+   "bases": 14,
+   "D": {
+    "base_level": {
+     "bases": 14,
+     "share": 0.7738095238095237,
+     "interval_bootstrap": [
+      0.5952380952380951,
+      0.9285714285714286
+     ]
+    },
+    "run_level": {
+     "count": 33,
+     "n": 40,
+     "share": 0.825,
+     "interval_beta": [
+      0.7031119944613613,
+      0.8990266762068342
+     ]
+    }
+   },
+   "G10": {
+    "base_level": {
+     "bases": 14,
+     "share": 0.13095238095238096,
+     "interval_bootstrap": [
+      0.011904761904761904,
+      0.2738095238095238
+     ]
+    },
+    "run_level": {
+     "count": 4,
+     "n": 40,
+     "share": 0.1,
+     "interval_beta": [
+      0.049303921754631254,
+      0.20950530270682408
+     ]
+    }
+   },
+   "supported_only": {
+    "base_level": {
+     "bases": 14,
+     "share": 0.14285714285714285,
+     "interval_bootstrap": [
+      0.0,
+      0.2857142857142857
+     ]
+    },
+    "run_level": {
+     "count": 9,
+     "n": 40,
+     "share": 0.225,
+     "interval_beta": [
+      0.13871915579652958,
+      0.35179936006236284
+     ]
+    }
+   }
+  },
+  "tripwire-test-1": {
+   "runs": 159,
+   "bases": 17,
+   "D": {
+    "base_level": {
+     "bases": 17,
+     "share": 0.7617521367521367,
+     "interval_bootstrap": [
+      0.6024132730015083,
+      0.9060457516339869
+     ]
+    },
+    "run_level": {
+     "count": 121,
+     "n": 159,
+     "share": 0.7610062893081762,
+     "interval_beta": [
+      0.7006057458332478,
+      0.8112710723453318
+     ]
+    }
+   },
+   "G10": {
+    "base_level": {
+     "bases": 17,
+     "share": 0.04744846656611362,
+     "interval_bootstrap": [
+      0.021241830065359478,
+      0.0752262443438914
+     ]
+    },
+    "run_level": {
+     "count": 8,
+     "n": 159,
+     "share": 0.050314465408805034,
+     "interval_beta": [
+      0.02965507014454987,
+      0.08840620755680936
+     ]
+    }
+   },
+   "supported_only": {
+    "base_level": {
+     "bases": 17,
+     "share": 0.12254901960784312,
+     "interval_bootstrap": [
+      0.004901960784313725,
+      0.24509803921568624
+     ]
+    },
+    "run_level": {
+     "count": 18,
+     "n": 159,
+     "share": 0.11320754716981132,
+     "interval_beta": [
+      0.07917487852906015,
+      0.16225279601067924
+     ]
+    }
+   }
+  }
+ },
+ "recommendation": {
+  "base_level (decides)": {
+   "seeds_per_arm": 5,
+   "grid": "keep question q1 and the focus grid",
+   "g10": 0.07095674167102739,
+   "d_interval": [
+    0.6684232513518227,
+    0.8645539856968428
+   ]
+  },
+  "run_level (beside it)": {
+   "seeds_per_arm": 5,
+   "grid": "keep question q1 and the focus grid",
+   "g10": 0.06896551724137931,
+   "d_interval": [
+    0.7365043059461429,
+    0.8129417234789276
+   ]
+  },
+  "levels_agree": true
+ },
+ "by_dataset": {
+  "blood-transfusion-service-center": {
+   "runs": 34,
+   "decisive": 30,
+   "g10": 3,
+   "bases": 4
+  },
+  "breast_cancer": {
+   "runs": 38,
+   "decisive": 38,
+   "g10": 0,
+   "bases": 4
+  },
+  "credit-g": {
+   "runs": 35,
+   "decisive": 19,
+   "g10": 6,
+   "bases": 4
+  },
+  "diabetes": {
+   "runs": 36,
+   "decisive": 21,
+   "g10": 1,
+   "bases": 4
+  },
+  "digits": {
+   "runs": 33,
+   "decisive": 21,
+   "g10": 4,
+   "bases": 4
+  },
+  "ozone-level-8hr": {
+   "runs": 25,
+   "decisive": 21,
+   "g10": 3,
+   "bases": 3
+  },
+  "pc1": {
+   "runs": 46,
+   "decisive": 26,
+   "g10": 5,
+   "bases": 4
+  },
+  "phoneme": {
+   "runs": 39,
+   "decisive": 39,
+   "g10": 0,
+   "bases": 4
+  },
+  "wine": {
+   "runs": 33,
+   "decisive": 33,
+   "g10": 0,
+   "bases": 4
+  }
+ },
+ "by_metric": {
+  "accuracy": {
+   "runs": 71,
+   "decisive": 46,
+   "g10": 7,
+   "bases": 8
+  },
+  "balanced_accuracy": {
+   "runs": 46,
+   "decisive": 28,
+   "g10": 4,
+   "bases": 6
+  },
+  "f1": {
+   "runs": 124,
+   "decisive": 104,
+   "g10": 5,
+   "bases": 12
+  },
+  "roc_auc": {
+   "runs": 78,
+   "decisive": 70,
+   "g10": 6,
+   "bases": 9
+  }
+ },
+ "by_model": {
+  "decision_tree": {
+   "runs": 56,
+   "decisive": 48,
+   "g10": 5,
+   "bases": 6
+  },
+  "gaussian_nb": {
+   "runs": 54,
+   "decisive": 54,
+   "g10": 0,
+   "bases": 6
+  },
+  "gradient_boosting": {
+   "runs": 68,
+   "decisive": 52,
+   "g10": 3,
+   "bases": 6
+  },
+  "knn": {
+   "runs": 42,
+   "decisive": 25,
+   "g10": 6,
+   "bases": 5
+  },
+  "logistic_regression": {
+   "runs": 29,
+   "decisive": 2,
+   "g10": 5,
+   "bases": 4
+  },
+  "random_forest": {
+   "runs": 31,
+   "decisive": 28,
+   "g10": 3,
+   "bases": 4
+  },
+  "svm": {
+   "runs": 39,
+   "decisive": 39,
+   "g10": 0,
+   "bases": 4
+  }
+ },
+ "claim": "clean clones of the 35 pool-1 and pool-2 bases only; G10 is a projection, not a verdict"
+}

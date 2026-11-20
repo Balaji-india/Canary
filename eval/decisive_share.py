@@ -60,7 +60,7 @@ def projected_decisive(verdict: dict, factor: float) -> bool:
     if low is None or high is None:
         return False
     half = factor * (high - low) / 2
-    return (mean >= verdict["min_effect"] and mean - half > 0) or (mean + half < verdict["min_effect"])
+    return bool((mean >= verdict["min_effect"] and mean - half > 0) or (mean + half < verdict["min_effect"]))
 
 
 def base_key(locked: dict) -> str:
@@ -93,12 +93,12 @@ def collect(table: sealed.SealedTable, led: ledger.Ledger, runs_dir: Path, batch
             mismatches.append({"run_id": run_id, "batch": batch, "stored": stored, "recomputed": recomputed})
             continue
         ratio = split_ratio(results)
-        factor = seed_factor(stored["n_seeds"], ratio)
+        factor = float(seed_factor(stored["n_seeds"], ratio))
         rows.append({"run_id": run_id, "run_type": run_type, "batch": batch, "base": base_key(locked),
                      "dataset": locked["dataset"], "metric": locked["metric"],
                      "model": locked["control_config"]["model"], "outcome": stored["outcome"],
                      "n_seeds": stored["n_seeds"], "ratio": ratio, "f10": factor,
-                     "decisive": decisive(stored["outcome"]),
+                     "decisive": decisive(stored["outcome"]), "supported": stored["outcome"] == prereg.SUPPORTED,
                      "g10": not decisive(stored["outcome"]) and projected_decisive(stored, factor)})
     if mismatches:
         raise VerdictMismatch(f"{len(mismatches)} recomputed verdicts differ from the ledger: {mismatches[:3]}")
@@ -126,7 +126,11 @@ def base_level(rows: list[dict], field: str, seed: int = SEED) -> dict:
 def figures(rows: list[dict]) -> dict:
     return {"runs": len(rows), "bases": len({r["base"] for r in rows}),
             "D": {"base_level": base_level(rows, "decisive"), "run_level": run_level([r["decisive"] for r in rows])},
-            "G10": {"base_level": base_level(rows, "g10"), "run_level": run_level([r["g10"] for r in rows])}}
+            "G10": {"base_level": base_level(rows, "g10"), "run_level": run_level([r["g10"] for r in rows])},
+            # Descriptive, decides nothing: D counts `not_supported` as decisive too, but only `supported` verdicts
+            # are findings a gate could accept.
+            "supported_only": {"base_level": base_level(rows, "supported"),
+                               "run_level": run_level([r["supported"] for r in rows])}}
 
 
 def recommend(fig: dict, level: str) -> dict:

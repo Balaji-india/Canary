@@ -100,3 +100,13 @@ def _fig(g10, low, high):
 def test_the_rule_by_its_fixed_values(g10, low, high, seeds, grid):
     found = ds.recommend(_fig(g10, low, high), "base_level")
     assert found["seeds_per_arm"] == seeds and grid in found["grid"]
+
+
+def test_the_supported_share_is_reported_beside_d_and_decides_nothing():
+    rows = [{"base": "A", "decisive": True, "g10": False, "supported": True},
+            {"base": "A", "decisive": True, "g10": False, "supported": False},
+            {"base": "B", "decisive": False, "g10": True, "supported": False}]
+    found = ds.figures(rows)
+    assert found["supported_only"]["run_level"]["count"] == 1
+    assert found["supported_only"]["base_level"]["share"] == pytest.approx((0.5 + 0.0) / 2)
+    assert "supported_only" not in ds.recommend.__code__.co_names
