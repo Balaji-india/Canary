@@ -16,9 +16,13 @@ This file never imports the saboteur, the controls, the mixer or the sealed tabl
 from __future__ import annotations
 
 import importlib
+import json
+import tempfile
 from functools import lru_cache
+from pathlib import Path
 
-from canary import datasets
+from canary import datasets, prereg, sandbox
+from canary.config import load_yaml
 
 # Model name -> where scikit-learn keeps its class. The same table as MODELS in templates/experiment.py.tmpl (a test
 # compares them); kept as text so that importing the guard does not import every estimator.
@@ -36,6 +40,10 @@ IGNORED_PARAMS = frozenset({"random_state"})
 # G0 draws the same line as tripwire L1 and DESIGN.md section 6: accuracy misleads above a 3:1 class ratio (largest
 # class over smallest). Our own constant: the guard may not import the saboteur; a test checks the two agree.
 IMBALANCE_LINE = 3.0
+# Guard seeds: fixed, from 100001 upward. Run seeds are drawn below prereg.SEED_RANGE (100000) and the oracle of
+# sitting 2 starts at 200001, so the guard never looks at a real run's own splits before the lock (plan trap 4).
+GUARD_SEED_START = 100_001
+GUARD_SEEDS = 5  # K; step 6 of the plan may raise it to 10 by a rule fixed in advance
 MODEL_FACTOR = "model"
 PREPROCESSING_FACTOR = "preprocessing"
 
@@ -48,6 +56,14 @@ class _Missing:
 
 
 MISSING = _Missing()
+
+# The rows of the plan's section 3 table.
+G0, G1, G2, G3, G4, G5, G6 = "G0", "G1", "G2", "G3", "G4", "G5", "G6"
+# What one reference run says about an arm.
+WEAK = "weak"                  # the reference beats the arm by at least the floor, clearly
+NOT_WEAK = "not_weak"          # the gap is clearly below the floor
+INCONCLUSIVE = "inconclusive"  # these seeds cannot tell: recorded as a number, no action
+UNVERIFIABLE = "unverifiable"  # the reference run crashed or timed out (rule G5)
 
 
 def estimator_class(model: str) -> type:
@@ -134,3 +150,75 @@ def metric_problem(dataset: str, metric: str) -> str | None:
         return None
     return (f"accuracy is misleading on {dataset}: its class ratio is {ratio:.1f}:1, above {IMBALANCE_LINE:g}:1, so "
             f"predicting the largest class alone scores high; choose balanced_accuracy, f1 or roc_auc instead")
+
+
+def guard_seeds(k: int = GUARD_SEEDS) -> list[int]:
+    return list(range(GUARD_SEED_START, GUARD_SEED_START + k))
+
+
+def _copy_arm(arm: dict, params: dict | None = None, preprocessing: list | None = None) -> dict:
+    return {"model": arm["model"], "params": dict(arm["params"] if params is None else params),
+            "preprocessing": list(arm["preprocessing"] if preprocessing is None else preprocessing)}
+
+
+def reference_for(rule: str, control: dict, treatment: dict) -> dict:
+    """The control's reference for a rule: the control with some settings put back to the library default.
+
+    G2 (two models): all of the control's parameters at default. G3 (one factor): only the tested factor at default.
+    G4 (one factor): only the settings both arms share at default; the tested factor stays as the control has it.
+    For preprocessing, "default" means no scaler. Leaving a name out of `params` is how a default is set, so no
+    default value is ever written here.
+    """
+    if rule == G2:
+        return _copy_arm(control, params={})
+    tested = factors(control, treatment)
+    if len(tested) != 1 or tested == [MODEL_FACTOR]:
+        raise ValueError(f"rule {rule} needs one factor of the same model, got {tested}")
+    factor = tested[0]
+    if rule == G3:
+        if factor == PREPROCESSING_FACTOR:
+            return _copy_arm(control, preprocessing=[])
+        return _copy_arm(control, params={k: v for k, v in control["params"].items() if k != factor})
+    if rule == G4:
+        shared = set(nondefault(control)) - {factor}
+        return _copy_arm(control, params={k: v for k, v in control["params"].items() if k not in shared})
+    raise ValueError(f"rule {rule} has no reference")
+
+
+def default_runner():
+    """The sandbox, looked up at call time (tests replace this function so that no real run starts by accident)."""
+    return sandbox.run_config
+
+
+def reference_gap(experiment: dict, arm: dict, reference: dict, run=None, k: int = GUARD_SEEDS,
+                  timeout_s: float | None = None) -> dict | None:
+    """Run the arm against its reference once, on guard seeds, in a temporary folder; None if they are the same arm.
+
+    The experiment is an ordinary one (`control` = the arm, `treatment` = the reference) on the registered dataset,
+    metric and split size, so it goes through the same template and sandbox as a real run but never under
+    data/runs/ and never into the crash rate. The answer is read with the existing verdict code: direction increase,
+    min_effect = the existing floor, the existing alpha. No number here is tuned on bug data.
+    """
+    if same_arm(arm, reference):
+        return None
+    science = load_yaml("campaign.yaml")["science"]
+    run = run or default_runner()
+    timeout_s = sandbox.DEFAULT_TIMEOUT_S if timeout_s is None else timeout_s
+    reference_run = {"dataset": experiment["dataset"], "metric": experiment["metric"], "seeds": guard_seeds(k),
+                     "test_size": experiment["test_size"], "control": _copy_arm(arm),
+                     "treatment": _copy_arm(reference)}
+    found = {"reference": _copy_arm(reference), "answer": UNVERIFIABLE, "mean_gap": None, "ci_low": None,
+             "ci_high": None, "seeds_used": None, "run_status": None, "reason": None, "seconds": None}
+    with tempfile.TemporaryDirectory(prefix="canary-guard-", ignore_cleanup_errors=True) as folder:
+        record = run(reference_run, Path(folder), timeout_s)
+        found.update(run_status=record["status"], reason=record.get("reason"), seconds=record.get("seconds"))
+        if record["status"] != sandbox.STATUS_OK:
+            return found
+        results = json.loads((Path(folder) / record["run_id"] / sandbox.RESULTS_NAME).read_text(encoding="utf-8"))
+    verdict = prereg.compute_verdict({"direction": "increase", "min_effect": science["min_effect_floor"],
+                                      "alpha": science["alpha"]}, results)
+    answer = {prereg.SUPPORTED: WEAK, prereg.NOT_SUPPORTED: NOT_WEAK}.get(verdict["outcome"], INCONCLUSIVE)
+    found.update(answer=answer, mean_gap=verdict["mean_effect"], ci_low=verdict["ci_low"],
+                 ci_high=verdict["ci_high"], seeds_used=len(results["control"]),
+                 arm_scores=results["control"], reference_scores=results["treatment"])
+    return found

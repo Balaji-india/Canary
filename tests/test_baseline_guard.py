@@ -110,3 +110,135 @@ def test_g0_reads_real_class_counts():
     assert guard.class_ratio("pc1") > guard.IMBALANCE_LINE
     assert "balanced_accuracy" in guard.metric_problem("pc1", "accuracy")
     assert guard.metric_problem("wine", "accuracy") is None
+
+
+# ---- Step 3: the measured part (fake runner; one slow real run) ----------------------------------------------------
+
+import json
+
+from canary import prereg, sandbox
+
+CONFIG = {"dataset": "breast_cancer", "metric": "f1", "seeds": [1, 2, 3, 4, 5], "test_size": 0.25,
+          "control": arm(params={"max_iter": 1}), "treatment": arm()}
+
+
+class FakeRunner:
+    """Stands in for sandbox.run_config: writes a results.json with chosen scores, or reports a failed run."""
+
+    def __init__(self, arm_scores=None, reference_scores=None, status=sandbox.STATUS_OK):
+        self.arm_scores, self.reference_scores, self.status = arm_scores, reference_scores, status
+        self.configs = []
+
+    def __call__(self, config, runs_dir, timeout_s):
+        self.configs.append(config)
+        run_id = f"guard-{len(self.configs)}"
+        if self.status != sandbox.STATUS_OK:
+            return {"run_id": run_id, "status": self.status, "reason": "exit code 1", "seconds": 0.1}
+        n = len(config["seeds"])
+        run_dir = runs_dir / run_id
+        run_dir.mkdir(parents=True)
+        results = {"control": list(self.arm_scores or [0.8] * n), "treatment": list(self.reference_scores or [0.8] * n),
+                   "split_sizes": {"train": [426] * n, "test": [143] * n}}
+        (run_dir / sandbox.RESULTS_NAME).write_text(json.dumps(results), encoding="utf-8")
+        return {"run_id": run_id, "status": sandbox.STATUS_OK, "reason": None, "seconds": 0.1}
+
+
+@pytest.mark.parametrize("arm_scores, reference_scores, answer", [
+    ([0.80, 0.81, 0.79, 0.80, 0.80], [0.90, 0.91, 0.89, 0.90, 0.91], guard.WEAK),
+    ([0.90, 0.91, 0.89, 0.90, 0.91], [0.90, 0.91, 0.89, 0.90, 0.91], guard.NOT_WEAK),
+    ([0.80, 0.90, 0.70, 0.95, 0.75], [0.85, 0.80, 0.90, 0.78, 0.88], guard.INCONCLUSIVE),
+])
+def test_the_three_verdicts_map_to_weak_not_weak_and_inconclusive(arm_scores, reference_scores, answer):
+    runner = FakeRunner(arm_scores, reference_scores)
+    gap = guard.reference_gap(CONFIG, CONFIG["control"], CONFIG["treatment"], run=runner)
+    assert gap["answer"] == answer
+    expected = prereg.compute_verdict({"direction": "increase", "min_effect": 0.005, "alpha": 0.05},
+                                      {"control": arm_scores, "treatment": reference_scores,
+                                       "split_sizes": {"train": [426] * 5, "test": [143] * 5}})
+    assert gap["mean_gap"] == pytest.approx(expected["mean_effect"])
+    assert gap["ci_low"] == pytest.approx(expected["ci_low"])
+
+
+def test_the_floor_and_alpha_come_from_the_campaign_config():
+    from canary.config import load_yaml
+    science = load_yaml("campaign.yaml")["science"]
+    assert science["min_effect_floor"] == 0.005 and science["alpha"] == 0.05
+    # a clear gap just under the floor is not weak, just over it is weak
+    assert guard.reference_gap(CONFIG, CONFIG["control"], CONFIG["treatment"],
+                               run=FakeRunner([0.8] * 5, [0.804] * 5))["answer"] == guard.NOT_WEAK
+    assert guard.reference_gap(CONFIG, CONFIG["control"], CONFIG["treatment"],
+                               run=FakeRunner([0.8] * 5, [0.806] * 5))["answer"] == guard.WEAK
+
+
+@pytest.mark.parametrize("status", [sandbox.STATUS_CRASH, sandbox.STATUS_TIMEOUT, sandbox.STATUS_INVALID_RESULTS])
+def test_a_failed_reference_run_is_unverifiable(status):
+    gap = guard.reference_gap(CONFIG, CONFIG["control"], CONFIG["treatment"], run=FakeRunner(status=status))
+    assert gap["answer"] == guard.UNVERIFIABLE and gap["run_status"] == status and gap["mean_gap"] is None
+
+
+def test_no_run_when_the_reference_equals_the_arm():
+    runner = FakeRunner()
+    assert guard.reference_gap(CONFIG, arm(params={"C": 1.0}), arm(), run=runner) is None
+    assert runner.configs == []
+
+
+def test_the_reference_run_uses_guard_seeds_and_the_registered_setting():
+    runner = FakeRunner()
+    guard.reference_gap(CONFIG, CONFIG["control"], CONFIG["treatment"], run=runner)
+    (seen,) = runner.configs
+    assert seen["seeds"] == guard.guard_seeds() and len(seen["seeds"]) == guard.GUARD_SEEDS == 5
+    assert seen["control"] == CONFIG["control"] and seen["treatment"] == CONFIG["treatment"]
+    assert (seen["dataset"], seen["metric"], seen["test_size"]) == ("breast_cancer", "f1", 0.25)
+
+
+@pytest.mark.parametrize("k", [5, 10])
+def test_guard_seeds_are_never_run_seeds_or_oracle_seeds(k):
+    seeds = guard.guard_seeds(k)
+    assert len(set(seeds)) == k
+    assert min(seeds) >= prereg.SEED_RANGE  # run seeds are drawn below 100000
+    assert max(seeds) < 200_001  # the oracle of sitting 2 starts at 200001
+
+
+def test_the_reference_run_writes_nothing_under_the_runs_folder(tmp_path, monkeypatch):
+    seen = []
+    runner = FakeRunner()
+
+    def watching(config, runs_dir, timeout_s):
+        seen.append(runs_dir)
+        return runner(config, runs_dir, timeout_s)
+
+    guard.reference_gap(CONFIG, CONFIG["control"], CONFIG["treatment"], run=watching)
+    (folder,) = seen
+    assert sandbox.RUNS_DIR.resolve() not in folder.resolve().parents and not folder.exists()
+
+
+def test_references_put_back_only_their_own_settings():
+    control = arm(params={"C": 0.01, "max_iter": 5}, preprocessing=["standard_scaler"])
+    treatment = arm(params={"C": 1.0, "max_iter": 5}, preprocessing=["standard_scaler"])
+    assert guard.reference_for(guard.G3, control, treatment) == arm(params={"max_iter": 5},
+                                                                    preprocessing=["standard_scaler"])
+    assert guard.reference_for(guard.G4, control, treatment) == arm(params={"C": 0.01},
+                                                                    preprocessing=["standard_scaler"])
+    other = {"model": "knn", "params": {"n_neighbors": 3}, "preprocessing": ["standard_scaler"]}
+    assert guard.reference_for(guard.G2, control, other) == arm(preprocessing=["standard_scaler"])
+
+
+def test_preprocessing_as_the_tested_factor_has_no_scaler_as_its_default():
+    control = arm(params={"max_iter": 5}, preprocessing=["minmax_scaler"])
+    treatment = arm(params={"max_iter": 5}, preprocessing=["standard_scaler"])
+    assert guard.reference_for(guard.G3, control, treatment) == arm(params={"max_iter": 5})
+    assert guard.reference_for(guard.G4, control, treatment) == arm(preprocessing=["minmax_scaler"])
+
+
+def test_a_reference_needs_one_factor_of_the_same_model():
+    with pytest.raises(ValueError):
+        guard.reference_for(guard.G3, arm(params={"C": 0.1, "max_iter": 5}), arm())
+    with pytest.raises(ValueError):
+        guard.reference_for(guard.G4, arm(), arm("knn"))
+
+
+@pytest.mark.slow
+def test_a_real_run_finds_one_iteration_of_logistic_regression_weak():
+    """The plan's example: `max_iter: 1` on breast_cancer is weak against the library default (real sandbox run)."""
+    gap = guard.reference_gap(CONFIG, CONFIG["control"], CONFIG["treatment"], run=sandbox.run_config)
+    assert gap["run_status"] == sandbox.STATUS_OK and gap["answer"] == guard.WEAK, gap
