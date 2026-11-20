@@ -70,6 +70,8 @@ MISSING = _Missing()
 
 # The rows of the plan's section 3 table.
 G0, G1, G2, G3, G4, G5, G6 = "G0", "G1", "G2", "G3", "G4", "G5", "G6"
+# Added 2026-11-20 (student): arms that do not differ once defaults are filled in. Human queue, never auto-accepted.
+G7 = "G7"
 # What one reference run says about an arm.
 WEAK = "weak"                  # the reference beats the arm by at least the floor, clearly
 NOT_WEAK = "not_weak"          # the gap is clearly below the floor
@@ -81,6 +83,7 @@ REJECT = "reject"            # the Scientist gets the feedback sentence and retr
 HUMAN_QUEUE = "human_queue"  # the run goes ahead; the trust gate (Mission 4.1) never auto-accepts it
 WARN = "warn"                # the run goes ahead; the report must say the finding holds in a degraded setting
 CONTROL_BELOW_DEFAULT = "control_below_default"  # G3's label
+NO_DIFFERENCE = "no_difference"                  # G7's label
 WEAK_REGIME = "weak_regime"                      # G4's label
 
 
@@ -247,8 +250,8 @@ class GuardRecord:
     """What the guard found for one proposal. Stored beside the pre-registration, never inside it (plan trap 1)."""
 
     outcome: str             # OK, REJECT, HUMAN_QUEUE or WARN
-    rule: str                # the row of the plan's table that decided: G0 to G6
-    label: str | None        # CONTROL_BELOW_DEFAULT (G3), WEAK_REGIME (G4) or None
+    rule: str                # the row of the plan's table that decided: G0 to G7
+    label: str | None        # CONTROL_BELOW_DEFAULT (G3), WEAK_REGIME (G4), NO_DIFFERENCE (G7) or None
     feedback: str | None     # the sentence a rejected Scientist gets back; None otherwise
     factors: list            # in what the arms differ
     nondefault: dict         # per arm: names of the settings that are not the library default
@@ -293,7 +296,7 @@ def _unverifiable(gap: dict) -> str:
 def check_config(experiment: dict, run=None, k: int = GUARD_SEEDS, timeout_s: float | None = None) -> GuardRecord:
     """Decide one experiment config by the rules of the plan's section 3, in this order:
 
-    G0 (metric rule) and G1 (more than one factor) are read from the config, with no run. A two-model proposal then
+    G0 (metric rule), G1 (more than one factor) and G7 (no factor) are read from the config, with no run. A two-model proposal then
     has one reference (G2); a one-factor proposal has G3, then G4. G5 is any of those reference runs failing. A G3
     finding already sends the run to a person, so G4 is not measured after it (one run saved; noted in the record).
     """
@@ -318,7 +321,10 @@ def check_config(experiment: dict, run=None, k: int = GUARD_SEEDS, timeout_s: fl
     if len(tested) >= 2:
         return done(REJECT, G1, feedback=_confounded(tested))
     if not tested:
-        return done(OK, G6, note="the arms train the same model in the same way, so the run can only find no effect")
+        # The hypothesis names a change that the experiment does not make (for example a default written out in
+        # one arm only). A person decides; it is never auto-accepted (student, 2026-11-20).
+        return done(HUMAN_QUEUE, G7, label=NO_DIFFERENCE,
+                    note="the arms train the same model in the same way, so the run can only find no effect")
 
     def measure(rule: str) -> dict | None:
         gap = reference_gap(experiment, control, reference_for(rule, control, treatment), run, k, timeout_s)

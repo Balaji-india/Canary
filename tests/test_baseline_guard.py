@@ -374,9 +374,15 @@ def test_an_inconclusive_gap_is_recorded_and_changes_nothing():
     assert record.gaps[guard.G3]["answer"] == guard.INCONCLUSIVE and record.gaps[guard.G3]["mean_gap"] is not None
 
 
-def test_arms_that_train_the_same_model_the_same_way_are_ok_with_a_note():
-    record = guard.check_config(experiment(arm(params={"C": 1.0}), arm()), run=ScriptedRunner())
-    assert (record.outcome, record.rule, record.factors) == (guard.OK, guard.G6, []) and record.note
+def test_arms_that_train_the_same_model_the_same_way_go_to_the_human_queue():
+    """Student, 2026-11-20: identical arms after defaults are never auto-accepted (G7), and need no run."""
+    runner = ScriptedRunner()
+    record = guard.check_config(experiment(arm(params={"C": 1.0}), arm()), run=runner)
+    assert (record.outcome, record.rule, record.label) == (guard.HUMAN_QUEUE, guard.G7, guard.NO_DIFFERENCE)
+    assert record.factors == [] and record.feedback is None and record.note and runner.configs == []
+    same_tree = guard.check_config(experiment(arm("decision_tree", {"max_depth": None, "random_state": 3}),
+                                              arm("decision_tree")), run=runner)
+    assert same_tree.rule == guard.G7 and runner.configs == []
 
 
 def test_the_record_states_its_versions_seeds_and_tuning_counts():
