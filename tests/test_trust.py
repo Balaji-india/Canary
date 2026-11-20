@@ -265,3 +265,51 @@ def test_demo_is_labelled_synthetic_and_shows_every_group(capsys):
     for word in ("harmful", "harmless", "unmeasured", "controls", "shams", "combined", "tested 2 of 10", "UNTESTED"):
         assert word in out
     assert "Beta(9, 3)" in out and "Beta(4, 8)" in out  # B01 8 of 10, B02 3 of 10
+
+
+# ---- Mission 4.1 step 2: prevalence and contamination draws (hand-computed values) --------------------------------
+
+def test_rogan_gladen_and_contamination_match_the_hand_calculation():
+    """Se 0.8, Sp 0.9, p 0.3: prevalence = 0.2 / 0.7 = 0.285714; contamination = 0.057143 / 0.7 = 0.081633."""
+    prevalence = trust.prevalence_draws(np.array([0.8]), np.array([0.9]), np.array([0.3]))
+    assert prevalence[0] == pytest.approx(0.2 / 0.7) and round(float(prevalence[0]), 4) == 0.2857
+    contamination = trust.contamination_draws(prevalence, np.array([0.8]), np.array([0.9]))
+    by_hand = (0.2 / 0.7 * 0.2) / (0.2 / 0.7 * 0.2 + (1 - 0.2 / 0.7) * 0.9)
+    assert contamination[0] == pytest.approx(by_hand) and round(float(contamination[0]), 4) == 0.0816
+    assert by_hand == pytest.approx(0.0571428571 / 0.7)
+
+
+def test_a_flag_rate_below_the_false_alarm_rate_clips_to_zero():
+    assert trust.prevalence_draws(0.8, 0.9, 0.05)[()] == 0.0  # p 0.05 < 1 - Sp = 0.1
+    assert trust.prevalence_draws(0.8, 0.9, 0.95)[()] == 1.0  # (0.95 + 0.9 - 1) / 0.7 = 1.21 clips to 1
+
+
+@pytest.mark.parametrize("se, sp", [(0.1, 0.9), (0.5, 0.5), (0.0, 0.2)])
+def test_an_uninformative_draw_gives_prevalence_one(se, sp):
+    """Se + Sp - 1 <= 0: the draw is kept, at the worst case."""
+    assert trust.prevalence_draws(se, sp, 0.3)[()] == 1.0
+
+
+def test_zero_prevalence_gives_zero_contamination_and_nothing_passing_gives_one():
+    assert trust.contamination_draws(0.0, 0.5, 0.0)[()] == 0.0
+    assert trust.contamination_draws(0.0, 0.8, 0.9)[()] == 0.0
+    assert trust.contamination_draws(1.0, 1.0, 0.9)[()] == 1.0  # every run buggy and every bug caught: none passes
+    assert trust.contamination_draws(1.0, 0.7, 0.9)[()] == 1.0  # every run buggy: every pass is a bug
+
+
+def test_point_posteriors_reproduce_the_formulas():
+    """Huge counts make the Beta draws points: the draw-based figures equal the formulas to 3 decimals."""
+    rng = np.random.default_rng(0)
+    big = 10_000_000
+    se = rng.beta(1 + 0.8 * big, 1 + 0.2 * big, 2000)
+    sp = rng.beta(1 + 0.9 * big, 1 + 0.1 * big, 2000)
+    p = rng.beta(1 + 0.3 * big, 1 + 0.7 * big, 2000)
+    prevalence = trust.prevalence_draws(se, sp, p)
+    contamination = trust.contamination_draws(prevalence, se, sp)
+    assert round(float(np.median(prevalence)), 3) == round(0.2 / 0.7, 3) == 0.286
+    assert round(float(np.median(contamination)), 3) == 0.082
+
+
+def test_draws_work_elementwise():
+    prevalence = trust.prevalence_draws(np.array([0.8, 0.8, 0.3]), np.array([0.9, 0.9, 0.6]), np.array([0.3, 0.05, 0.5]))
+    assert prevalence.tolist() == pytest.approx([0.2 / 0.7, 0.0, 1.0])

@@ -99,6 +99,33 @@ def overall_recall_draws(per_class: dict[str, Posterior], draws: int, rng: np.ra
     return np.mean(samples, axis=0)
 
 
+def prevalence_draws(se: np.ndarray, sp: np.ndarray, flag_rate: np.ndarray) -> np.ndarray:
+    """Rogan-Gladen per draw: the share of runs that are buggy, from the flag rate p on them (Mission 4.1).
+
+    prevalence = (p + Sp - 1) / (Se + Sp - 1), clipped to [0, 1]. A draw where Se + Sp - 1 <= 0 (the reviewer is no
+    better than chance there) gives 1, the worst case; it is never dropped, since dropping it would hide exactly the
+    draws where the reviewer cannot be trusted.
+    """
+    se, sp, flag_rate = np.broadcast_arrays(np.asarray(se, float), np.asarray(sp, float), np.asarray(flag_rate, float))
+    den = se + sp - 1
+    safe = np.where(den > 0, den, 1.0)
+    return np.where(den > 0, np.clip((flag_rate + sp - 1) / safe, 0.0, 1.0), 1.0)
+
+
+def contamination_draws(prevalence: np.ndarray, se: np.ndarray, sp: np.ndarray) -> np.ndarray:
+    """Per draw, the share of PASSED runs that are buggy (bugs of the catalogued kinds): Bayes on the reviewer's pass.
+
+    contamination = prevalence (1 - Se) / (prevalence (1 - Se) + (1 - prevalence) Sp). It is 0 when the prevalence is
+    0, and 1 when nothing can pass (the denominator is 0 with bugs present): no passed run then vouches for anything.
+    """
+    prevalence, se, sp = np.broadcast_arrays(np.asarray(prevalence, float), np.asarray(se, float),
+                                             np.asarray(sp, float))
+    buggy_pass = prevalence * (1 - se)
+    passed = buggy_pass + (1 - prevalence) * sp
+    safe = np.where(passed > 0, passed, 1.0)
+    return np.where(prevalence <= 0, 0.0, np.where(passed > 0, buggy_pass / safe, 1.0))
+
+
 def summarize(observations: list[Observation], bug_ids: list[str], draws: int = 5000, seed: int = 0) -> TrustSummary:
     """Compute every trust number. The seed is fixed by default so that a report can be reproduced exactly.
 
