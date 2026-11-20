@@ -503,3 +503,14 @@ def collect_union_observations(table: sealed.SealedTable, led: ledger.Ledger, fi
     first, _ = collect_observations(table, led, first_role, batch)
     second, _ = collect_observations(table, led, second_role, batch)
     return union_observations(first, second)
+
+
+def clean_runs(table: sealed.SealedTable, batches: list[str]) -> list[tuple[str, str, str]]:
+    """(run_id, run type, batch) of every control and sham sealed in these batches, in table order.
+
+    For checks that read clean runs' own results (the decisive-share check, roadmap section 8): the run type and the
+    batch come from the sealed table, so the selection goes through this module like every other join with truth.
+    """
+    wanted = set(batches)
+    return [(truth.run_id, truth.run_type, truth.details.get("batch")) for truth in table.all()
+            if truth.run_type in (sealed.CONTROL, sealed.SHAM) and truth.details.get("batch") in wanted]
