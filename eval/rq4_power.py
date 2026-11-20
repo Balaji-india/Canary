@@ -221,11 +221,14 @@ def measured_counts(led: ledger.Ledger, table: sealed.SealedTable, records_folde
         per_class[bug] = (a + c, b + n)
     check("tripwire_v1 per class (any flag)", {b: list(v) for b, v in sorted(per_class.items())},
           {b: [v["any_flag"]["successes"], v["any_flag"]["n"]] for b, v in sorted(test["per_class"].items())})
+    # B06 per tier: the result file's headline leaves out B06 obvious (rule L1), so its B06 headline is B06 subtle.
+    check("tripwire_v1 B06 subtle (headline)", list(t_counts.get(("B06", "subtle"), (0, 0))),
+          [test["per_class"]["B06"]["headline_fired"]["successes"], test["per_class"]["B06"]["headline_fired"]["n"]])
     check("tripwire_v1 clean passed", list(t_clean),
           [test["headline"]["specificity"]["successes"], test["headline"]["specificity"]["n"]])
 
     # union, per run: ceiling-ext from the ledger (both roles); task-dev-2 with the dev records from disk.
-    union_all, union_counts = [], {}
+    union_all, union_counts, union_by_batch = [], {}, {}
     for batch in batches:
         if batch == "ceiling-ext":
             tripwire_obs, _ = trust.collect_observations(table, led, tripwire_ledger.ROLE, batch)
@@ -246,6 +249,7 @@ def measured_counts(led: ledger.Ledger, table: sealed.SealedTable, records_folde
               [result["headline"]["specificity"]["successes"], result["headline"]["specificity"]["n"]])
         union, counts = trust.union_observations(tripwire_obs, llm[batch])
         union_counts[batch] = counts
+        union_by_batch[batch] = union
         union_all += union
     u_counts, u_clean = variant_counts(union_all)
     return {
@@ -257,6 +261,8 @@ def measured_counts(led: ledger.Ledger, table: sealed.SealedTable, records_folde
                         "source": f"locked tripwire test ({test['batch']}, {TRIPWIRE_TEST.name}), role "
                                   f"{tripwire_ledger.ROLE} in the ledger"},
         "union": {"counts": u_counts, "clean": u_clean, "joined": union_counts,
+                  # ceiling-ext alone: the part that is not tripwire development data (reported beside the pooled)
+                  "by_batch": {b: dict(zip(("counts", "clean"), variant_counts(u))) for b, u in union_by_batch.items()},
                   "source": "per run, flag if either: ceiling-ext (both from the ledger) and task-dev-2 (skeptic_d "
                             "from the ledger, tripwire records of the dev loop on disk; tripwire development data)"},
     }
@@ -336,6 +342,8 @@ def run(reps: int, draws: int, out: Path = OUT_PATH, rq4: bool = True) -> dict:
                      "true_rate": "posterior mean Beta(1 + caught, 1 + missed) of the measured counts"},
         "parity_checks": measured["checks"],
         "union_joined": measured["union"]["joined"],
+        "union_by_batch": {b: {"per_class": class_rates(v["counts"], trust.support_variants("real_guard_untested")),
+                               "clean": v["clean"]} for b, v in measured["union"]["by_batch"].items()},
         "reviewers": {k: {key: v for key, v in spec.items()} for k, spec in reviewers.items()},
         "rates": rates_table(measured),
         "gate": gate, "rq4": rq4_rows,
