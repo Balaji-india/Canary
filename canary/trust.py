@@ -258,7 +258,8 @@ def estimate_from_posteriors(per_class: dict[str, Posterior], specificity: Poste
         prevalence = prevalence_draws(se, sp, p)
         contamination = contamination_draws(prevalence, se, sp)
         found[name] = {"recall": _spread(se), "prevalence": _spread(prevalence),
-                       "contamination": _spread(contamination),
+                       "contamination": {**_spread(contamination),
+                                         f"p{GATE_PERCENTILE}": float(np.percentile(contamination, GATE_PERCENTILE))},
                        "p_informative": float(np.mean(se + sp - 1 > 0))}
         found[f"_{name}_contamination"] = contamination
     gate = None
