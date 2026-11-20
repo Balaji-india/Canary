@@ -17,3 +17,16 @@ graveyard_similarity: 0.75
 questions:
   q1: "Which preprocessing and regularization choices help small tabular classifiers?"
   q2: "When does class weighting help on imbalanced tabular data?"
+trust:
+  # Which (class, tier) variants each population can carry (docs/plans/mission_4_1_trust.md, section 2). A variant
+  # is left out only with the rule or test that excludes it written beside it; canary/trust.py refuses anything else.
+  support:
+    real_guard_off:
+      B06 obvious: "tripwire rule L1 (accuracy above a 3:1 class ratio) after the run"
+    real_guard_untested:    # today: guard on but not yet tested, so B09 stays in (plan decision 2)
+      B06 obvious: "guard rule G0 before the run, tripwire rule L1 after it"
+    real_guard_tested:      # only after the guard passes its test (b09_proposal_guard.md step 7); leak term added
+      B06 obvious: "guard rule G0 before the run, tripwire rule L1 after it"
+      B09 obvious: "guard rules G1-G4 (tested); what it lets through is the measured leak term"
+      B09 subtle: "guard rules G1-G4 (tested); what it lets through is the measured leak term"
+    hidden_truth: {}        # Mission 4.2: the estimator is not told what was planted

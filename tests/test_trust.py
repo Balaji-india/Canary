@@ -313,3 +313,64 @@ def test_point_posteriors_reproduce_the_formulas():
 def test_draws_work_elementwise():
     prevalence = trust.prevalence_draws(np.array([0.8, 0.8, 0.3]), np.array([0.9, 0.9, 0.6]), np.array([0.3, 0.05, 0.5]))
     assert prevalence.tolist() == pytest.approx([0.2 / 0.7, 0.0, 1.0])
+
+
+# ---- Mission 4.1 step 3: the support ------------------------------------------------------------------------------
+
+def test_b06_recall_in_the_real_support_comes_from_subtle_canaries_only():
+    support = trust.support_variants("real_guard_untested")
+    assert ("B06", "obvious") not in support and ("B06", "subtle") in support
+    observations = canaries(10, 0, bug="B06", tier="obvious") + canaries(1, 3, bug="B06", tier="subtle")
+    summary = trust.summarize(observations, ["B06"], variants=support)
+    assert (summary.per_class["B06"].successes, summary.per_class["B06"].failures) == (1, 3)
+    assert summary.outside_support == 10
+    assert trust.summarize(observations, ["B06"]).per_class["B06"].successes == 11  # no support: everything counts
+
+
+def test_a_class_with_no_canaries_in_the_support_is_untested():
+    observations = canaries(5, 1, bug="B01") + canaries(4, 0, bug="B06", tier="obvious")
+    summary = trust.summarize(observations, ["B01", "B06"], variants=trust.support_variants("real_guard_untested"))
+    assert summary.untested == ["B06"] and summary.worst_class == "B01"
+
+
+def test_the_worst_class_is_the_lowest_posterior_mean_ties_by_id():
+    observations = canaries(3, 1, bug="B05") + canaries(3, 1, bug="B02") + canaries(9, 1, bug="B01")
+    summary = trust.summarize(observations, ["B01", "B02", "B05"], variants=trust.support_variants("hidden_truth"))
+    assert summary.per_class["B02"].mean == summary.per_class["B05"].mean == pytest.approx(4 / 6)
+    assert summary.worst_class == "B02"
+
+
+def test_every_population_names_a_rule_for_each_left_out_variant():
+    assert len(trust.all_variants()) == 20
+    assert set(trust.support_variants("hidden_truth")) == set(trust.all_variants())
+    assert set(trust.all_variants()) - set(trust.support_variants("real_guard_untested")) == {("B06", "obvious")}
+    assert set(trust.all_variants()) - set(trust.support_variants("real_guard_off")) == {("B06", "obvious")}
+    assert set(trust.all_variants()) - set(trust.support_variants("real_guard_tested")) == {
+        ("B06", "obvious"), ("B09", "obvious"), ("B09", "subtle")}
+    for population in ("real_guard_off", "real_guard_untested", "real_guard_tested"):
+        assert all(reason.strip() for reason in trust.support_exclusions(population).values())
+
+
+def test_b09_leaves_the_real_support_only_when_the_guard_is_on_and_tested():
+    assert trust.real_population(guard_on=True, guard_tested=False) == "real_guard_untested"
+    assert trust.real_population(guard_on=False, guard_tested=True) == "real_guard_off"
+    assert trust.real_population(guard_on=True, guard_tested=True) == "real_guard_tested"
+    assert ("B09", "obvious") in trust.support_variants(trust.real_population(True, False))
+
+
+def test_a_variant_left_out_without_a_rule_is_refused(monkeypatch):
+    real = trust.load_yaml
+
+    def patched(name, *args, **kwargs):
+        loaded = real(name, *args, **kwargs)
+        loaded["trust"]["support"]["bad"] = {"B03 subtle": "  "}
+        loaded["trust"]["support"]["unknown"] = {"B11 obvious": "a rule"}
+        return loaded
+
+    monkeypatch.setattr(trust, "load_yaml", patched)
+    with pytest.raises(ValueError, match="no named rule"):
+        trust.support_variants("bad")
+    with pytest.raises(ValueError, match="not a variant"):
+        trust.support_variants("unknown")
+    with pytest.raises(KeyError):
+        trust.support_variants("nobody")

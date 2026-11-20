@@ -20,6 +20,8 @@ import numpy as np
 from scipy import stats
 
 from canary import ledger, sealed
+from canary.config import load_yaml
+from canary.saboteur import classes as classes_module
 from canary.saboteur import impact as impact_module
 
 FLAG = "flag"  # the Skeptic's verdict word. Not imported, so that this module does not depend on the reviewer's code.
@@ -81,6 +83,7 @@ class TrustSummary:
     control_specificity: Posterior
     sham_specificity: Posterior
     untested: list[str]
+    outside_support: int = 0  # canaries of variants left out by `variants` (counted, not scored)
 
     @property
     def worst_recall(self) -> Posterior | None:
@@ -126,13 +129,62 @@ def contamination_draws(prevalence: np.ndarray, se: np.ndarray, sp: np.ndarray) 
     return np.where(prevalence <= 0, 0.0, np.where(passed > 0, buggy_pass / safe, 1.0))
 
 
-def summarize(observations: list[Observation], bug_ids: list[str], draws: int = 5000, seed: int = 0) -> TrustSummary:
+Variant = tuple[str, str]  # (bug class, tier)
+
+
+def all_variants() -> list[Variant]:
+    """Every (class, tier) the bug catalog defines: 10 classes x 2 tiers."""
+    return [(bug, tier) for bug in sorted(classes_module.catalog()) for tier in classes_module.TIERS]
+
+
+def support_exclusions(population: str) -> dict[Variant, str]:
+    """The variants a population cannot carry, each with the rule or test that excludes it (config/campaign.yaml,
+    trust.support; docs/plans/mission_4_1_trust.md section 2). A variant left out without a named reason is refused."""
+    table = load_yaml("campaign.yaml")["trust"]["support"]
+    if population not in table:
+        raise KeyError(f"no support defined for population {population!r}; known: {sorted(table)}")
+    known = set(all_variants())
+    found: dict[Variant, str] = {}
+    for name, reason in (table[population] or {}).items():
+        bug, tier = name.split()
+        if (bug, tier) not in known:
+            raise ValueError(f"{population}: {name!r} is not a variant of the catalog")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError(f"{population}: {name} is left out with no named rule")
+        found[(bug, tier)] = reason
+    return found
+
+
+def support_variants(population: str) -> list[Variant]:
+    """The (class, tier) variants a population can carry: the catalog minus the named exclusions."""
+    excluded = support_exclusions(population)
+    return [v for v in all_variants() if v not in excluded]
+
+
+def real_population(guard_on: bool, guard_tested: bool) -> str:
+    """Which support applies to real runs. B09 leaves the support only once the guard is on AND has passed its test
+    (decision 2 of the Mission 4.1 plan, confirmed by the student 2026-11-20); until then nothing is auto-accepted."""
+    if not guard_on:
+        return "real_guard_off"
+    return "real_guard_tested" if guard_tested else "real_guard_untested"
+
+
+def summarize(observations: list[Observation], bug_ids: list[str], draws: int = 5000, seed: int = 0,
+              variants: list[Variant] | None = None) -> TrustSummary:
     """Compute every trust number. The seed is fixed by default so that a report can be reproduced exactly.
 
     An untested class stays in the overall figure at its prior and is listed in `untested`. Averaging 10 flat priors
     gives a narrow-looking interval around 0.5 that reflects no data, so anything printing it must show `untested`.
+
+    `variants` (a support) keeps only canaries of those (class, tier) variants, so for example B06's recall in the
+    real-run support comes from subtle canaries alone; the others are counted in `outside_support`.
     """
     measured = [o for o in observations if o.run_type == sealed.CANARY_MEASURE]
+    outside = 0
+    if variants is not None:
+        allowed = set(variants)
+        kept = [o for o in measured if (o.bug_id, o.tier) in allowed]
+        outside, measured = len(measured) - len(kept), kept
     clean = [o for o in observations if o.run_type in (sealed.CONTROL, sealed.SHAM)]
     unknown = sorted({o.bug_id for o in measured} - set(bug_ids))
     if unknown:
@@ -160,6 +212,7 @@ def summarize(observations: list[Observation], bug_ids: list[str], draws: int = 
         control_specificity=passes([o for o in clean if o.run_type == sealed.CONTROL]),
         sham_specificity=passes([o for o in clean if o.run_type == sealed.SHAM]),
         untested=[b for b in per_class if b not in tested],
+        outside_support=outside,
     )
 
 
