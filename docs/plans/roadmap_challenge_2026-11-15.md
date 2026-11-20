@@ -168,35 +168,39 @@ the catalog.
 11. **(Second read.) RQ3's plan is locked before RQ4 is analysed** (finding 21), in the review week: **yes.**
     Alternative: write it afterwards and report RQ3 on this bank as exploratory.
 
-## 8. The decisive-share rule (proposed 2026-11-20 by Opus, before any computation; waits for the student's OK)
+## 8. The decisive-share rule (proposed 2026-11-20 by Opus before any computation; approved by the student the same day with the three changes marked "(student)")
 Decision 2 says "check first" but fixes no rule that turns the measured share into a choice. This one is written
 before any clean-run verdict has been counted, and is not changed after.
 
 **Data.** Every control and sham run with run status `ok` in the batches `rq1-full`, `task-dev-1`, `task-dev-2`,
-`ceiling-ext` and `tripwire-test-1` (both tests are done, so findings 25's restriction has lapsed), selected by run
+`ceiling-ext` and `tripwire-test-1` (both tests are done, so finding 25's restriction has lapsed), selected by run
 type and batch through `canary.trust` (the only module that reads the sealed table). Its verdict is the one in its
-`ran` ledger entry, recomputed with `prereg.compute_verdict` on its `results.json` and required to match. No audit
+`ran` ledger entry, recomputed with `prereg.compute_verdict` on its `results.json` and required to match; **if any
+recomputed verdict does not match its ledger verdict, the check stops and reports it before computing D or G10
+(student)**. No audit
 and no reviewer output is read. Unit: one clean run = one comparison; the number per batch and the number of
 distinct bases are printed (the runs are clones of the 35 bases of pools 1 and 2, so the bases, not the runs, are
 the independent units).
 
 **Measures (all printed).**
 - **D**, the decisive share: runs whose verdict is `supported` or `not_supported`, over all runs; per batch and
-  pooled, with the 90% interval of Beta(1 + d, 1 + n - d); beside it the base-level figure (the mean over bases of
-  each base's share, with a 90% bootstrap over bases) as the sensitivity for clustering.
+  pooled. **Base level (decides, student):** the mean over bases of each base's share, with a 90% bootstrap over
+  bases. **Run level (printed beside it):** d of n runs with the 90% interval of Beta(1 + d, 1 + n - d).
 - **G10**, what 10 seeds could add: the share of all runs whose verdict is `inconclusive` now but would be decisive
-  if its interval's half-width were multiplied by f10 = [t(0.975, 9) sqrt(1/10 + 1/3)] / [t(0.975, 4) sqrt(1/5 +
-  1/3)] = 0.734 (printed from code), keeping its mean effect, as finding 2 assumes (spread unchanged). It reads only
-  the verdict's own numbers (mean, interval, min_effect). It is a projection, not a verdict.
+  if its interval's half-width were multiplied by f10 = [t(0.975, 9) sqrt(1/10 + r)] / [t(0.975, 4) sqrt(1/5 + r)],
+  keeping its mean effect, as finding 2 assumes (spread unchanged). **r is the run's own n_test / n_train from its
+  `results.json` split sizes, not an assumed test_size of 0.25; the range of f10 used is printed (student).** (At
+  r = 1/3, f10 = 0.734.) Base level and run level as for D. It reads only the verdict's own numbers (mean,
+  interval, min_effect) and the run's split sizes. It is a projection, not a verdict.
 - By dataset, metric and model family: counts only, descriptive, deciding nothing.
 
 **Rule (recommends; the student decides).**
-- **Seeds:** recommend `seeds_per_arm: 10` if pooled G10 is at least 0.10 (ten more decisive verdicts per 100 runs
+- **Seeds:** recommend `seeds_per_arm: 10` if the pooled base-level G10 is at least 0.10 (ten more decisive verdicts per 100 runs
   for about twice the run time); otherwise keep 5.
-- **Grid:** if the pooled D's 90% interval has its lower end at 0.20 or above, keep question q1 and the focus grid.
+- **Grid:** if the pooled base-level D's 90% interval has its lower end at 0.20 or above, keep question q1 and the focus grid.
   If its upper end is below 0.20, decisive verdicts are rare on this grid: recommend an amendment to
   `mission_4_2_hidden_truth.md` section 2a before pool 3, built from the cells where decisive verdicts occurred,
   with a small local pilot (finding 25) for any cell the 35 bases do not cover. If the interval straddles 0.20, keep
   q1 and the grid and report the per-cell table.
-- The base-level figure is reported beside the run-level one; if they lead to different recommendations, both are
-  shown and the run-level one is not used alone.
+- **The base-level figure decides; the run-level one is printed beside it (student).** If the two would lead to
+  different recommendations, that is said, and the base-level one stands.
