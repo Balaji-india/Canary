@@ -10,12 +10,16 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from canary import codegen, llm, prereg, prompts, sandbox, sealed
+from canary import baseline_guard, codegen, llm, prereg, prompts, sandbox, sealed
 from canary import ledger as ledger_module
 from canary.config import load_yaml
 from canary.ledger import Ledger
 
 PREVIOUS_SHOWN = 10  # how many earlier hypotheses the prompt lists, to keep it short
+
+# Guard records of accepted proposals, by pre-registration hash, until run_locked stores them in the ledger. The record
+# travels beside the lock, never inside it: the lock is what the reviewer sees and what clones copy (plan trap 1).
+_GUARDED: dict[str, dict] = {}
 
 
 class ProposalRejected(RuntimeError):
@@ -62,8 +66,18 @@ def _experiment_key(locked: dict) -> str:
     return prereg.canonical_json(run_config)
 
 
-def proposal_problem(locked: dict, earlier_keys: set[str]) -> str | None:
-    """Return why a proposal cannot be locked, or None. The schema cannot express these rules."""
+def guard_enabled() -> bool:
+    """`science.baseline_guard` in config/campaign.yaml. Off, the Scientist behaves exactly as before the guard."""
+    return bool(load_yaml("campaign.yaml")["science"].get("baseline_guard", False))
+
+
+def proposal_problem(locked: dict, earlier_keys: set[str], guard: bool = False) -> str | None:
+    """Return why a proposal cannot be locked, or None. The schema cannot express these rules.
+
+    With `guard`, a proposal that passes the other checks also goes through the baseline guard (B09 before the run).
+    Its result is logged either way; a rejection returns the guard's sentence, which reaches the Scientist through
+    the existing retry text (the prompt itself is unchanged), and an accepted record waits for run_locked.
+    """
     if not locked["hypothesis"].strip():
         return "hypothesis is empty"
     if locked["control_config"] == locked["treatment_config"]:
@@ -76,6 +90,12 @@ def proposal_problem(locked: dict, earlier_keys: set[str]) -> str | None:
         return str(exc)
     if _experiment_key(locked) in earlier_keys:
         return "this exact experiment was already run"
+    if guard:
+        record = baseline_guard.check_proposal(locked)
+        baseline_guard.log_record(record, locked)
+        if record.outcome == baseline_guard.REJECT:
+            return record.feedback
+        _GUARDED[prereg.prereg_hash(locked)] = record.to_dict()
     return None
 
 
@@ -143,10 +163,21 @@ def propose(client: llm.LLM, question_id: str, led: Ledger, table: sealed.Sealed
                                           f"(attempt {attempt - 1}) {feedback}" if feedback else None)
         result = client.call("scientist", prompt, schema, system=prompts.SCIENTIST_SYSTEM)
         locked = prereg.build_prereg(result.data, question, science, campaign["seeds_per_arm"])
-        feedback = proposal_problem(locked, earlier_keys)
+        feedback = proposal_problem(locked, earlier_keys, guard=bool(science.get("baseline_guard", False)))
         if feedback is None:
             return locked, result.model
     raise ProposalRejected(f"no acceptable proposal after {science['proposal_attempts']} attempts: {feedback}")
+
+
+def _guard_record(locked: dict, digest: str) -> dict:
+    """The record `propose` kept for this lock, or a fresh check (logged) if it has none."""
+    if digest in _GUARDED:
+        return _GUARDED.pop(digest)
+    record = baseline_guard.check_proposal(locked)
+    baseline_guard.log_record(record, locked)
+    if record.outcome == baseline_guard.REJECT:
+        raise ProposalRejected(f"baseline guard {record.rule}: {record.feedback}")
+    return record.to_dict()
 
 
 @dataclass(frozen=True)
@@ -179,10 +210,18 @@ def record_ran(led: Ledger, hypothesis_id: str, locked: dict, digest: str, recor
 
 def run_locked(locked: dict, model: str, led: Ledger, table: sealed.SealedTable, runs_dir: Path = sandbox.RUNS_DIR,
                timeout_s: float = sandbox.DEFAULT_TIMEOUT_S) -> ScienceOutcome:
-    """Record the hypothesis, lock it in the ledger BEFORE running, then run it, seal it and record the verdict."""
+    """Record the hypothesis, lock it in the ledger BEFORE running, then run it, seal it and record the verdict.
+
+    With the baseline guard on, the PROPOSED entry carries the guard's record under `guard` (the lock itself is
+    unchanged). A lock that did not come through `propose` is checked here, and a rejection raises before anything
+    is written.
+    """
     hypothesis_id = str(uuid.uuid4())
     digest = prereg.prereg_hash(locked)
-    led.append(hypothesis_id, ledger_module.PROPOSED, {"hypothesis": locked["hypothesis"], "model": model})
+    proposed = {"hypothesis": locked["hypothesis"], "model": model}
+    if guard_enabled():
+        proposed["guard"] = _guard_record(locked, digest)
+    led.append(hypothesis_id, ledger_module.PROPOSED, proposed)
     led.append(hypothesis_id, ledger_module.PREREGISTERED, {"prereg": locked, "prereg_sha256": digest})
 
     record = sandbox.run_config(prereg.to_run_config(locked), runs_dir, timeout_s)

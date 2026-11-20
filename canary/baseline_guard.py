@@ -15,14 +15,20 @@ This file never imports the saboteur, the controls, the mixer or the sealed tabl
 """
 from __future__ import annotations
 
+import argparse
 import importlib
 import json
+import sys
 import tempfile
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
+import yaml
+
 from canary import datasets, prereg, sandbox
-from canary.config import load_yaml
+from canary.config import DATA_DIR, load_yaml
 
 # Model name -> where scikit-learn keeps its class. The same table as MODELS in templates/experiment.py.tmpl (a test
 # compares them); kept as text so that importing the guard does not import every estimator.
@@ -40,6 +46,10 @@ IGNORED_PARAMS = frozenset({"random_state"})
 # G0 draws the same line as tripwire L1 and DESIGN.md section 6: accuracy misleads above a 3:1 class ratio (largest
 # class over smallest). Our own constant: the guard may not import the saboteur; a test checks the two agree.
 IMBALANCE_LINE = 3.0
+GUARD_VERSION = "1"
+# Every guard result, rejected or not (plan section 3). Not the ledger: an accepted proposal also carries its record
+# in the ledger's PROPOSED entry; rejected ones live only here until the graveyard exists (Mission 3.1, plan trap 8).
+LOG_PATH = DATA_DIR / "guard" / "proposals.jsonl"
 # Guard seeds: fixed, from 100001 upward. Run seeds are drawn below prereg.SEED_RANGE (100000) and the oracle of
 # sitting 2 starts at 200001, so the guard never looks at a real run's own splits before the lock (plan trap 4).
 GUARD_SEED_START = 100_001
@@ -64,6 +74,13 @@ WEAK = "weak"                  # the reference beats the arm by at least the flo
 NOT_WEAK = "not_weak"          # the gap is clearly below the floor
 INCONCLUSIVE = "inconclusive"  # these seeds cannot tell: recorded as a number, no action
 UNVERIFIABLE = "unverifiable"  # the reference run crashed or timed out (rule G5)
+# What the guard decides about a proposal.
+OK = "ok"
+REJECT = "reject"            # the Scientist gets the feedback sentence and retries (science.proposal_attempts)
+HUMAN_QUEUE = "human_queue"  # the run goes ahead; the trust gate (Mission 4.1) never auto-accepts it
+WARN = "warn"                # the run goes ahead; the report must say the finding holds in a degraded setting
+CONTROL_BELOW_DEFAULT = "control_below_default"  # G3's label
+WEAK_REGIME = "weak_regime"                      # G4's label
 
 
 def estimator_class(model: str) -> type:
@@ -222,3 +239,153 @@ def reference_gap(experiment: dict, arm: dict, reference: dict, run=None, k: int
                  ci_high=verdict["ci_high"], seeds_used=len(results["control"]),
                  arm_scores=results["control"], reference_scores=results["treatment"])
     return found
+
+
+@dataclass(frozen=True)
+class GuardRecord:
+    """What the guard found for one proposal. Stored beside the pre-registration, never inside it (plan trap 1)."""
+
+    outcome: str             # OK, REJECT, HUMAN_QUEUE or WARN
+    rule: str                # the row of the plan's table that decided: G0 to G6
+    label: str | None        # CONTROL_BELOW_DEFAULT (G3), WEAK_REGIME (G4) or None
+    feedback: str | None     # the sentence a rejected Scientist gets back; None otherwise
+    factors: list            # in what the arms differ
+    nondefault: dict         # per arm: names of the settings that are not the library default
+    tuning_asymmetry: dict   # per arm: how many such settings (unequal tuning effort is counted, not judged)
+    unknown_params: dict     # per arm: names the model does not have
+    gaps: dict               # rule -> what its reference run found (see reference_gap)
+    note: str | None
+    k: int
+    guard_seeds: list
+    sklearn_version: str
+    guard_version: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def _names(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def _confounded(tested: list[str]) -> str:
+    if MODEL_FACTOR in tested:
+        return ("the arms use different models and different preprocessing, so a difference could come from either; "
+                "give both arms the same preprocessing so that only the model differs")
+    return (f"the arms differ in {_names(tested)}, so a difference could come from any of them; change one thing "
+            "only and keep every other setting the same in both arms")
+
+
+def _weak_control(control: dict, gap: dict) -> str:
+    # This tells the Scientist the control's gap before the lock. It concerns the control only, never the treatment
+    # or the effect (plan trap 5; the report must say so).
+    return (f"the control ({control['model']} with {_names(nondefault(control))} changed) scores below the same model "
+            f"at scikit-learn's default settings (mean gap {gap['mean_gap']:.3f} on the guard's own splits); leave "
+            "the control's settings at their defaults, or compare one setting of one model")
+
+
+def _unverifiable(gap: dict) -> str:
+    return ("the control could not be checked: a short run of it against its default-setting reference ended in "
+            f"{gap['run_status']} ({gap['reason']}); choose settings that run")
+
+
+def check_config(experiment: dict, run=None, k: int = GUARD_SEEDS, timeout_s: float | None = None) -> GuardRecord:
+    """Decide one experiment config by the rules of the plan's section 3, in this order:
+
+    G0 (metric rule) and G1 (more than one factor) are read from the config, with no run. A two-model proposal then
+    has one reference (G2); a one-factor proposal has G3, then G4. G5 is any of those reference runs failing. A G3
+    finding already sends the run to a person, so G4 is not measured after it (one run saved; noted in the record).
+    """
+    import sklearn
+
+    control, treatment = experiment["control"], experiment["treatment"]
+    tested = factors(control, treatment)
+    changed = {"control": nondefault(control), "treatment": nondefault(treatment)}
+    gaps: dict = {}
+
+    def done(outcome: str, rule: str, label: str | None = None, feedback: str | None = None,
+             note: str | None = None) -> GuardRecord:
+        return GuardRecord(outcome=outcome, rule=rule, label=label, feedback=feedback, factors=tested,
+                           nondefault=changed, tuning_asymmetry={arm: len(names) for arm, names in changed.items()},
+                           unknown_params={"control": unknown_params(control), "treatment": unknown_params(treatment)},
+                           gaps=gaps, note=note, k=k, guard_seeds=guard_seeds(k), sklearn_version=sklearn.__version__,
+                           guard_version=GUARD_VERSION)
+
+    problem = metric_problem(experiment["dataset"], experiment["metric"])
+    if problem:
+        return done(REJECT, G0, feedback=problem)
+    if len(tested) >= 2:
+        return done(REJECT, G1, feedback=_confounded(tested))
+    if not tested:
+        return done(OK, G6, note="the arms train the same model in the same way, so the run can only find no effect")
+
+    def measure(rule: str) -> dict | None:
+        gap = reference_gap(experiment, control, reference_for(rule, control, treatment), run, k, timeout_s)
+        if gap is not None:
+            gaps[rule] = gap
+        return gap
+
+    if tested == [MODEL_FACTOR]:
+        gap = measure(G2)
+        if gap and gap["answer"] == UNVERIFIABLE:
+            return done(REJECT, G5, feedback=_unverifiable(gap))
+        if gap and gap["answer"] == WEAK:
+            return done(REJECT, G2, feedback=_weak_control(control, gap))
+        return done(OK, G6)
+    gap = measure(G3)
+    if gap and gap["answer"] == UNVERIFIABLE:
+        return done(REJECT, G5, feedback=_unverifiable(gap))
+    if gap and gap["answer"] == WEAK:
+        # No feedback: the run goes ahead, so nothing about the gap reaches the proposal (plan section 8, item 10).
+        return done(HUMAN_QUEUE, G3, label=CONTROL_BELOW_DEFAULT,
+                    note="claim wording: against a control weaker than the library default; G4 not measured")
+    gap = measure(G4)
+    if gap and gap["answer"] == UNVERIFIABLE:
+        return done(REJECT, G5, feedback=_unverifiable(gap))
+    if gap and gap["answer"] == WEAK:
+        return done(WARN, G4, label=WEAK_REGIME,
+                    note="the finding holds only in a setting both arms share that is weaker than the default")
+    return done(OK, G6)
+
+
+def check_proposal(locked: dict, run=None, k: int = GUARD_SEEDS, timeout_s: float | None = None) -> GuardRecord:
+    """The guard for a pre-registration about to be locked. It reads the record and never changes it."""
+    return check_config(prereg.to_run_config(locked), run, k, timeout_s)
+
+
+def log_record(record: GuardRecord, locked: dict, path: Path | None = None) -> Path:
+    """Append one guard result with the proposal it judged (sitting 2 counts outcomes on natural proposals)."""
+    path = LOG_PATH if path is None else path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = {"logged_at": datetime.now(timezone.utc).isoformat(), "prereg_sha256": prereg.prereg_hash(locked),
+            "hypothesis": locked["hypothesis"], "dataset": locked["dataset"], "metric": locked["metric"],
+            "control_config": locked["control_config"], "treatment_config": locked["treatment_config"],
+            "guard": record.to_dict()}
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(line, sort_keys=True) + "\n")
+    return path
+
+
+def _load(path: Path) -> dict:
+    """A run config (as in config/examples/) or a pre-registration (with control_config), from YAML or JSON."""
+    loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return prereg.to_run_config(loaded) if "control_config" in loaded else loaded
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m canary.baseline_guard",
+                                     description="Print what the baseline guard says about one experiment config. "
+                                                 "A reference run goes in a temporary folder; nothing is logged.")
+    parser.add_argument("path", type=Path, help="a run config or a pre-registration (YAML or JSON)")
+    parser.add_argument("--k", type=int, default=GUARD_SEEDS, help="number of guard seeds")
+    args = parser.parse_args(argv)
+    record = check_config(_load(args.path), k=args.k)
+    label = f", label {record.label}" if record.label else ""
+    tested = _names(record.factors) if record.factors else "no difference"
+    print(f"Baseline guard: {record.outcome} (rule {record.rule}{label}); factors: {tested}")
+    print(json.dumps(record.to_dict(), indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

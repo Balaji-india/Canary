@@ -4,7 +4,7 @@ import urllib.request
 
 import pytest
 
-from canary import llm, separation
+from canary import baseline_guard, llm, scientist, separation
 
 
 @pytest.fixture(autouse=True)
@@ -43,3 +43,24 @@ def no_network_no_keys(monkeypatch, tmp_path):
     monkeypatch.setattr(llm, "CALL_LOG_PATH", tmp_path / "cloud" / "calls.jsonl")
     for name in ("GROQ_API_KEY", "GEMINI_API_KEY", "AZURE_OPENAI_API_KEY"):
         monkeypatch.delenv(name, raising=False)
+
+
+def neutral_guard_runner(config, runs_dir, timeout_s):
+    """A reference run where the arm and its reference score the same, so the guard finds nothing weak."""
+    import json
+
+    n = len(config["seeds"])
+    run_dir = runs_dir / "neutral-guard-run"
+    run_dir.mkdir(parents=True)
+    results = {"control": [0.8] * n, "treatment": [0.8] * n, "split_sizes": {"train": [3] * n, "test": [1] * n}}
+    (run_dir / "results.json").write_text(json.dumps(results), encoding="utf-8")
+    return {"run_id": "neutral-guard-run", "status": "ok", "reason": None, "seconds": 0.0}
+
+
+@pytest.fixture(autouse=True)
+def guard_never_runs_for_real(monkeypatch, tmp_path):
+    """The baseline guard is on in config/campaign.yaml. In tests its reference runs are neutral fakes (a test that
+    wants a real one passes run=sandbox.run_config) and its log goes into the test's own folder, not data/guard/."""
+    monkeypatch.setattr(baseline_guard, "default_runner", lambda: neutral_guard_runner)
+    monkeypatch.setattr(baseline_guard, "LOG_PATH", tmp_path / "guard" / "proposals.jsonl")
+    monkeypatch.setattr(scientist, "_GUARDED", {})  # no accepted record leaks from one test into the next
