@@ -468,3 +468,37 @@ def collect_observations(table: sealed.SealedTable, led: ledger.Ledger, role: st
         observations.append(Observation(run_id, truth.run_type, truth.bug_id, truth.tier, impact,
                                         audit["verdict"] == FLAG, audit["bug_class"]))
     return observations, excluded
+
+
+def union_observations(first: list[Observation], second: list[Observation]) -> tuple[list[Observation], dict]:
+    """The union reviewer, run by run: "flag" if either reviewer flagged (mission_5_1_tripwires.md section 8).
+
+    Only runs that both reviewers judged get a union verdict; a run one of them has no opinion on (for example a
+    failed LLM reply) is counted in `first_only` / `second_only`, never scored. Union numbers come from these per-run
+    verdicts, never from the two reviewers' rates. The named class is the first reviewer's when it flagged, else the
+    second's. Both lists must agree on each run's truth (they come from the same sealed row).
+    """
+    theirs = {o.run_id: o for o in second}
+    ours = {o.run_id: o for o in first}
+    if len(ours) != len(first) or len(theirs) != len(second):
+        raise ValueError("a reviewer has two observations of one run")
+    union = []
+    for run_id, a in ours.items():
+        b = theirs.get(run_id)
+        if b is None:
+            continue
+        if (a.run_type, a.bug_id, a.tier, a.impact) != (b.run_type, b.bug_id, b.tier, b.impact):
+            raise ValueError(f"run {run_id}: the two reviewers' observations disagree on its truth")
+        named = a.named_class if a.flagged else (b.named_class if b.flagged else None)
+        union.append(Observation(run_id, a.run_type, a.bug_id, a.tier, a.impact, a.flagged or b.flagged, named))
+    counts = {"both": len(union), "first_only": len(set(ours) - set(theirs)),
+              "second_only": len(set(theirs) - set(ours))}
+    return union, counts
+
+
+def collect_union_observations(table: sealed.SealedTable, led: ledger.Ledger, first_role: str, second_role: str,
+                               batch: str | None = None) -> tuple[list[Observation], dict]:
+    """Union observations from two roles' ledger audits (for example `tripwire_v1` and `skeptic_d`), joined by run."""
+    first, _ = collect_observations(table, led, first_role, batch)
+    second, _ = collect_observations(table, led, second_role, batch)
+    return union_observations(first, second)

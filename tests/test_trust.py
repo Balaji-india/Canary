@@ -458,3 +458,67 @@ def test_estimate_is_reproducible_and_reports_counts_support_and_leak():
     assert one["leak"] == {"weak": 2, "of": 100} and "B06 obvious" not in one["support"]
     assert one["per_class"]["B01"]["successes"] == 6 and one["specificity"]["n"] == 21
     assert one["claim"] == "bugs of the catalogued kinds only"
+
+
+# ---- Mission 4.1 step 6: union observations ----------------------------------------------------------------------
+
+def _run(run_id, flagged, run_type=sealed.CANARY_MEASURE, bug="B03", named=None):
+    return trust.Observation(run_id, run_type, bug if run_type == sealed.CANARY_MEASURE else None,
+                             "subtle" if run_type == sealed.CANARY_MEASURE else None,
+                             impact.HARMFUL if run_type == sealed.CANARY_MEASURE else None, flagged,
+                             named if named is not None else (bug if flagged else None))
+
+
+def test_the_union_flags_a_run_if_either_reviewer_flags_it():
+    tripwire = [_run("a", True, named="B03"), _run("b", False), _run("c", False), _run("d", True, sealed.CONTROL, named="B05")]
+    llm = [_run("a", False), _run("b", True, named="B04"), _run("c", False), _run("d", False, sealed.CONTROL)]
+    union, counts = trust.union_observations(tripwire, llm)
+    by_run = {o.run_id: o for o in union}
+    assert [by_run[r].flagged for r in "abcd"] == [True, True, False, True]
+    assert by_run["a"].named_class == "B03" and by_run["b"].named_class == "B04" and by_run["c"].named_class is None
+    assert counts == {"both": 4, "first_only": 0, "second_only": 0}
+
+
+def test_a_run_with_a_failed_llm_audit_and_a_passing_tripwire_is_counted_not_scored():
+    tripwire = [_run("a", False), _run("b", True)]
+    llm = [_run("b", False)]  # run a's LLM reply failed: no audit entry, so no observation
+    union, counts = trust.union_observations(tripwire, llm)
+    assert [o.run_id for o in union] == ["b"] and union[0].flagged
+    assert counts == {"both": 1, "first_only": 1, "second_only": 0}
+
+
+def test_union_numbers_come_from_per_run_verdicts_not_from_rates():
+    """Two reviewers that each catch half the canaries: the union catches all of them if they miss different runs,
+    and only half if they miss the same runs. Rates alone could not tell these apart."""
+    first = [_run(str(i), i % 2 == 0) for i in range(10)]
+    complementary = [_run(str(i), i % 2 == 1) for i in range(10)]
+    same = [_run(str(i), i % 2 == 0) for i in range(10)]
+    caught = lambda union: sum(o.flagged for o in union)
+    assert caught(trust.union_observations(first, complementary)[0]) == 10
+    assert caught(trust.union_observations(first, same)[0]) == 5
+
+
+def test_reviewers_that_disagree_on_a_runs_truth_are_refused():
+    with pytest.raises(ValueError, match="disagree"):
+        trust.union_observations([_run("a", True, bug="B01")], [_run("a", True, bug="B02")])
+    with pytest.raises(ValueError, match="two observations"):
+        trust.union_observations([_run("a", True), _run("a", False)], [])
+
+
+def test_union_observations_from_the_ledger_join_two_roles(tmp_path):
+    led = ledger.Ledger(tmp_path / "ledger.db")
+    table = sealed.SealedTable(tmp_path / "sealed.db")
+    for run_id, run_type, bug, tier in (("r1", sealed.CANARY_MEASURE, "B02", "obvious"),
+                                        ("r2", sealed.CONTROL, None, None), ("r3", sealed.CANARY_MEASURE, "B09", "subtle")):
+        table.seal(run_id, run_type, bug, tier)
+        led.append(run_id, ledger.PROPOSED, {})
+        led.append(run_id, ledger.PREREGISTERED, {})
+        led.append(run_id, ledger.RAN, {"run_id": run_id})
+    verdicts = {("tripwire_v1", "r1"): "flag", ("tripwire_v1", "r2"): "pass", ("tripwire_v1", "r3"): "pass",
+                ("skeptic_d", "r1"): "pass", ("skeptic_d", "r2"): "pass"}  # skeptic_d never answered r3
+    for (role, run_id), verdict in verdicts.items():
+        led.append(run_id, ledger.AUDITED, {"run_id": run_id, "role": role, "audit": {
+            "verdict": verdict, "bug_class": "B02" if verdict == "flag" else None}})
+    union, counts = trust.collect_union_observations(table, led, "tripwire_v1", "skeptic_d")
+    assert {o.run_id: o.flagged for o in union} == {"r1": True, "r2": False}
+    assert counts == {"both": 2, "first_only": 1, "second_only": 0}
