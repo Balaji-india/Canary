@@ -1735,6 +1735,11 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   pass 20 of 20, `eval.ceiling --arm L` ran once (SOLVABLE). Nothing is running or interrupted.
 
 ## Decisions
+- **Mission 4.1 gate (student, 2026-11-20):** (1) the gate gets an explicit row "baseline guard not tested -> gate
+  closed (no finding auto-accepted)", built in 4.1 sitting 2 (`canary/gate.py`); the gate table of
+  `docs/plans/mission_4_1_trust.md` is amended now (section 9). Reason: with the measured union and B09 in the support,
+  the worst-class gate opened in 17-64% of zero-bug simulated campaigns, so "no auto-accept until the guard is
+  tested" cannot rely on noise. (2) No change to the fixed minimums (12 canaries per class, 60 clean runs).
 - **Guard follow-ups from sitting 1 (student, 2026-11-20):** (1) the guard record stays in the PROPOSED ledger
   entry of real runs only: the ledger already differs between real runs and clones (a clone's lock comes after its
   run, accepted in Mission 2.4) because the reviewer never sees the ledger, and a test enforces that reviewer code

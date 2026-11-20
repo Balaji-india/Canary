@@ -1,6 +1,6 @@
 # Plan: Mission 4.1, prevalence, contamination and the trust gate with the union reviewer
 
-Designed 2026-11-15 by Fable. Not built. Builder: Opus, 2 sittings. Building needs no cloud call.
+Designed 2026-11-15 by Fable. Sitting 1 built 2026-11-20 (Opus); gate table amended 2026-11-20 (section 9). Builder: Opus, 2 sittings. Building needs no cloud call.
 Depends on: tripwire sitting D (the union's measured numbers) and the baseline guard
 (`docs/plans/b09_proposal_guard.md`). The code can be built before both, on synthetic counts and on `skeptic_d` alone.
 
@@ -75,6 +75,7 @@ percentile; the worst class by name; the support; the leak; the counts behind ev
 | Check, in order | Result |
 |---|---|
 | the guard labelled it `control_below_default` | escalate to the human queue |
+| the baseline guard has not passed its test (added 2026-11-20) | closed: "baseline guard not tested" (no finding auto-accepted) |
 | a class in the support has fewer than 12 measuring canaries, or fewer than 60 clean runs reviewed | closed: "not enough calibration" (the campaign agent's cue to recalibrate) |
 | `Se_worst + Sp - 1 > 0` in fewer than 95% of draws | closed: "reviewer uninformative for class X" |
 | 90th percentile of `total` at most tau (0.10; 0.05 under a drift alarm) | **accept** |
@@ -185,3 +186,11 @@ it edits no file that plan freezes.
 3. In campaigns the LLM is asked only when the tripwires pass (not in measurement batches): **yes, from Mission
    4.4 on.** The RQ4 bank is a measurement batch: both are always asked there.
 4. Minimum calibration before the gate can open: 12 canaries per supported class, 60 clean runs: **yes.**
+
+## 9. Changes after sitting 1 (student, 2026-11-20), before sitting 2
+1. **An explicit gate row: the baseline guard has not passed its test -> closed, "baseline guard not tested"
+   (no finding auto-accepted).** Built in sitting 2 (`canary/gate.py`). Reason: re-run with measured rates
+   (`eval/results/rq4_power/design_rerun.json`), the measured union with B09 in the support opened the worst-class
+   gate in 17% to 64% of zero-bug simulated campaigns, so "no auto-accept until the guard is tested" (decision 2)
+   cannot rely on the estimate being too noisy to pass.
+2. **No change to the fixed minimums** (12 measuring canaries per supported class, 60 clean runs).
