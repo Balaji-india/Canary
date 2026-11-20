@@ -47,7 +47,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
     measured trust (recall, specificity, contamination) may not transfer to them. Check it with the length gate on
     real runs mixed with calibration runs before any gate decision uses calibration numbers.
   - Designed 2026-11-15 (`docs/plans/mission_4_1_trust.md`), not built. Needs the baseline guard
-    (`docs/plans/b09_proposal_guard.md`, designed, not built) before any real finding can be auto-accepted.
+    (`docs/plans/b09_proposal_guard.md`; sitting 1 built and wired 2026-11-20, sitting 2 (the measurement) not done)
+    before any real finding can be auto-accepted.
 - [ ] 4.2 Hidden-truth validation (RQ4)
   - Designed 2026-11-15 (`docs/plans/mission_4_2_hidden_truth.md`), not built, not locked.
 - [ ] 4.3 Control chart and drift alarms
@@ -101,12 +102,12 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** B09 guard sitting 1 (`docs/plans/b09_proposal_guard.md` steps 1-4), then Mission 4.1 sitting 1
-(which may now change `canary/trust.py` and `canary/cli.py`: both lock checks verify the locked versions at their tags).
+**Current focus:** Mission 4.1 sitting 1 (`docs/plans/mission_4_1_trust.md` steps 1-4 and 6), after the student's
+answers to the two guard decisions (guard sitting 1 entry, "stated" items 1 and 2).
 
-**Stopped at:** Mission 5.1 step 11 is built (2026-11-19, Opus, parts 1 and 2) and its real-ledger write is done
-(2026-11-20, student's window; see "Real-ledger write done" in the step 11 part 2 entry): the ledger has 3592 entries.
-The tag `ceiling-check-lock` was pushed 2026-11-19.
+**Stopped at:** B09 baseline guard sitting 1 is built and wired (2026-11-20, Opus; entry below). The guard is on
+(`science.baseline_guard: true`) but not measured: G2-G4 are not a tested detector until sitting 2, and nothing from
+it is recall. Nothing written to the real ledger (3592 entries); nothing pushed.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -443,6 +444,57 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## B09 baseline guard, sitting 1 (2026-11-20, Opus): steps 1-4 built and wired; not measured
+- **Scope:** `docs/plans/b09_proposal_guard.md` steps 1-4, rules exactly as approved 2026-11-15. Local only: no cloud or
+  Ollama call, no ledger write, nothing under `data/runs/` (every reference run in a temporary folder). **Nothing here
+  is recall**: G0 and G1 are rules; the measured rows (G2-G4) are tested in sitting 2.
+- **Code:** `canary/baseline_guard.py` (new). Step 1 (`5199bbe`): `effective_params`, `factors`, `nondefault`,
+  `unknown_params`; defaults from `get_params()` of the installed scikit-learn at run time; `random_state` ignored.
+  Step 2 (`9bfc9a0`): G0, own constant `IMBALANCE_LINE` (a test checks it equals `classes.IMBALANCE_RATIO`). Step 3
+  (`19647d6`): `reference_for` (G2 all control params at default, G3 the tested factor, G4 the shared settings;
+  preprocessing default = no scaler), `reference_gap` (guard seeds 100001-100005, `sandbox.run_config` in a temporary
+  folder, read with `prereg.compute_verdict`, direction increase, floor 0.005 and alpha 0.05 from `campaign.yaml`).
+  Step 4 (`804aa39`): `check_config` / `check_proposal` -> `GuardRecord` (outcome, rule, label, feedback, factors,
+  non-default names, `tuning_asymmetry`, gaps with scores, K, seeds, scikit-learn version, guard version);
+  `scientist.proposal_problem(..., guard=True)` returns the reject sentence through the existing retry text (prompt
+  unchanged); `run_locked` puts the record in the PROPOSED payload under `guard` (lock and hash unchanged; a lock
+  that skipped `propose` is checked there, and a reject raises before any ledger write); every result appended to
+  `data/guard/proposals.jsonl`; `science.baseline_guard: true`; `python -m canary.baseline_guard <config>` (prints,
+  never logs). Not touched: `canary/cli.py`, `mixer.py`, `prompts.py`, `trust.py`.
+- **Order of the rules (my reading of section 3):** G0, G1, then for two models G2; for one factor G3, then G4. G5 is
+  any of those reference runs failing (reject). After a G3 finding (human queue) G4 is not measured.
+- **Tests:** `tests/test_baseline_guard.py` (table rows from hand-made proposals, fake runners; 3 slow tests with real
+  runs, one with a sealed table beside it and `sqlite3.connect` spied), `tests/test_baseline_guard_guards.py` (import
+  allow-list and chain, no sealed/plans/twins/catalog words, no saboteur vocabulary, no hyperparameter name in the
+  source, no dict or list of parameter values, estimator table equals the template's, reviewer code never reads the
+  guard record), `tests/test_scientist_guard.py` (feedback, record in the ledger, the reviewer's blinded text
+  identical with and without the guard, guard off = old behaviour exactly). `tests/conftest.py`: reference runs are
+  neutral fakes and the log goes to `tmp_path` unless a test passes `run=sandbox.run_config`.
+- **Done when:** `python -m canary.baseline_guard config/examples/baseline.yaml` -> `Baseline guard: ok (rule G6);
+  factors: C`, one G4 reference run (shared `max_iter`), not weak (mean gap 0.0), 1.6 s; `data/runs/` count 740 before
+  and after; no `data/guard/` written.
+- **Development listing (not step 6, not a test; 35 bases of pools 1 and 2 + the first 3 ledger pre-registrations,
+  real reference runs in temporary folders, 136 s):** pools: ok (G6) 32, warn (G4, `weak_regime`) 3, reject 0, human
+  queue 0. Real runs: ok (G6) 2, reject (G1) 1. 36 reference runs (10 proposals needed two): G3 not weak 12,
+  inconclusive 5; G4 weak 3, not weak 5, inconclusive 11. The three warnings: unscaled `svm` with `gamma` 1.0 or 0.1
+  and `class_weight: balanced` on diabetes/f1 (mean gap 0.564 in both), and a linear `svm` with `gamma: 0.0` on
+  phoneme/roc_auc (0.101; the reference is the default rbf kernel).
+- **Own /challenge, fixed:** numeric equality now accepts numpy numbers (`6186644`); a test that the reviewer's code
+  never reads the guard record or PROPOSED entries (below).
+- **Own /challenge, stated (for the student):** (1) real runs now carry `guard` in their PROPOSED entry and clones do
+  not (`mixer.py` writes theirs), so the ledger tells a real run from a clone; the reviewer never reads it (test), but
+  the ledger was meant not to reveal run types. (2) Plan trap 7 says at most one reference run per attempt; G3 not
+  weak followed by G4 needs two (10 of 38 above). (3) The plan's development fact "all 3 real runs differ in one
+  factor" does not hold on effective params: the first real run's control has the garbled key `": "` instead of
+  `class_weight`, so it differs in `": "`, `class_weight` and `preprocessing` (G1). That run crashed in Mission 1.4.
+  (4) Arms identical after defaults are `ok` with a note (no row covers them). (5) `calibrate` pool building goes
+  through `propose`, so it now runs the guard too (wanted for pool 3, plan trap 3); a pool file does not store the
+  records (that needs `mixer.py`).
+- **Checks (end of sitting):** `pytest -q` 964 passed in 15.3 s and 15.5 s (an earlier pair under machine load took
+  28-29 s, the same with and without this sitting's changes); `pytest -m slow` 269 passed, 3 skipped (218 s);
+  `eval.ceiling_lock --check` "Lock check: OK, every hash matches"; `eval.tripwires_test --check` "Tripwire lock
+  check: OK" (both also OK at the start); `ledger verify` OK (3592 entries).
 
 ## Mission 5.1 step 11, part 2 (2026-11-19, Opus): amendment 1 of both locked plans, then `canary.cli tripwires`
 - **Decisions (student):** option C for the lock checks, then the CLI in `canary/cli.py`; the three open
@@ -1587,6 +1639,8 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
+- **2026-11-20 (guard sitting 1):** none running or interrupted; no model called; reference runs only in temporary
+  folders.
 - **2026-11-20:** none running or interrupted. The tripwire records were written to the real ledger in the
   student's window (3592 entries).
 - **2026-11-19 (step 11 part 2):** none running or interrupted; nothing replayed, no model called.
