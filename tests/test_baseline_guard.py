@@ -82,3 +82,31 @@ def test_same_arm_needs_the_same_model_and_training():
     assert guard.same_arm(arm(params={"C": 1.0}), arm())
     assert not guard.same_arm(arm(), arm(preprocessing=["standard_scaler"]))
     assert not guard.same_arm(arm("knn"), arm("svm"))
+
+
+# ---- Step 2: G0, the metric rule -----------------------------------------------------------------------------------
+
+def test_the_guard_line_equals_the_saboteur_line():
+    """The test may import the saboteur; the guard may not. So the two constants are compared here."""
+    from canary.saboteur import classes
+    assert guard.IMBALANCE_LINE == classes.IMBALANCE_RATIO
+
+
+@pytest.mark.parametrize("counts, fires", [((300, 100), False), ((301, 100), True), ((100, 100), False),
+                                           ((500, 50, 100), True), ((90, 30, 30), False)])
+def test_g0_is_silent_at_exactly_three_to_one_and_fires_just_above(monkeypatch, counts, fires):
+    monkeypatch.setattr(guard, "class_counts", lambda dataset: counts)
+    assert (guard.metric_problem("anything", "accuracy") is not None) == fires
+
+
+@pytest.mark.parametrize("metric", ["balanced_accuracy", "f1", "roc_auc"])
+def test_g0_is_silent_for_other_metrics(monkeypatch, metric):
+    monkeypatch.setattr(guard, "class_counts", lambda dataset: (1000, 10))
+    assert guard.metric_problem("anything", metric) is None
+
+
+def test_g0_reads_real_class_counts():
+    """pc1 is the catalog's imbalanced dataset (about 13:1); wine is near balance."""
+    assert guard.class_ratio("pc1") > guard.IMBALANCE_LINE
+    assert "balanced_accuracy" in guard.metric_problem("pc1", "accuracy")
+    assert guard.metric_problem("wine", "accuracy") is None

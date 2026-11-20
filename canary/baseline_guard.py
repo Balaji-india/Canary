@@ -16,6 +16,9 @@ This file never imports the saboteur, the controls, the mixer or the sealed tabl
 from __future__ import annotations
 
 import importlib
+from functools import lru_cache
+
+from canary import datasets
 
 # Model name -> where scikit-learn keeps its class. The same table as MODELS in templates/experiment.py.tmpl (a test
 # compares them); kept as text so that importing the guard does not import every estimator.
@@ -30,6 +33,9 @@ ESTIMATORS = {
 }
 # The template overwrites random_state with the seed in both arms, so it is never a difference between them.
 IGNORED_PARAMS = frozenset({"random_state"})
+# G0 draws the same line as tripwire L1 and DESIGN.md section 6: accuracy misleads above a 3:1 class ratio (largest
+# class over smallest). Our own constant: the guard may not import the saboteur; a test checks the two agree.
+IMBALANCE_LINE = 3.0
 MODEL_FACTOR = "model"
 PREPROCESSING_FACTOR = "preprocessing"
 
@@ -105,3 +111,26 @@ def factors(control: dict, treatment: dict) -> list[str]:
 def same_arm(a: dict, b: dict) -> bool:
     """Two arms that train the same model in the same way (so a reference equal to its arm needs no run)."""
     return a["model"] == b["model"] and not factors(a, b)
+
+
+@lru_cache(maxsize=None)  # a cached dataset does not change while the program runs
+def class_counts(dataset: str) -> tuple[int, ...]:
+    """Rows per class of a registered dataset, read offline (the catalog does not record balance)."""
+    labels = datasets.load_dataset(dataset)[datasets.TARGET_COLUMN].astype(str)
+    return tuple(labels.value_counts().tolist())
+
+
+def class_ratio(dataset: str) -> float:
+    counts = class_counts(dataset)
+    return max(counts) / min(counts)
+
+
+def metric_problem(dataset: str, metric: str) -> str | None:
+    """G0, a rule (never reported as recall): accuracy on a dataset whose class ratio is above the line."""
+    if metric != "accuracy":
+        return None
+    ratio = class_ratio(dataset)
+    if ratio <= IMBALANCE_LINE:
+        return None
+    return (f"accuracy is misleading on {dataset}: its class ratio is {ratio:.1f}:1, above {IMBALANCE_LINE:g}:1, so "
+            f"predicting the largest class alone scores high; choose balanced_accuracy, f1 or roc_auc instead")
