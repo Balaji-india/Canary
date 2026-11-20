@@ -76,7 +76,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
     --check` "Lock check: OK"; `pytest -q` 851 passed (19-20 s); `pytest -m slow` 264 passed, 3 skipped.
     Step 10 done 2026-11-19 (above). Step 11 (wiring) built 2026-11-19: part 1 `canary/tripwire_ledger.py`, part 2
     `canary.cli tripwires` after amendment 1 of both locked plans (lock checks at the lock tags). The real-ledger write
-    is the student's command (step 11 part 2 entry); the DESIGN.md text moves to the sync sitting (roadmap decision 9).
+    was done 2026-11-20 in the student's window (440 records under `tripwire_v1`; ledger 3592 entries); the
+    DESIGN.md text moves to the sync sitting (roadmap decision 9).
 - [ ] 5.2 Skeptic B and jury
 - [ ] 5.3 Replication gate
 - [ ] 5.4 RQ2 and RQ3
@@ -100,12 +101,12 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** the student pushes the tag `ceiling-check-lock` and runs the real-ledger tripwire write (commands
-in the step 11 part 2 entry); then B09 guard sitting 1, then Mission 4.1 sitting 1 (which may now change
-`canary/trust.py` and `canary/cli.py`: both lock checks verify the locked versions at their tags).
+**Current focus:** B09 guard sitting 1 (`docs/plans/b09_proposal_guard.md` steps 1-4), then Mission 4.1 sitting 1
+(which may now change `canary/trust.py` and `canary/cli.py`: both lock checks verify the locked versions at their tags).
 
-**Stopped at:** Mission 5.1 step 11 is built (2026-11-19, Opus, parts 1 and 2). Nothing was written to the real ledger
-(3152 entries); the record commands are printed for the student. Nothing pushed.
+**Stopped at:** Mission 5.1 step 11 is built (2026-11-19, Opus, parts 1 and 2) and its real-ledger write is done
+(2026-11-20, student's window; see "Real-ledger write done" in the step 11 part 2 entry): the ledger has 3592 entries.
+The tag `ceiling-check-lock` was pushed 2026-11-19.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -499,6 +500,11 @@ same task; that the result holds for other prompts, settings, models or a later 
   `.venv\Scripts\python.exe -m canary.cli tripwires record --batch tripwire-test-1` (dry run: 360 ready, flag 181,
   pass 179); `... tripwires record --batch tripwire-test-1 --write`; `... tripwires record --batch ceiling-ext --write`;
   `... tripwires verify`; `... trust --role tripwire_v1 --batch tripwire-test-1`; `... ledger verify` (3592 entries).
+- **Real-ledger write done (2026-11-20, student's window):** `tripwire-test-1` 360 written (flag 181, pass 179);
+  `ceiling-ext` 80 written (flag 36, pass 44); `tripwires verify` OK (440 entries under `tripwire_v1`); `trust --role
+  tripwire_v1 --batch tripwire-test-1` matches the locked test (combined specificity 159/160, B09 0/20); `ledger verify`
+  OK (3592 entries). Backups: `$HOME\canary-backups\canary-2026-11-20-before-tripwire-records.db` and
+  `canary-2026-11-20-after-tripwire-records.db`. Tag `ceiling-check-lock` pushed 2026-11-19 (origin has it at 2332136).
 
 ## Mission 5.1 step 11, part 1 (2026-11-19, Opus): tripwire records in the ledger; CLI part waits for the student
 - **Scope (roadmap decision 9, approved):** CLI and ledger wiring only; the `DESIGN.md` rewrite of sections 4, 6 and 10
@@ -1581,6 +1587,8 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
+- **2026-11-20:** none running or interrupted. The tripwire records were written to the real ledger in the
+  student's window (3592 entries).
 - **2026-11-19 (step 11 part 2):** none running or interrupted; nothing replayed, no model called.
 - **2026-11-19:** none running or interrupted. `tripwire-test-1` built (360 runs) and both tripwire tests ran once in
   the student's window; nothing to resume. `tripwire-test-1` is never reviewed by an LLM.
