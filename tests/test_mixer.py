@@ -276,3 +276,44 @@ def test_a_new_pool_must_not_repeat_the_old_one():
     assert mixer.pool_keys(POOL) and mixer.pool_keys(POOL) == mixer.pool_keys(copy.deepcopy(POOL))
     other = {"bases": [base("wine", "f1")]}
     assert not mixer.pool_keys(other) & mixer.pool_keys(POOL)
+
+
+# ---- Pool files keep each base's baseline-guard record (student, 2026-11-20) -------------------------------------
+
+def _fake_pool_world(tmp_path, monkeypatch, guard_on):
+    """build_pool with a two-focus grid, a Scientist stub that goes through the real proposal checks (guard included,
+    with the conftest's neutral reference run) and a fake trial run."""
+    from canary import scientist
+
+    foci = [{"dataset": "breast_cancer", "metric": "f1", "model": "logistic_regression"},
+            {"dataset": "diabetes", "metric": "f1", "model": "logistic_regression"}]
+    monkeypatch.setattr(mixer, "focus_grid", lambda *args: foci)
+
+    def fake_propose(client, question, led, table, focus, avoid):
+        locked = lock(dataset=focus["dataset"], hypothesis=f"Regularization helps on {focus['dataset']}.")
+        problem = scientist.proposal_problem(locked, set(), guard=guard_on)
+        assert problem is None
+        return locked, "sci:1"
+
+    monkeypatch.setattr(scientist, "propose", fake_propose)
+    monkeypatch.setattr(sandbox, "run_config", lambda config, folder, *a, **k: {
+        "run_id": "trial", "status": sandbox.STATUS_OK, "reason": None, "seconds": 1.0})
+    path = tmp_path / "calibration" / "pool.json"
+    pool = mixer.build_pool(None, Ledger(tmp_path / "l.db"), sealed.SealedTable(tmp_path / "s.db"), path,
+                            log_path=tmp_path / "campaign.log")
+    return pool, json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_the_pool_file_stores_each_bases_guard_record(tmp_path, monkeypatch):
+    from canary import baseline_guard
+    pool, stored = _fake_pool_world(tmp_path, monkeypatch, guard_on=True)
+    assert len(stored["bases"]) == 2
+    logged = [json.loads(line)["guard"] for line in baseline_guard.LOG_PATH.read_text(encoding="utf-8").splitlines()]
+    assert [b["guard"] for b in stored["bases"]] == logged
+    assert all(b["guard"]["outcome"] == baseline_guard.OK for b in stored["bases"])
+    assert "guard" not in stored["bases"][0]["prereg"]  # beside the lock, never inside it
+
+
+def test_with_the_guard_off_a_pool_base_has_no_guard_key(tmp_path, monkeypatch):
+    _, stored = _fake_pool_world(tmp_path, monkeypatch, guard_on=False)
+    assert len(stored["bases"]) == 2 and all("guard" not in b for b in stored["bases"])

@@ -111,7 +111,11 @@ def build_pool(client: llm.LLM, led: ledger.Ledger, table: sealed.SealedTable, p
                 dropped.append({"focus": focus, "reason": reason})
                 _log(log_path, f"pool {number}/{len(grid)} dropped {label}: {reason}")
                 continue
-            bases.append({"focus": focus, "prereg": locked, "model": model, "trial_seconds": record["seconds"]})
+            entry = {"focus": focus, "prereg": locked, "model": model, "trial_seconds": record["seconds"]}
+            guard = scientist.guard_record_of(locked)
+            if guard is not None:  # the baseline guard's record of this base (student, 2026-11-20: pool 3 keeps them)
+                entry["guard"] = guard
+            bases.append(entry)
             _log(log_path, f"pool {number}/{len(grid)} kept {label} ({record['seconds']:.0f} s trial)")
     pool = {"bases": bases, "dropped": dropped}
     if avoid_pool and pool_keys(pool) & pool_keys(avoid_pool):

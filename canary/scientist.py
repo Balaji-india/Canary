@@ -169,6 +169,12 @@ def propose(client: llm.LLM, question_id: str, led: Ledger, table: sealed.Sealed
     raise ProposalRejected(f"no acceptable proposal after {science['proposal_attempts']} attempts: {feedback}")
 
 
+def guard_record_of(locked: dict) -> dict | None:
+    """The guard record `propose` kept for an accepted lock, or None (guard off). Read-only: `run_locked` still finds
+    it. The pool builder stores it with each base, so a pool shows what the guard said about its bases."""
+    return _GUARDED.get(prereg.prereg_hash(locked))
+
+
 def _guard_record(locked: dict, digest: str) -> dict:
     """The record `propose` kept for this lock, or a fresh check (logged) if it has none."""
     if digest in _GUARDED:
