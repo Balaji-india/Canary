@@ -3,8 +3,13 @@
 Each entry stores the hash of the entry before it and a hash of its own content, so changing or removing any
 entry breaks every link after it. `verify` recomputes the chain.
 
-What this does not protect against: removing the newest entries (the remaining chain is still valid), or someone
-rewriting the whole chain from the edited point onwards. Stopping those needs the latest hash stored elsewhere.
+The chain alone cannot show that its newest entries were removed (the shorter chain is still valid), or that the
+whole chain was rewritten from an edited point onwards. The **anchor** closes that gap (roadmap findings 14 and 26):
+`python -m canary.ledger anchor` writes the head's entry number and hash into `ledger_anchor.json`, a file git
+tracks, and `verify` then checks that the chain still holds that hash at that entry number. Entries added after the
+anchor are normal (an honest append never fails the check), so the two heads are never compared for equality.
+What stays open: entries added after the newest anchor can still be removed unnoticed until the next anchor, and
+someone who rewrites both the database and the anchor file is caught only by git's history of that file.
 """
 from __future__ import annotations
 
@@ -16,10 +21,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from canary.config import DB_PATH
+from canary.config import DB_PATH, ROOT
 from canary.prereg import canonical_json, sha256_text
 
 GENESIS_HASH = "0" * 64
+ANCHOR_PATH = ROOT / "ledger_anchor.json"  # tracked by git; anchors the real ledger at DB_PATH only
 
 PROPOSED = "proposed"
 PREREGISTERED = "preregistered"
@@ -69,9 +75,14 @@ def _entry_hash(seq: int, hypothesis_id: str, status: str, payload_text: str, cr
 class Ledger:
     """There is deliberately no update or delete method: entries can only be added."""
 
-    def __init__(self, path: Path = DB_PATH):
+    def __init__(self, path: Path = DB_PATH, *, anchor_path: Path | None = None):
+        """`anchor_path` defaults to the tracked anchor file for the real ledger only, so a test's temporary ledger
+        is never checked against the real ledger's anchor."""
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
+        if anchor_path is None and Path(path).resolve() == DB_PATH.resolve():
+            anchor_path = ANCHOR_PATH
+        self.anchor_path = anchor_path
         with closing(sqlite3.connect(path)) as db, db:
             db.execute("CREATE TABLE IF NOT EXISTS ledger (seq INTEGER PRIMARY KEY, hypothesis_id TEXT NOT NULL, "
                        "status TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, "
@@ -128,7 +139,49 @@ class Ledger:
             expected_prev, expected_seq = stored, seq + 1
             if runs_dir is not None and status == RAN:
                 problems.extend(_results_problems(seq, payload_text, runs_dir))
-        return problems
+        return problems + self.anchor_problems()
+
+    def head(self) -> tuple[int, str] | None:
+        """(entry number, hash) of the newest entry, or None for an empty ledger."""
+        with closing(sqlite3.connect(self.path)) as db:
+            row = db.execute("SELECT seq, hash FROM ledger ORDER BY seq DESC LIMIT 1").fetchone()
+        return (row[0], row[1]) if row else None
+
+    def anchor_problems(self) -> list[str]:
+        """Check the chain against the anchor file: the anchored hash must still be in the chain at its entry
+        number. No anchor file (or none configured) means nothing to check."""
+        if self.anchor_path is None or not Path(self.anchor_path).exists():
+            return []
+        anchor = json.loads(Path(self.anchor_path).read_text(encoding="utf-8"))
+        number, expected = anchor["entries"], anchor["head_hash"]
+        with closing(sqlite3.connect(self.path)) as db:
+            row = db.execute("SELECT hash FROM ledger WHERE seq = ?", (number,)).fetchone()
+            newest = db.execute("SELECT MAX(seq) FROM ledger").fetchone()[0] or 0
+        if row is None:
+            return [f"anchor: entry {number} (anchored {anchor['anchored_at']}) is missing; the ledger ends at entry "
+                    f"{newest}, so entries were removed"]
+        if row[0] != expected:
+            return [f"anchor: entry {number} does not hold the anchored hash {expected[:12]}... (the chain was "
+                    f"rewritten)"]
+        return []
+
+
+def write_anchor(led: Ledger, path: Path | None = None) -> dict:
+    """Anchor the ledger's current head in `path` (default: the ledger's anchor file). Refuses a broken chain, so an
+    anchor never vouches for damage. Writes only the anchor file; no ledger entry is touched."""
+    path = path if path is not None else led.anchor_path
+    if path is None:
+        raise LedgerError("no anchor file for this ledger: pass a path")
+    problems = led.verify()
+    if problems:
+        raise LedgerError(f"the chain has problems, so it is not anchored: {problems[0]}")
+    head = led.head()
+    if head is None:
+        raise LedgerError("an empty ledger has nothing to anchor")
+    anchor = {"entries": head[0], "head_hash": head[1], "anchored_at": datetime.now(timezone.utc).isoformat()}
+    with Path(path).open("w", encoding="utf-8", newline="\n") as handle:  # LF on every platform, as git stores it
+        handle.write(json.dumps(anchor, indent=1) + "\n")
+    return anchor
 
 
 def _results_problems(seq: int, payload_text: str, runs_dir: Path) -> list[str]:
@@ -148,3 +201,29 @@ def _results_problems(seq: int, payload_text: str, runs_dir: Path) -> list[str]:
         elif hashlib.sha256(path.read_bytes()).hexdigest() != expected:
             problems.append(f"entry {seq}: {label} file does not match its stored hash (edited)")
     return problems
+
+
+def main(argv: list[str] | None = None) -> int:
+    """`python -m canary.ledger anchor` writes the anchor of the real ledger; `check` checks the chain and anchor."""
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="python -m canary.ledger")
+    parser.add_argument("action", choices=["anchor", "check"])
+    parser.add_argument("--db", type=Path, default=DB_PATH)
+    parser.add_argument("--anchor", type=Path, default=None, help="anchor file (default: ledger_anchor.json)")
+    args = parser.parse_args(argv)
+    led = Ledger(args.db, anchor_path=args.anchor)
+    if args.action == "anchor":
+        anchor = write_anchor(led)
+        print(f"Anchored entry {anchor['entries']} ({anchor['head_hash'][:12]}...) in {led.anchor_path}")
+        return 0
+    problems = led.verify()
+    for problem in problems:
+        print(f"[FAIL] {problem}")
+    print(f"Ledger check: {'FAILED' if problems else 'OK'} ({len(led.entries())} entries, anchor "
+          f"{led.anchor_path if led.anchor_path and Path(led.anchor_path).exists() else 'none'})")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

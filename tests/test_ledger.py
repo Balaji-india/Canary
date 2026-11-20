@@ -162,3 +162,98 @@ def test_failed_run_has_no_results_to_check(led, tmp_path):
     led.append("h1", ledger.PREREGISTERED, {})
     led.append("h1", ledger.RAN, {"run_id": "r1", "results_sha256": None})
     assert led.verify(tmp_path) == []
+
+
+# ---- The anchor (roadmap findings 14 and 26): a tracked copy of the head's number and hash ----------------------
+
+@pytest.fixture
+def anchored(tmp_path):
+    led = Ledger(tmp_path / "anchored.db", anchor_path=tmp_path / "anchor.json")
+    fill(led)
+    ledger.write_anchor(led)
+    return led
+
+
+def test_an_honest_append_after_the_anchor_verifies(anchored):
+    anchored.append("h2", ledger.PREREGISTERED, {"n": 5})
+    anchored.append("h3", ledger.PROPOSED, {"n": 6})
+    assert anchored.verify() == []
+    assert json.loads(anchored.anchor_path.read_text(encoding="utf-8"))["entries"] == 4  # the anchor did not move
+
+
+def test_removing_the_newest_entries_is_detected_by_the_anchor(anchored):
+    edit(anchored, "DELETE FROM ledger WHERE seq >= 3")
+    unanchored = Ledger(anchored.path, anchor_path=None)
+    unanchored.anchor_path = None
+    assert unanchored.verify() == []  # the chain alone cannot see it (the known limit above)
+    problems = anchored.verify()
+    assert len(problems) == 1 and "entry 4" in problems[0] and "removed" in problems[0]
+
+
+def test_removing_only_the_anchored_entry_is_detected(anchored):
+    anchored.append("h2", ledger.PREREGISTERED, {"n": 5})
+    edit(anchored, "DELETE FROM ledger WHERE seq >= 4")
+    assert any("entry 4" in p and "removed" in p for p in anchored.verify())
+
+
+def test_a_rewritten_chain_is_detected_by_the_anchor(anchored):
+    """Rewrite entry 2 and recompute every hash after it: the chain is valid again, but not the anchored one."""
+    rows = anchored._rows()
+    edit(anchored, "DELETE FROM ledger")
+    prev = GENESIS_HASH
+    with closing(sqlite3.connect(anchored.path)) as db, db:
+        for seq, hypothesis_id, status, payload_text, created_at, _, _ in rows:
+            if seq == 2:
+                payload_text = '{"n":99}'
+            new_hash = ledger._entry_hash(seq, hypothesis_id, status, payload_text, created_at, prev)
+            db.execute("INSERT INTO ledger VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (seq, hypothesis_id, status, payload_text, created_at, prev, new_hash))
+            prev = new_hash
+    problems = anchored.verify()
+    assert len(problems) == 1 and "rewritten" in problems[0]
+
+
+def test_anchoring_changes_no_ledger_entry(tmp_path):
+    led = Ledger(tmp_path / "l.db", anchor_path=tmp_path / "anchor.json")
+    fill(led)
+    before = hashlib.sha256(led.path.read_bytes()).hexdigest()
+    anchor = ledger.write_anchor(led)
+    assert hashlib.sha256(led.path.read_bytes()).hexdigest() == before
+    assert anchor["entries"] == 4 and anchor["head_hash"] == led.entries()[-1].hash
+    assert (tmp_path / "anchor.json").read_bytes().count(b"\r\n") == 0  # LF, as git stores it
+
+
+def test_a_broken_or_empty_chain_is_never_anchored(tmp_path):
+    led = Ledger(tmp_path / "l.db", anchor_path=tmp_path / "anchor.json")
+    with pytest.raises(ledger.LedgerError, match="empty"):
+        ledger.write_anchor(led)
+    fill(led)
+    edit(led, "UPDATE ledger SET payload = '{\"n\":9}' WHERE seq = 2")
+    with pytest.raises(ledger.LedgerError, match="not anchored"):
+        ledger.write_anchor(led)
+    assert not (tmp_path / "anchor.json").exists()
+
+
+def test_only_the_real_ledger_uses_the_tracked_anchor_by_default(tmp_path):
+    assert Ledger(tmp_path / "x.db").anchor_path is None
+    # keyword-only, so the positional defaults stay (DB_PATH,): tests redirect the default ledger through them
+    assert ledger.Ledger.__init__.__defaults__ == (ledger.DB_PATH,)
+    assert ledger.ANCHOR_PATH.name == "ledger_anchor.json" and ledger.ANCHOR_PATH.parent == ledger.ROOT
+
+
+def test_no_anchor_file_means_nothing_to_check(tmp_path):
+    led = Ledger(tmp_path / "l.db", anchor_path=tmp_path / "missing.json")
+    fill(led)
+    assert led.verify() == [] and led.anchor_problems() == []
+
+
+def test_the_module_command_anchors_and_checks(tmp_path, capsys):
+    led = Ledger(tmp_path / "l.db")
+    fill(led)
+    args = ["--db", str(led.path), "--anchor", str(tmp_path / "a.json")]
+    assert ledger.main(["anchor", *args]) == 0
+    assert ledger.main(["check", *args]) == 0
+    edit(led, "DELETE FROM ledger WHERE seq = 4")
+    assert ledger.main(["check", *args]) == 1
+    out = capsys.readouterr().out
+    assert "Anchored entry 4" in out and "Ledger check: OK" in out and "Ledger check: FAILED" in out
