@@ -374,3 +374,87 @@ def test_a_variant_left_out_without_a_rule_is_refused(monkeypatch):
         trust.support_variants("unknown")
     with pytest.raises(KeyError):
         trust.support_variants("nobody")
+
+
+# ---- Mission 4.1 step 4: trust.estimate ---------------------------------------------------------------------------
+
+def _calibration(caught_by_class: dict, clean_passed: int, clean_flagged: int, tier="obvious"):
+    found = []
+    for bug, (caught, missed) in caught_by_class.items():
+        found += canaries(caught, missed, bug=bug, tier=tier)
+    return found + clean(sealed.CONTROL, clean_passed, clean_flagged)
+
+
+def test_estimate_takes_flags_for_real_runs_never_the_sealed_table(monkeypatch):
+    import inspect
+    import sqlite3
+    assert list(inspect.signature(trust.estimate).parameters) == [
+        "observations", "real_flags", "support", "leak", "draws", "seed"]
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("estimate opened a database")
+
+    monkeypatch.setattr(sqlite3, "connect", refuse)
+    monkeypatch.setattr(sealed.SealedTable, "get", refuse)
+    monkeypatch.setattr(sealed.SealedTable, "all", refuse)
+    record = trust.estimate(_calibration({"B01": (8, 2)}, 50, 1), [True] + [False] * 9, [("B01", "obvious")],
+                            draws=500)
+    assert record["real_runs"] == {"flagged": 1, "reviewed": 10}
+
+
+def test_pooled_and_worst_agree_when_there_is_one_class():
+    record = trust.estimate(_calibration({"B03": (7, 3)}, 40, 2), [True] * 3 + [False] * 7,
+                            [("B03", "obvious"), ("B03", "subtle")], draws=2000)
+    assert record["worst_class"] == "B03"
+    assert record["pooled"] == record["worst"]
+
+
+def test_point_posteriors_give_the_hand_computed_prevalence_contamination_and_gate_figure():
+    """Se 0.8, Sp 0.9, p 0.3, leak 0.01: prevalence 0.2857, contamination 0.0816, figure 0.0816 + 0.01 / 0.7."""
+    big = 10_000_000
+    found = trust.estimate_from_posteriors({"B01": trust.Posterior(8 * big, 2 * big)}, trust.Posterior(9 * big, big),
+                                           trust.Posterior(3 * big, 7 * big), trust.Posterior(big // 10, 99 * big // 10),
+                                           draws=1000, rng=np.random.default_rng(1))
+    for name in ("pooled", "worst"):
+        assert round(found[name]["prevalence"]["median"], 3) == 0.286
+        assert round(found[name]["contamination"]["median"], 3) == 0.082
+    assert round(found["gate_figure"]["value"], 3) == round(0.2 / 0.7 * 0.2 / 0.7 + 0.01 / 0.7, 3) == 0.096
+
+
+def test_the_worst_class_drives_worst_and_the_mean_of_classes_drives_pooled():
+    big = 1_000_000
+    per_class = {"B01": trust.Posterior(9 * big, big), "B02": trust.Posterior(5 * big, 5 * big)}
+    found = trust.estimate_from_posteriors(per_class, trust.Posterior(9 * big, big), trust.Posterior(3 * big, 7 * big),
+                                           draws=1000, rng=np.random.default_rng(2))
+    assert found["worst_class"] == "B02"
+    assert found["pooled"]["recall"]["median"] == pytest.approx(0.7, abs=1e-3)
+    assert found["worst"]["recall"]["median"] == pytest.approx(0.5, abs=1e-3)
+    # pooled: (0.3 + 0.9 - 1) / (0.7 + 0.9 - 1) = 1/3; worst: 0.2 / 0.4 = 0.5
+    assert found["pooled"]["prevalence"]["median"] == pytest.approx(1 / 3, abs=1e-3)
+    assert found["worst"]["prevalence"]["median"] == pytest.approx(0.5, abs=1e-3)
+    assert found["gate_figure"]["value"] == pytest.approx(0.5 * 0.5 / (0.5 * 0.5 + 0.5 * 0.9), abs=2e-3)
+
+
+def test_an_untested_class_is_listed_and_never_the_worst():
+    record = trust.estimate(_calibration({"B01": (9, 1)}, 30, 0), [False] * 5,
+                            [("B01", "obvious"), ("B02", "obvious")], draws=500)
+    assert record["untested"] == ["B02"] and record["worst_class"] == "B01"
+    assert record["per_class"]["B02"]["n"] == 0
+
+
+def test_real_runs_and_probes_among_the_observations_change_nothing():
+    base = _calibration({"B01": (6, 4)}, 20, 1)
+    noise = [obs(sealed.REAL, True, None, None, None)] * 5 + [obs(sealed.CANARY_PROBE, False)] * 5
+    one = trust.estimate(base, [False] * 4, [("B01", "obvious")], draws=500)
+    two = trust.estimate(base + noise, [False] * 4, [("B01", "obvious")], draws=500)
+    assert one == two
+
+
+def test_estimate_is_reproducible_and_reports_counts_support_and_leak():
+    args = (_calibration({"B01": (6, 4), "B06": (2, 2)}, 20, 1), [True, False, False], trust.support_variants(
+        "real_guard_untested"))
+    one, two = trust.estimate(*args, leak=(2, 100), draws=500), trust.estimate(*args, leak=(2, 100), draws=500)
+    assert one == two
+    assert one["leak"] == {"weak": 2, "of": 100} and "B06 obvious" not in one["support"]
+    assert one["per_class"]["B01"]["successes"] == 6 and one["specificity"]["n"] == 21
+    assert one["claim"] == "bugs of the catalogued kinds only"

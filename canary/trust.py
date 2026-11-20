@@ -216,6 +216,93 @@ def summarize(observations: list[Observation], bug_ids: list[str], draws: int = 
     )
 
 
+GATE_PERCENTILE = 90  # the gate reads the 90th percentile of its figure (mission_4_1_trust.md, section 3; fixed)
+
+
+def _spread(values: np.ndarray) -> dict:
+    low, median, high = np.percentile(values, [INTERVAL_PERCENTILES[0], 50.0, INTERVAL_PERCENTILES[1]])
+    return {"mean": float(np.mean(values)), "median": float(median), "interval": [float(low), float(high)]}
+
+
+def _counts(posterior: Posterior) -> dict:
+    return {"successes": posterior.successes, "n": posterior.n, "mean": posterior.mean,
+            "interval": list(posterior.interval())}
+
+
+def estimate_from_posteriors(per_class: dict[str, Posterior], specificity: Posterior, real: Posterior,
+                             leak: Posterior | None = None, draws: int = 5000,
+                             rng: np.random.Generator | None = None) -> dict:
+    """Prevalence and contamination, pooled and worst class, from posteriors alone (Mission 4.1, section 3).
+
+    pooled Se = the mean of the per-class recall draws over the support (untested classes at their flat prior);
+    worst Se = the draws of the tested class with the lowest posterior mean, ties by ID. `real` is the flag-rate
+    posterior on real runs. The gate figure is min(1, contamination_worst + leak / (1 - p)). The simulation in
+    eval/rq4_power.py calls this same function, so the simulation cannot drift from the estimator.
+    """
+    rng = rng if rng is not None else np.random.default_rng(0)
+    if not per_class:
+        raise ValueError("no bug classes in the support")
+    names = sorted(per_class)
+    class_draws = {b: rng.beta(per_class[b].alpha, per_class[b].beta, draws) for b in names}
+    sp = rng.beta(specificity.alpha, specificity.beta, draws)
+    p = rng.beta(real.alpha, real.beta, draws)
+    leak_draws = rng.beta(leak.alpha, leak.beta, draws) if leak is not None else None
+    tested = [b for b in names if per_class[b].n > 0]
+    worst = min(tested, key=lambda b: (per_class[b].mean, b)) if tested else None
+    found: dict = {"worst_class": worst, "untested": [b for b in names if per_class[b].n == 0]}
+    for name, se in (("pooled", np.mean([class_draws[b] for b in names], axis=0)),
+                     ("worst", class_draws[worst] if worst else None)):
+        if se is None:
+            found[name] = None
+            continue
+        prevalence = prevalence_draws(se, sp, p)
+        contamination = contamination_draws(prevalence, se, sp)
+        found[name] = {"recall": _spread(se), "prevalence": _spread(prevalence),
+                       "contamination": _spread(contamination),
+                       "p_informative": float(np.mean(se + sp - 1 > 0))}
+        found[f"_{name}_contamination"] = contamination
+    gate = None
+    if worst:
+        total = found["_worst_contamination"]
+        if leak_draws is not None:
+            total = np.minimum(1.0, total + leak_draws / np.maximum(1 - p, 1e-12))
+        gate = {"figure": "min(1, contamination_worst + leak / (1 - p))", "percentile": GATE_PERCENTILE,
+                "value": float(np.percentile(total, GATE_PERCENTILE)), **_spread(total)}
+    found.pop("_pooled_contamination", None)
+    found.pop("_worst_contamination", None)
+    found["gate_figure"] = gate
+    return found
+
+
+def estimate(observations: list[Observation], real_flags: list[bool], support: list[Variant],
+             leak: tuple[int, int] | None = None, draws: int = 5000, seed: int = 0) -> dict:
+    """Everything Mission 4.1 section 3 reports, as one record. No threshold is applied here (the gate is sitting 2).
+
+    `observations` are calibration runs (canaries of the support's variants, controls and shams; probes and real runs
+    are ignored, as in `summarize`). `real_flags` are the reviewer's verdicts on real runs (True = flagged): flags
+    only, never the sealed table, so this side of the estimate cannot see a run's type. `leak` is (weak, of) from the
+    guard's test, or None while the guard is untested. Every figure is a draw-based mean, median and 5-95% interval;
+    the pooled one is never reported without the worst-class one, the support and the counts (plan trap 1).
+    """
+    classes = sorted({bug for bug, _ in support})
+    summary = summarize(observations, classes, draws, seed, variants=support)
+    real = _tally(list(real_flags))
+    leak_posterior = Posterior(leak[0], leak[1] - leak[0]) if leak is not None else None
+    found = estimate_from_posteriors(summary.per_class, summary.specificity, real, leak_posterior, draws,
+                                     np.random.default_rng(seed))
+    return {
+        "support": [f"{bug} {tier}" for bug, tier in support],
+        "per_class": {b: _counts(p) for b, p in summary.per_class.items()},
+        "outside_support": summary.outside_support,
+        "specificity": _counts(summary.specificity),
+        "real_runs": {"flagged": real.successes, "reviewed": real.n},
+        "leak": None if leak is None else {"weak": leak[0], "of": leak[1]},
+        "draws": draws, "seed": seed,
+        "claim": "bugs of the catalogued kinds only",
+        **found,
+    }
+
+
 def _measured_only(observations: list[Observation]) -> list[Observation]:
     return [o for o in observations if o.run_type in (sealed.CANARY_MEASURE, sealed.CONTROL, sealed.SHAM)]
 
