@@ -118,6 +118,13 @@ plans. No code in `canary/` or `eval/` changed; `pytest` was not run because not
 sittings A and B are done; sitting C is next. The ceiling files stay frozen until the tripwire test on
 `ceiling-ext` is done. Mission 2.4 is the last mission complete.
 
+## End-of-session checklist
+- **After any session that writes to the ledger** (student, 2026-11-20; no pre-commit hook):
+  1. `.venv\Scripts\python.exe -m canary.cli ledger verify` (it also checks the anchor; it must say OK).
+  2. Refresh the anchor: `.venv\Scripts\python.exe -m canary.ledger anchor` (refuses a broken chain; touches no
+     entry; prints "Anchored entry N ...").
+  3. Commit it: `git add ledger_anchor.json` then `git commit -m "Ledger anchor: entry N"`.
+
 ## Design session 2, 2026-11-15 (Fable): Missions 4.3, 4.4, 3.1 and 3.2, roadmap challenge
 Design only. Four simulations (`docs/plans/sims/drift_chart_sim.py`, `campaign_policy_sim.py`,
 `scientist_test_sim.py`, JSON beside each) use **assumed** rates; each script was committed before its first run
