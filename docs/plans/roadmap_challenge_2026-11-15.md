@@ -204,3 +204,8 @@ the independent units).
   q1 and the grid and report the per-cell table.
 - **The base-level figure decides; the run-level one is printed beside it (student).** If the two would lead to
   different recommendations, that is said, and the base-level one stands.
+
+**Result and decision (2026-11-20).** `python -m eval.decisive_share` (`eval/results/decisive_share.json`): 319 clean
+runs on 35 bases, every recomputed verdict equal to its ledger verdict; base-level D 0.772 [0.668, 0.865], G10 0.071;
+run level agrees. **The student's decision: `seeds_per_arm` stays 5, and question q1 and the focus grid stay**, as
+the rule recommends.

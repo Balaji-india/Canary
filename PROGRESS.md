@@ -103,9 +103,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** the student's decision on `seeds_per_arm` and the grid (the rule recommends: keep 5 seeds, keep q1
-and the focus grid; row 5 entry), before pool 3; then build-order rows 6 (4.3 sitting 1), 8 (4.3 steps 4-5) and 9
-(RQ4 bank).
+**Current focus:** build-order row 6 (4.3 sitting 1), then row 8 (4.3 steps 4-5) and row 9 (RQ4 bank, pool 3 with the
+guard on, 5 seeds, q1 and the focus grid).
 
 **Stopped at:** row 5 is done (ledger anchor; decisive-share check computed). Nothing pushed; ledger 3592 entries.
 
@@ -1795,6 +1794,9 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   pass 20 of 20, `eval.ceiling --arm L` ran once (SOLVABLE). Nothing is running or interrupted.
 
 ## Decisions
+- **Seeds and grid before pool 3 (student, 2026-11-20):** `seeds_per_arm` stays 5, and question q1 and the focus grid
+  stay, as the decisive-share rule recommends (roadmap section 8; base-level D 0.772 [0.668, 0.865]; G10 0.071, below
+  0.10; `eval/results/decisive_share.json`). `mission_4_2_hidden_truth.md` section 2a needs no amendment.
 - **Mission 4.1 gate (student, 2026-11-20):** (1) the gate gets an explicit row "baseline guard not tested -> gate
   closed (no finding auto-accepted)", built in 4.1 sitting 2 (`canary/gate.py`); the gate table of
   `docs/plans/mission_4_1_trust.md` is amended now (section 9). Reason: with the measured union and B09 in the support,
