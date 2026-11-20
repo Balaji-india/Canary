@@ -282,10 +282,12 @@ def rates_table(measured: dict) -> list[dict]:
         rows.append({"reviewer": name, "support": "all", "class": "specificity", "variants": None, "caught": passed,
                      "n": n, "rate": (1 + passed) / (2 + n), "status": "measured", "source": entry["source"]})
     for name, (se, sp) in ASSUMED.items():
-        rows.append({"reviewer": name, "support": "design session", "class": "per class", "variants": None,
+        rows.append({"reviewer": f"assumed_{name}", "support": "design session", "class": "per class",
+                     "variants": None,
                      "caught": None, "n": None, "rate": se, "status": "assumed",
                      "source": "docs/plans/sims/trust_design_sim.py (2026-11-15)"})
-        rows.append({"reviewer": name, "support": "design session", "class": "specificity", "variants": None,
+        rows.append({"reviewer": f"assumed_{name}", "support": "design session", "class": "specificity",
+                     "variants": None,
                      "caught": None, "n": None, "rate": sp, "status": "assumed",
                      "source": "docs/plans/sims/trust_design_sim.py (2026-11-15)"})
     return rows
@@ -298,10 +300,10 @@ def pooled_and_worst(rates: dict[str, dict]) -> dict:
             "worst": rates[worst]["rate"]}
 
 
-def run(reps: int, draws: int, out: Path = OUT_PATH, rq4: bool = True) -> dict:
-    started = time.perf_counter()
-    led, table = ledger.Ledger(), sealed.SealedTable()
-    measured = measured_counts(led, table, tripwire_ledger.RECORDS_DIR)
+def reviewer_specs(measured: dict) -> dict[str, dict]:
+    """The simulated reviewers: each measured one with B09 in and out of the real-run support, and the design
+    session's assumed ones under an `assumed_` prefix (a measured and an assumed reviewer once shared a name, and
+    the assumed one silently replaced the measured one; the prefix and the check below stop that)."""
     reviewers = {}
     for name in ("skeptic_d", "tripwire_v1", "union"):
         sp_passed, sp_n = measured[name]["clean"]
@@ -312,17 +314,29 @@ def run(reps: int, draws: int, out: Path = OUT_PATH, rq4: bool = True) -> dict:
                 "se": [r["rate"] for r in rates.values()], "classes": list(rates), "sp": sp,
                 "status": "measured", "source": measured[name]["source"], **pooled_and_worst(rates)}
     for name, (se, sp) in ASSUMED.items():
-        reviewers[name] = {"se": se, "classes": None, "sp": sp, "status": "assumed",
-                           "source": "docs/plans/sims/trust_design_sim.py"}
+        key = f"assumed_{name}"
+        if key in reviewers:
+            raise ValueError(f"reviewer name {key} used twice")
+        reviewers[key] = {"se": se, "classes": None, "sp": sp, "status": "assumed",
+                          "source": "docs/plans/sims/trust_design_sim.py"}
+    return reviewers
+
+
+def run(reps: int, draws: int, out: Path = OUT_PATH, rq4: bool = True) -> dict:
+    started = time.perf_counter()
+    led, table = ledger.Ledger(), sealed.SealedTable()
+    measured = measured_counts(led, table, tripwire_ledger.RECORDS_DIR)
+    reviewers = reviewer_specs(measured)
     gate, seed = [], 0
     for name, spec in reviewers.items():
         gate += gate_grid(name, spec["se"], spec["sp"], reps, draws, seed, spec["status"])
         seed += 1000
-    for name, k in (("union_B09_out", 0), ("union_B09_out", 2)):
+    for name, k in (("union_B09_out", 0), ("union_B09_out", 2), ("assumed_union_B09_out", 0),
+                    ("assumed_union_B09_out", 2)):
         spec = reviewers[name]
         gate.append({"reviewer": name, "rates": spec["status"], "n_per_class": 20, "n_clean": 120, "n_real": 60,
                      "pi_true": 0.0, "mix": "uniform", "leak": f"{k} of 100",
-                     **simulate(spec["se"], [1.0] * len(spec["se"]), spec["sp"], 20, 120, 60, 0.0, 50_000 + k,
+                     **simulate(spec["se"], [1.0] * len(spec["se"]), spec["sp"], 20, 120, 60, 0.0, 50_000 + len(gate),
                                 reps, draws, leak=(k, 100))})
     rq4_rows = []
     if rq4:
@@ -335,7 +349,7 @@ def run(reps: int, draws: int, out: Path = OUT_PATH, rq4: bool = True) -> dict:
                                  60_000 + 1000 * len(rq4_rows), "measured")
         for name in ("union_all10_B09_in", "llm_all10"):
             se, sp = ASSUMED[name]
-            rq4_rows += rq4_grid(name, se, sp, 9, reps, draws, 90_000 + 1000 * len(rq4_rows), "assumed")
+            rq4_rows += rq4_grid(f"assumed_{name}", se, sp, 9, reps, draws, 90_000 + 1000 * len(rq4_rows), "assumed")
     result = {
         "status": "design only: no threshold chosen on these numbers, nothing locked (mission_4_1_trust.md trap 9)",
         "settings": {"reps": reps, "draws": draws, "tau": TAU, "gate_percentile": GATE_PCT,

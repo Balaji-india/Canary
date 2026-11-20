@@ -101,3 +101,15 @@ def test_the_rates_table_labels_every_rate():
     b09 = [r for r in rows if r["reviewer"] == "union" and r["class"] == "B09"]
     assert [r["support"] for r in b09] == ["real_guard_untested"]  # B09 leaves only the tested-guard support
     assert any(r["class"] == "specificity" and r["rate"] == 6 / 8 for r in rows if r["reviewer"] == "skeptic_d")
+
+
+def test_measured_and_assumed_reviewers_never_share_a_name():
+    """A measured `union_B09_out` was once silently replaced by the assumed reviewer of the same name."""
+    measured = {name: {"counts": {("B01", "obvious"): (3, 3), ("B09", "subtle"): (0, 3)}, "clean": (5, 6),
+                       "source": name} for name in ("skeptic_d", "tripwire_v1", "union")}
+    specs = rq4_power.reviewer_specs(measured)
+    assert specs["union_B09_out"]["status"] == "measured" and "B09" not in specs["union_B09_out"]["classes"]
+    assert "B09" in specs["union_B09_in"]["classes"] and len(specs["union_B09_out"]["classes"]) == 9
+    assert specs["assumed_union_B09_out"]["status"] == "assumed"
+    assert len(specs) == 6 + len(rq4_power.ASSUMED)
+    assert all((s["status"] == "assumed") == k.startswith("assumed_") for k, s in specs.items())
