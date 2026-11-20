@@ -103,11 +103,11 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** the student's OK of the decisive-share rule (`docs/plans/roadmap_challenge_2026-11-15.md`
-section 8); then compute it (row 5) and the student fixes `seeds_per_arm` and the grid before pool 3; then rows 6, 8, 9.
+**Current focus:** the student's decision on `seeds_per_arm` and the grid (the rule recommends: keep 5 seeds, keep q1
+and the focus grid; row 5 entry), before pool 3; then build-order rows 6 (4.3 sitting 1), 8 (4.3 steps 4-5) and 9
+(RQ4 bank).
 
-**Stopped at:** row 5: the ledger anchor is built and the real ledger anchored at entry 3592; the decisive-share rule is
-written but nothing is computed (stopped for the student's OK). Nothing pushed.
+**Stopped at:** row 5 is done (ledger anchor; decisive-share check computed). Nothing pushed; ledger 3592 entries.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -451,6 +451,33 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Build-order row 5, part 2 (2026-11-20, Opus): decisive-share check computed (rule approved with changes)
+- **Rule:** `docs/plans/roadmap_challenge_2026-11-15.md` section 8, approved by the student with three changes
+  (`5dc9276`): the base level decides (run level beside it); any recomputed verdict that differs from the ledger stops
+  the check; f10 from each run's own split sizes. Ledger anchor: no hook; end-of-session checklist added (`4554fd6`).
+- **Code:** `trust.clean_runs`, `eval/decisive_share.py` (`1503b42`, result `35c20d7`), 16 tests. Read-only:
+  `data/canary.db` and `data/sealed.db` SHA-256 unchanged.
+- **Data:** controls and shams of `rq1-full` (80 runs, 18 bases), `task-dev-1` (20, 15), `task-dev-2` (20, 13),
+  `ceiling-ext` (40, 14), `tripwire-test-1` (159, 17; one sham left out, its run not `ok`): 319 comparisons on 35
+  bases. **No verdict mismatch.** All runs have 5 seeds; n_test / n_train 0.333-0.338; f10 0.734-0.735.
+- **Outcomes:** 45 supported, 203 not_supported, 71 inconclusive.
+- **D (base level, decides):** pooled 0.772 [0.668, 0.865] (90% bootstrap over 35 bases); run level 248/319 = 0.777
+  [0.737, 0.813]. Per batch, base level: rq1-full 0.766 [0.622, 0.893]; task-dev-1 0.867 [0.733, 1.000]; task-dev-2
+  0.692 [0.500, 0.885]; ceiling-ext 0.774 [0.595, 0.929]; tripwire-test-1 0.762 [0.602, 0.906].
+- **G10 (base level, decides):** pooled 0.071 [0.040, 0.104]; run level 22/319 = 0.069 [0.050, 0.097]. Per batch,
+  base level: rq1-full 0.100 [0.022, 0.186]; task-dev-1 0.000; task-dev-2 0.115 [0.000, 0.269]; ceiling-ext 0.131
+  [0.012, 0.274]; tripwire-test-1 0.047 [0.021, 0.075].
+- **The rule's recommendation (both levels agree):** keep `seeds_per_arm: 5` (pooled G10 0.071 < 0.10); keep
+  question q1 and the focus grid (D's lower end 0.668 >= 0.20). **For the student's decision.**
+- **Own /challenge, stated:** D counts `not_supported` as decisive (203 of 319 runs); only `supported` verdicts are
+  findings a gate could accept: supported-only share, base level 0.154 [0.059, 0.254], run level 45/319 (added to the
+  JSON as a descriptive figure; it decides nothing under the approved rule; under the grid rule its interval would
+  straddle 0.20, which also says "keep and report per cell"). Descriptive: logistic regression bases were decisive in
+  2 of 29 runs. G10 assumes the spread between seeds stays the same. The 35 bases come from one grid (pool 2 was
+  asked on pool 1's grid), so cells have about two bases each.
+- **Checks:** `pytest -q` 1026 passed in 16.0 s and 15.9 s; `pytest -m slow` 269 passed, 3 skipped (213 s); both lock
+  checks OK at the start and end; `ledger verify` OK (3592 entries, anchor checked).
 
 ## Build-order row 5 (2026-11-20, Opus): ledger anchor built; decisive-share rule proposed, NOT computed
 - **Decisive-share check:** the roadmap fixed no rule that turns the share into a choice, so a rule was written into
@@ -1739,6 +1766,7 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
+- **2026-11-20 (row 5, part 2):** none running or interrupted; the decisive-share check is read-only.
 - **2026-11-20 (row 5):** none running or interrupted; nothing computed for the decisive share yet.
 - **2026-11-20 (4.1 sitting 1):** none running or interrupted; no model called; `eval.rq4_power` is a local simulation.
 - **2026-11-20 (guard sitting 1):** none running or interrupted; no model called; reference runs only in temporary
