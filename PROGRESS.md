@@ -103,12 +103,11 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** the build order's earliest open row: row 5, the decisive-share check (PLAN step 19), then row 6
-(4.3 sitting 1) and row 8 (4.3 steps 4-5, before the RQ4 lock), then row 9 (RQ4 bank, pool 3 with the guard on).
+**Current focus:** the student's OK of the decisive-share rule (`docs/plans/roadmap_challenge_2026-11-15.md`
+section 8); then compute it (row 5) and the student fixes `seeds_per_arm` and the grid before pool 3; then rows 6, 8, 9.
 
-**Stopped at:** Mission 4.1 sitting 1 is built (steps 1-4 and 6, 2026-11-20, Opus; entry below), with the guard
-follow-ups. The gate itself (step 5), real runs with padding and decoys (step 7) and the ledger decisions (step 8) are
-sitting 2. Nothing written to the real ledger (3592 entries); nothing pushed.
+**Stopped at:** row 5: the ledger anchor is built and the real ledger anchored at entry 3592; the decisive-share rule is
+written but nothing is computed (stopped for the student's OK). Nothing pushed.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -445,6 +444,31 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Build-order row 5 (2026-11-20, Opus): ledger anchor built; decisive-share rule proposed, NOT computed
+- **Decisive-share check:** the roadmap fixed no rule that turns the share into a choice, so a rule was written into
+  `docs/plans/roadmap_challenge_2026-11-15.md` section 8 (`2e6607e`) before any clean-run verdict was counted:
+  data (controls and shams of `rq1-full`, `task-dev-1`, `task-dev-2`, `ceiling-ext`, `tripwire-test-1`, through
+  `trust`, verdicts from the ledger recomputed with `prereg.compute_verdict`, no audit); measures D (decisive share,
+  Beta 90% interval, per batch and pooled, base-level beside it) and G10 (inconclusive runs a 10-seed interval would
+  decide, half-width x 0.734, printed from code); rule: 10 seeds if pooled G10 >= 0.10, else 5; keep q1 and the grid
+  if D's lower end >= 0.20, amend before pool 3 if its upper end < 0.20, else keep and report per cell. **Nothing
+  computed; waits for the student's OK.**
+- **Ledger anchor (`49779b4`):** `python -m canary.ledger anchor | check`; `ledger_anchor.json` at the repository
+  root, tracked by git, holds `entries` and `head_hash`; `Ledger.verify` (and so `canary.cli ledger verify`) checks
+  that the chain still holds that hash at that entry number, for the real ledger only (a temporary or `--db` ledger
+  has no anchor unless one is passed). `anchor_path` is keyword-only, so tests that redirect `Ledger.__init__`'s
+  positional default keep working. Writing an anchor refuses a broken or empty chain and touches no entry. Tests on
+  temporary ledgers (9): honest appends pass; deleting the newest entries is caught while the chain alone passes;
+  deleting just the anchored entry is caught; a rewritten chain with recomputed hashes is caught; the database bytes
+  are unchanged by anchoring; the module command. The real ledger is anchored at entry 3592 (hash
+  1282e306fbec...; `data/canary.db` SHA-256 unchanged); `canary.cli ledger verify` OK with the anchor in place.
+- **Own /challenge, stated:** the anchor is refreshed by hand, so entries after the newest anchor are unprotected
+  until the next one (a git pre-commit hook could run `python -m canary.ledger anchor`; not installed: your
+  decision); `canary.cli ledger verify --db <copy>` does not check an anchor (only the real path does); the rule's
+  thresholds (0.10, 0.20) are judgement, fixed before the data; G10 assumes the spread between seeds stays the same.
+- **Checks:** `pytest -q` 1010 passed in 16.2 s and 16.3 s; `pytest -m slow` 269 passed, 3 skipped (207 s); both
+  lock checks OK at the start and end; `ledger verify` OK (3592 entries).
 
 ## Mission 4.1 sitting 1 (2026-11-20, Opus): steps 1-4 and 6 built; design re-run with measured rates
 - **Scope:** `docs/plans/mission_4_1_trust.md` steps 1-4 and 6. Local only: no cloud or Ollama call, no ledger write
@@ -1708,6 +1732,7 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
+- **2026-11-20 (row 5):** none running or interrupted; nothing computed for the decisive share yet.
 - **2026-11-20 (4.1 sitting 1):** none running or interrupted; no model called; `eval.rq4_power` is a local simulation.
 - **2026-11-20 (guard sitting 1):** none running or interrupted; no model called; reference runs only in temporary
   folders.
@@ -2064,7 +2089,9 @@ the largest of the three ignoring sign. Harmful means `size` >= `min_effect_floo
 - **`qwen3:4b` hypotheses contain errors in their wording,** such as "76/2:24", and claim reasons that may not hold.
   Verdicts are unaffected, because they use only the configs and results.
 - **The ledger cannot detect removal of its newest entries,** or a full rewrite of the chain from an edited point. A
-  test documents this. Fixing it needs the latest hash stored elsewhere, for example in git.
+  test documents this. **Partly fixed 2026-11-20:** the anchor (`ledger_anchor.json`, tracked; `python -m
+  canary.ledger anchor`) detects both up to the anchored entry; entries added after the newest anchor stay
+  unprotected until the next anchor, and it is refreshed by hand (no commit hook yet).
 - **`ledger verify` reports a problem if a run folder is deleted.** `/clean` must never remove `data/runs/` folders
   that the ledger references.
 - **`crash_rate()` counts every folder in `data/runs/`, including the deliberate `broken.yaml` run** (it shows 1 of 2
