@@ -1665,6 +1665,18 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   pass 20 of 20, `eval.ceiling --arm L` ran once (SOLVABLE). Nothing is running or interrupted.
 
 ## Decisions
+- **Guard follow-ups from sitting 1 (student, 2026-11-20):** (1) the guard record stays in the PROPOSED ledger
+  entry of real runs only: the ledger already differs between real runs and clones (a clone's lock comes after its
+  run, accepted in Mission 2.4) because the reviewer never sees the ledger, and a test enforces that reviewer code
+  never reads the guard key; copying a base's record onto clones would be false for B09 canaries, and a separate file
+  would lose the ledger's tamper evidence. (2) Two reference runs per attempt are allowed (G3, then G4 when G3 finds
+  nothing); trap 7 of `docs/plans/b09_proposal_guard.md` amended (`5c5ffe2`). (3) The plan's development fact does not
+  hold for the garbled first real run: after defaults its arms differ in three factors and G1 rejects it (plan
+  section 4 corrected). (4) Arms identical after defaults go to the human queue as new rule G7 (label
+  `no_difference`), never auto-accepted (`d095a96`). (5) Pool files store each base's guard record (`446ff2e`), so
+  pool 3 is built with the records.
+- **Mission 4.1 support (student, 2026-11-20, asked again and confirmed):** the plan as approved: until the guard has
+  passed its test, B09 stays IN the real-run support (the gate stays closed); it leaves only after, with the leak term.
 - **The three open decisions, approved as explained (student, 2026-11-19, step 11 session):**
   (1) **Mission 4.3 decision 1:** keep the sentinel at 60 runs, 20 calls a day; the 4.3 plan now says (decision 1 and
   section 8) that at this budget the chart catches a collapse, not a slow drift. (2) **Mission 4.4 decision 1:** keep
