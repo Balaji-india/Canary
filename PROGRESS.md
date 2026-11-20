@@ -46,7 +46,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
     calibration runs (`canary/padding.py`, `canary/saboteur/decoys.py`, decoys in the canaries' proportions), or
     measured trust (recall, specificity, contamination) may not transfer to them. Check it with the length gate on
     real runs mixed with calibration runs before any gate decision uses calibration numbers.
-  - Designed 2026-11-15 (`docs/plans/mission_4_1_trust.md`), not built. Needs the baseline guard
+  - Designed 2026-11-15 (`docs/plans/mission_4_1_trust.md`). **Sitting 1 built 2026-11-20** (steps 1-4, 6: estimate,
+    support, union, `eval/rq4_power.py`); sitting 2 (gate, real-run padding, ledger decisions) not built. Needs the baseline guard
     (`docs/plans/b09_proposal_guard.md`; sitting 1 built and wired 2026-11-20, sitting 2 (the measurement) not done)
     before any real finding can be auto-accepted.
 - [ ] 4.2 Hidden-truth validation (RQ4)
@@ -102,12 +103,12 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** Mission 4.1 sitting 1 (`docs/plans/mission_4_1_trust.md` steps 1-4 and 6), after the student's
-answers to the two guard decisions (guard sitting 1 entry, "stated" items 1 and 2).
+**Current focus:** the build order's earliest open row: row 5, the decisive-share check (PLAN step 19), then row 6
+(4.3 sitting 1) and row 8 (4.3 steps 4-5, before the RQ4 lock), then row 9 (RQ4 bank, pool 3 with the guard on).
 
-**Stopped at:** B09 baseline guard sitting 1 is built and wired (2026-11-20, Opus; entry below). The guard is on
-(`science.baseline_guard: true`) but not measured: G2-G4 are not a tested detector until sitting 2, and nothing from
-it is recall. Nothing written to the real ledger (3592 entries); nothing pushed.
+**Stopped at:** Mission 4.1 sitting 1 is built (steps 1-4 and 6, 2026-11-20, Opus; entry below), with the guard
+follow-ups. The gate itself (step 5), real runs with padding and decoys (step 7) and the ledger decisions (step 8) are
+sitting 2. Nothing written to the real ledger (3592 entries); nothing pushed.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -444,6 +445,74 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Mission 4.1 sitting 1 (2026-11-20, Opus): steps 1-4 and 6 built; design re-run with measured rates
+- **Scope:** `docs/plans/mission_4_1_trust.md` steps 1-4 and 6. Local only: no cloud or Ollama call, no ledger write
+  (`data/canary.db` and `data/sealed.db` SHA-256 unchanged across the re-run), nothing under `data/runs/`. Support
+  as approved and confirmed today: B09 stays in the real-run support until the guard passes its test.
+- **Step 2 (`dfb9555`):** `trust.prevalence_draws` (Rogan-Gladen; Se + Sp - 1 <= 0 gives 1, never dropped) and
+  `trust.contamination_draws` (0 at prevalence 0, 1 when nothing can pass). Hand-computed tests: Se 0.8, Sp 0.9,
+  p 0.3 -> prevalence 0.2857, contamination 0.0816 (0.05714 / 0.7); p below 1 - Sp clips to 0; den <= 0 gives 1;
+  point posteriors reproduce the formulas to 3 decimals.
+- **Step 3 (`28d19b8`):** `trust.support` in `config/campaign.yaml` (`real_guard_off`, `real_guard_untested` (today),
+  `real_guard_tested`, `hidden_truth`), each left-out variant with its rule beside it (refused otherwise);
+  `trust.support_variants`, `real_population`, `summarize(..., variants=...)` with `outside_support`. Tests: B06 in
+  the real support comes from subtle canaries only; a class with no canaries is `untested`; worst = lowest posterior
+  mean, ties by ID.
+- **Step 4 (`b3848cf`):** `trust.estimate(observations, real_flags, support, leak, draws, seed)` and
+  `estimate_from_posteriors`: pooled and worst-class recall, prevalence and contamination (mean, median, 5-95%,
+  contamination p90), `p_informative`, the gate figure min(1, contamination_worst + leak / (1 - p)) at the 90th
+  percentile, counts, support, leak, "bugs of the catalogued kinds only". No threshold applied (the gate is sitting
+  2). Tests: signature and no database opened on the real-run side (sqlite3 and the sealed table spied); pooled ==
+  worst with one class; hand values incl. the gate figure 0.096.
+- **Step 6 (`0a36f72`):** `trust.union_observations` (flag if either; only runs both judged are scored, the rest
+  counted) and `collect_union_observations` over two ledger roles. Tests: flag if either; a failed LLM audit with a
+  passing tripwire is counted, not scored; per-run union differs from what rates could give (10 vs 5 of 10).
+- **Step 1 (`d7fe7b9`; /challenge fixes `1a790b9`, `b2b47cb`; result `d4dc70c`):** `eval/rq4_power.py` runs the design
+  simulation through `trust.estimate_from_posteriors` (tests: seeded and repeatable; a perfect reviewer recovers
+  the planted prevalence to 3 decimals; the simulation calls the estimator). Measured counts are read through
+  `trust` and each is checked against its locked result file before use (all 12 checks match: arm L per variant and
+  specificity; tripwire-test-1 per class, B06 subtle and specificity; tripwire on ceiling-ext and task-dev-2 against
+  their JSONs, same tripwire version). `python -m eval.rq4_power` -> `eval/results/rq4_power/design_rerun.json`
+  (254 gate rows, 224 RQ4 rows, 434 s). "True" rate in a simulated campaign = posterior mean of the measured counts.
+  **Design only: no threshold chosen on these numbers, nothing locked.**
+- **Rates (B09 in = `real_guard_untested`; pooled always beside the worst class):** skeptic_d (arm L, 120 runs)
+  pooled 0.708, worst B06 (subtle 0/3) 0.200, specificity 60/60 -> 0.984; tripwire_v1 (tripwire-test-1, 360 runs)
+  pooled 0.860, worst B09 (0/20) 0.045, specificity 159/160 -> 0.988; union per run (ceiling-ext + task-dev-2, 120
+  runs) pooled 0.805, worst B09 (1/6) 0.250, specificity 60/60 -> 0.984. B09 out: skeptic_d 0.758 / B06 0.200;
+  tripwire_v1 0.950 / B06 0.917; union 0.867 / B06 0.800. Union on ceiling-ext alone (no tripwire development
+  data): every non-B09 canary flagged, B09 0/4, 40/40 clean.
+- **Re-run vs the design session (worst-class gate opens, zero real bugs, sizes 6/60/30 ... 40/120/120):**
+  B09 in: design union (assumed) 0.08-0.35, rebuilt code with the same assumed rates 0.08-0.36, measured union
+  0.17-0.64, skeptic_d 0.03-0.44, tripwire_v1 0.01-0.06. B09 out: design 0.97 then 1.00; measured union 0.80, 0.99,
+  then 1.00; tripwire_v1 0.96 then 1.00; skeptic_d alone 0.10-0.51. At 30% buggy, uniform, B09 out: design union true
+  contamination 0.013, gate opens 0.03-0.78; measured union 0.055, opens 0.00-0.02. All bugs in the worst class at
+  30%: measured union true contamination 0.246, pooled gate opens 0.73-1.00, worst-class gate 0.01-0.02 (design
+  0.266, 0.97-1.00 and 0.01-0.03). Leak (union B09 out, 20/120/60): 0 of 100 -> 0.996, 2 of 100 -> 0.969 (design
+  1.000 both). RQ4 at 10 per class, truth 0.5: measured union pooled median 0.528-0.534 (design 0.532-0.535).
+- **Own /challenge, fixed:** (1) **a real bug:** in the first re-run the assumed `union_B09_out` replaced the measured
+  one (same dict key); assumed reviewers now carry `assumed_`, a collision raises, test added (`b2b47cb`); the
+  committed JSON is the corrected run. (2) Tripwire B06 per tier is now checked against the locked headline.
+  (3) Union counts are kept per batch, so ceiling-ext alone (no tripwire development data) is visible.
+- **Own /challenge, stated:** (1) the union's rates rest on 6 canaries per class (3 per variant); its posterior means
+  (6/6 -> 0.875) sit below tripwire_v1's alone (20/20 -> 0.955) although per run the union can only flag more, so
+  the simulation understates the union; by the rule it cannot be patched from the halves' rates, only by more
+  per-run data (the RQ4 bank). (2) task-dev-2 is tripwire development data (labelled; ceiling-ext alone shown).
+  (3) Runs from one base are not independent (arm L: 120 runs on 32 bases): intervals too narrow (plan trap 5).
+  (4) Specificity comes from clean runs with decoys; it transfers to real runs only after step 7. (5) The rebuilt
+  code's "all bugs in the worst class" mix uses the class with the lowest true rate (for the assumed LLM: B06 0.05),
+  where the design put them in B09 (0.17), so that one assumed row differs (0.294 vs 0.266 true contamination).
+  (6) skeptic_d alone never opens the gate reliably, even without B09 (B06 subtle 0/3).
+- **Checks (end of both parts):** `pytest -q` 1001 passed in 15.7 s and 15.5 s; `pytest -m slow` 269 passed, 3 skipped
+  (200 s); `eval.ceiling_lock --check` "Lock check: OK, every hash matches"; `eval.tripwires_test --check` "Tripwire
+  lock check: OK" (both OK at the start and after the `mixer.py` and `trust.py` changes); `ledger verify` OK (3592).
+
+## Guard follow-ups (2026-11-20, Opus): the student's five answers to sitting 1
+- Decisions recorded under Decisions (`e8a1151`). Code: G7 (arms identical after defaults -> human queue, label
+  `no_difference`, `d095a96`; the sitting-1 test that expected `ok` now expects G7, renamed, not deleted); pool files
+  store each base's guard record (`scientist.guard_record_of`, `mixer.build_pool`, `446ff2e`; both lock checks OK
+  after the `mixer.py` change). Plan `docs/plans/b09_proposal_guard.md` (`5c5ffe2`): G7 row, trap 7 (two reference
+  runs per attempt allowed), section 4 corrected (garbled first real run, G1), section 10 lists the decisions.
 
 ## B09 baseline guard, sitting 1 (2026-11-20, Opus): steps 1-4 built and wired; not measured
 - **Scope:** `docs/plans/b09_proposal_guard.md` steps 1-4, rules exactly as approved 2026-11-15. Local only: no cloud or
@@ -1639,6 +1708,7 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
+- **2026-11-20 (4.1 sitting 1):** none running or interrupted; no model called; `eval.rq4_power` is a local simulation.
 - **2026-11-20 (guard sitting 1):** none running or interrupted; no model called; reference runs only in temporary
   folders.
 - **2026-11-20:** none running or interrupted. The tripwire records were written to the real ledger in the
