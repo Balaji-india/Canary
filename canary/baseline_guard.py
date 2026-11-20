@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import numbers
 import sys
 import tempfile
 from dataclasses import asdict, dataclass
@@ -100,7 +101,7 @@ def same_value(a: object, b: object) -> bool:
         return a is b
     if isinstance(a, bool) or isinstance(b, bool):
         return type(a) is type(b) and a == b
-    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+    if isinstance(a, numbers.Real) and isinstance(b, numbers.Real):  # numpy numbers too, if a default is one
         return float(a) == float(b)
     return type(a) is type(b) and a == b
 

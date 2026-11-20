@@ -117,3 +117,12 @@ def test_guard_code_has_no_saboteur_words_outside_docstrings(word):
              if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings]
     identifiers = _tokens(tree) - set(texts)
     assert not any(word in t for t in texts) and not any(word in i for i in identifiers)
+
+
+@pytest.mark.parametrize("name", ["skeptic.py", "blinding.py", "review_tasks.py", "prompts.py"])
+def test_reviewer_code_never_reads_the_guard_record(name):
+    """Real runs carry a `guard` record in their PROPOSED entry and clones do not (mixer.py writes theirs), so that
+    key tells a real run from a clone. The reviewer's code path must never read it, nor PROPOSED entries at all."""
+    source = (PACKAGE / name).read_text(encoding="utf-8")
+    for word in ("guard", "PROPOSED", "proposed"):
+        assert word not in source, f"{name} mentions {word}"

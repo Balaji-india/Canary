@@ -28,6 +28,12 @@ def test_one_equals_one_point_zero_but_true_is_not_one():
     assert guard.factors(arm("knn", {"n_neighbors": 5}), arm("knn", {"n_neighbors": 5.0})) == []
 
 
+def test_numpy_numbers_equal_plain_ones():
+    import numpy as np
+    assert guard.same_value(np.int64(5), 5) and guard.same_value(np.float64(0.1), 0.1)
+    assert not guard.same_value(np.int64(5), 6)
+
+
 def test_none_is_handled():
     assert guard.same_value(None, None)
     assert not guard.same_value(None, 0)
