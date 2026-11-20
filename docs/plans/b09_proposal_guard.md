@@ -1,6 +1,7 @@
 # Plan: the baseline guard (B09 at proposal time)
 
-Designed 2026-11-15 by Fable. Not built. Not locked: this is a build plan, the locked test plan is step 7.
+Designed 2026-11-15 by Fable. Sitting 1 built 2026-11-20 (Opus). Not locked: this is a build plan, the locked test
+plan is step 7. Changed 2026-11-20 by the student's decisions (G7, trap 7, the development fact): section 10.
 Builder: Opus, 2 sittings. No cloud call is needed anywhere in this plan (only the local Scientist model and
 scikit-learn runs), so the free-tier limit does not apply.
 
@@ -47,6 +48,7 @@ The guard does not judge whether a control "looks weak". It asks two questions t
 | G4 | one factor; settings shared by both arms are not defaults, and the control is **weak** against the control with those settings at default | both arms `max_iter=1` | run, label `weak_regime` (**warn**) | the finding is true as locked but holds only in a degraded setting; the report must say so |
 | G5 | the reference run crashed or timed out | `gamma: 0.0` | **reject** | the real run would very likely crash too |
 | G6 | none of the above | one factor, everything else at defaults or not weak | `ok` | |
+| G7 | no factor: the arms are the same once defaults are filled in (added 2026-11-20) | `{C: 1.0}` against `{}` | run, label `no_difference`; **human queue**, never auto-accepted | the hypothesis names a change the experiment does not make |
 
 References used: G2: all of the control's parameters at default. G3: only the tested parameter at default.
 G4: only the shared parameters at default (the tested factor stays as the control has it). For preprocessing as
@@ -65,8 +67,11 @@ not, is appended to `data/guard/proposals.jsonl`; an accepted proposal also carr
 
 ## 4. False alarms on honest simple controls
 - **Reject (G1) on an honest two-factor idea.** Cost: one retry, and two-factor questions cannot be asked in one
-  run. Evidence so far (development data, not a test): all 35 bases in pools 1 and 2, and the 3 real runs, differ
-  in exactly one factor, so G1 would have rejected none of them.
+  run. Evidence so far (development data, not a test): all 35 bases in pools 1 and 2 differ in exactly one factor.
+  **Corrected 2026-11-20:** of the 3 real runs, 2 differ in one factor; the first (Mission 1.4) does not once
+  defaults are filled in: its control has the garbled key `": "` where `class_weight` should be, so its arms differ
+  in `": "`, `class_weight` and `preprocessing`, and G1 rejects it. That run crashed. The 1-factor count above was
+  read from the raw configs.
 - **Reject (G1) for a difference that does nothing** (a `gamma` under a linear kernel). Harmless to reject: the
   retry removes a needless difference.
 - **Queue (G3) on an honest simple control** ("a stump against depth 8"). Cost: a person looks at it. It is not
@@ -173,8 +178,10 @@ changed (the feedback sentence travels through the existing retry argument).
    control only, never the treatment or the effect. Say so in the report.
 6. **Library defaults move between scikit-learn versions.** The record stores the version; never copy defaults
    into the source.
-7. **Time.** A reference run is an ordinary sandbox run (seconds; the slow models up to a minute). At most one
-   per proposal attempt. Use a temporary folder: nothing under `data/runs/`, nothing in the crash rate.
+7. **Time.** A reference run is an ordinary sandbox run (seconds; the slow models up to a minute). **At most two
+   per proposal attempt (amended 2026-11-20, student):** G2 needs one; a one-factor proposal needs G3's and, when G3
+   does not find the control weak, G4's (in the sitting-1 listing 10 of 38 proposals needed two). After a G3
+   finding G4 is not measured. Use a temporary folder: nothing under `data/runs/`, nothing in the crash rate.
 8. **The rejected-proposal log is not the ledger.** When the graveyard exists (Mission 3.1), rejected proposals
    move there with the guard rule as cause of death.
 9. **Mission 4.1 depends on this plan** for two things only: the label on each real run, and the leak rate from
@@ -202,3 +209,15 @@ changed (the feedback sentence travels through the existing retry argument).
 
 Sitting 1 is now a prerequisite of the RQ4 bank: pool 3 is built with the guard on
 (`mission_4_2_hidden_truth.md`, section 2a).
+
+## 10. Changes after sitting 1 (student, 2026-11-20), before the guard test is locked
+1. **The guard record stays in the PROPOSED ledger entry of real runs only.** The ledger already differs between
+   real runs and clones (a clone's lock is written after its run, accepted in Mission 2.4), because the reviewer
+   never sees the ledger; a test enforces that reviewer code never reads the guard key. Copying a base's record
+   onto its clones would be false for B09 canaries; a separate file would lose the ledger's tamper evidence.
+2. **Two reference runs per attempt are allowed** (G3, then G4 when G3 finds nothing): trap 7 amended.
+3. **The development fact in section 4 is corrected** for the garbled first real run (G1 rejects it).
+4. **Arms identical after defaults go to the human queue (new row G7), never auto-accepted;** they were `ok` in
+   sitting 1.
+5. **Pool files store each base's guard record** (`mixer.build_pool`, key `guard` beside `prereg`), so pool 3 is
+   built with the records.
