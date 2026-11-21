@@ -54,8 +54,9 @@ Claude updates this at the end of every mission. If a mission stops early, write
   - Designed 2026-11-15 (`docs/plans/mission_4_2_hidden_truth.md`), not built, not locked.
 - [ ] 4.3 Control chart and drift alarms
   - Designed 2026-11-15 (`docs/plans/mission_4_3_drift.md`), not built.
-  - **Sitting 1 (2026-11-21):** steps 1 and 3 built (`canary/drift.py`; `--demo` fires R1, R2, R3 once each); step 2
-    code built (`eval/drift_power.py`) and amendment 1 committed, **not run: waits for the student's "go"**.
+  - **Sitting 1 done (2026-11-21):** steps 1-3 built (`canary/drift.py`; `--demo` fires R1, R2, R3 once each;
+    `eval/drift_power.py` run once after the student's "go"). Reproduction passed; the measured run is
+    **provisional, dev rates; replaced by the rq4-bank-1 run (row 16)**. Sitting 2 (steps 4-8) not built.
 - [ ] 4.4 Campaign agent loop
   - Designed 2026-11-15 (`docs/plans/mission_4_4_campaign.md`), not built.
 
@@ -105,13 +106,12 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **M9 Stretch:** novelty auditor · more domains · cloud Scientist · tree search
 
 ## In progress
-**Current focus:** build-order row 6 (4.3 sitting 1), then row 8 (4.3 steps 4-5) and row 9 (RQ4 bank, pool 3 with the
-guard on, 5 seeds, q1 and the focus grid).
+**Current focus:** build-order row 8 (4.3 steps 4-5: identity in `llm.py`, epochs), then row 9 (RQ4 bank, pool 3
+with the guard on, 5 seeds, q1 and the focus grid).
 
-**Stopped at:** row 6 (4.3 sitting 1), 2026-11-21: steps 1 and 3 done; step 2 code and tests done, amendment 1
-(`docs/plans/mission_4_3_drift.md` section 11) committed; `python -m eval.drift_power` NOT run, waiting for the
-student's "go" (then: run it, check the reproduction, record the measured choice, run the slow reproduction test).
-Nothing pushed; ledger 3592 entries, no ledger write.
+**Stopped at:** row 6 (4.3 sitting 1) done 2026-11-21: steps 1-3 built, `eval.drift_power` run once (reproduction
+passed; measured run provisional, dev rates, replaced by the rq4-bank-1 run at row 16, nothing decided from it).
+Next: row 8 (4.3 steps 4-5). Nothing pushed; ledger 3592 entries, no ledger write.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -455,6 +455,39 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Mission 4.3 sitting 1, step 2 run (2026-11-21, Opus, after the student's "go")
+- **Student's answers with the go:** the sealed table is read for this run only, only through `trust`, only for arm L
+  and `tripwire-test-1`, databases read-only and hashed before and after; the arm-L run is **provisional, dev rates;
+  replaced by the rq4-bank-1 run (row 16)** and its numbers are never the final design choice (amendment 1 item 9,
+  `6e18a85`; label in the result's status, `f502ba1`).
+- **Run:** `python -m eval.drift_power` once (seeds 4303 and 4304, 4000 campaigns, 31 s) -> `eval/results/drift/power.json`
+  (`e71e049`). `data/canary.db` and `data/sealed.db` SHA-256 identical before and after; all 12 parity checks matched.
+- **Reproduction: passed, draw for draw.** 60 runs, 20 a day, W = 3, standard tails, as in the design; the worst-case
+  table equals the design JSON for all 54 candidates (choice: quiet 0.002, pass everything within 2 days 0.9715, flag
+  everything 1.000, drop within 7 days 0.109); 3 candidates meet (a) and (b), none (c); the four fresh charts' tails
+  and quiet shares equal too. `test_reproduces_the_design_simulation_draw_for_draw` (slow) passes.
+- **Measured (PROVISIONAL, dev rates):** LLM per class (posterior means of arm L, 6 each): B01, B03, B07, B08, B10 0.875;
+  B02, B04, B05 0.750; B09 0.250; **worst B06 0.125** (0 of 6); mean 0.700; specificity 0.984; sticky flip 0.091 (1 of
+  20). Union, supported classes: every class caught on arm L (B06 3 of 3), miss rate by the posterior-mean rule 0.133;
+  false alarms 0.016. **No candidate meets (a) and (b) at every ICC under both models**, so the rule's fallback picks
+  the candidate meeting (a) with the highest worst-case (b): **60 runs, 20 a day, W = 3, standard** (quiet 0.0165;
+  pass everything within 2 days only 0.449; flag everything 1.000; drop 0.019). Per model: independent qualifies
+  nowhere (any ICC); sticky has 3 qualifying (60/20, W 3, 5, 7, standard) at ICC 0, 0.1 and 0.2, none at 0.4. Fresh
+  charts by the rule: clean charts standard; **canary charts strict** (quiet share above 0.05 at ICC 0.2 and 0.4:
+  0.076 and 0.156 on the bank baseline). **Nothing decided from these numbers.**
+- **Printed only:** bank rule P(more than 3 of 20 differ | nothing changed): 0.116 at the point flip rate 1/20,
+  0.427 at the posterior mean, 0.387 averaged over the flip rate's posterior, 0.23-0.42 simulated (both models, every
+  ICC). Finding 3: on arm L's 60 canaries the LLM adds one catch to the tripwires (B09, 1 of 6); every other class is
+  caught by the tripwires alone. Finding 10: with the rolling window (24 per class, 120 clean) the worst-class gate
+  opens in 1.00 of campaigns at prevalence 0 and in 0.695 (60 real runs) and 0.836 (120) at prevalence 0.1. Day-to-day
+  spread: not computable (1 of 3 passes).
+- **Reading (for the bank re-run, not a decision):** the independent model at 6-per-class posterior means is very
+  noisy (a class at 0.75 flips 37.5% of re-asks), which is why "passes everything" is often not separable within 2
+  days; the bank's 20+ canaries per class will tighten it. The same posterior-mean rule makes the bank rule look likely
+  to fire falsely (0.39-0.43) where the point estimate gives 0.12.
+- **Checks:** `pytest -q` 1077 passed in 17.3 s and 16.9 s (both under 22 s, nothing moved); `pytest -m slow` 272
+  passed, 3 skipped (213 s); both lock checks OK at the end.
 
 ## Mission 4.3 sitting 1 (2026-11-21, Opus): steps 1 and 3 built; step 2 built, its run waits for "go"
 - **Step 1 (`2c281e7`):** `canary/drift.py`: `limit(n0, f0, m, tail)` (smallest c with P(X >= c) <= tail,
@@ -1797,7 +1830,8 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
-- **2026-11-21 (row 6, 4.3 sitting 1):** none running or interrupted; no model called; `eval.drift_power` not run yet.
+- **2026-11-21 (row 6, 4.3 sitting 1):** none running or interrupted; no model called; `eval.drift_power` ran once
+  (31 s, local) and finished.
 - **2026-11-20 (row 5, part 2):** none running or interrupted; the decisive-share check is read-only.
 - **2026-11-20 (row 5):** none running or interrupted; nothing computed for the decisive share yet.
 - **2026-11-20 (4.1 sitting 1):** none running or interrupted; no model called; `eval.rq4_power` is a local simulation.
