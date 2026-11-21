@@ -564,7 +564,9 @@ def database_hashes() -> dict[str, str]:
 
 def run(campaigns: int = CAMPAIGNS, out: Path = OUT_PATH, reps: int = 1000, draws: int = 1000) -> dict:
     started = time.perf_counter()
-    result = {"status": "design only (mission_4_3_drift.md step 2, amendment 1); no threshold changed",
+    result = {"status": "design only (mission_4_3_drift.md step 2, amendment 1); no threshold changed; the measured "
+                        "part is PROVISIONAL, dev rates (arm L), replaced by the rq4-bank-1 run (row 16), never "
+                        "the final design choice (amendment 1, item 9)",
               "settings": {"campaigns": campaigns, "seed": SEED, "iccs": list(ALL_ICCS), "per_base": PER_BASE,
                            "bank_bases": BANK_BASES, "tails": drift.TAILS},
               "reproduction": reproduce(campaigns)}
