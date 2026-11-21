@@ -433,3 +433,7 @@ reproduction nor the measured part has run). It fixes what step 2 leaves open. N
 8. **Seeds and reads.** Reproduction seed 4303, measured run 4304, 4000 campaigns; nothing is re-run with another
    seed or setting after its output is seen. The ledger and the sealed table are opened read-only through `trust`
    (their SHA-256 checked before and after); no ledger write; arm R is never read; no model is called.
+9. **Status of the measured run (student, 2026-11-21, with the "go"):** provisional, dev rates; replaced by the
+   `rq4-bank-1` run (row 16). Its numbers are never presented as the final design choice. The sealed table is read
+   for this run only, only through `trust`, only for arm L and `tripwire-test-1`, both databases read-only with
+   their SHA-256 checked before and after.
