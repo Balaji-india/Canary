@@ -54,6 +54,8 @@ Claude updates this at the end of every mission. If a mission stops early, write
   - Designed 2026-11-15 (`docs/plans/mission_4_2_hidden_truth.md`), not built, not locked.
 - [ ] 4.3 Control chart and drift alarms
   - Designed 2026-11-15 (`docs/plans/mission_4_3_drift.md`), not built.
+  - **Sitting 1 (2026-11-21):** steps 1 and 3 built (`canary/drift.py`; `--demo` fires R1, R2, R3 once each); step 2
+    code built (`eval/drift_power.py`) and amendment 1 committed, **not run: waits for the student's "go"**.
 - [ ] 4.4 Campaign agent loop
   - Designed 2026-11-15 (`docs/plans/mission_4_4_campaign.md`), not built.
 
@@ -106,7 +108,10 @@ Claude updates this at the end of every mission. If a mission stops early, write
 **Current focus:** build-order row 6 (4.3 sitting 1), then row 8 (4.3 steps 4-5) and row 9 (RQ4 bank, pool 3 with the
 guard on, 5 seeds, q1 and the focus grid).
 
-**Stopped at:** row 5 is done (ledger anchor; decisive-share check computed). Nothing pushed; ledger 3592 entries.
+**Stopped at:** row 6 (4.3 sitting 1), 2026-11-21: steps 1 and 3 done; step 2 code and tests done, amendment 1
+(`docs/plans/mission_4_3_drift.md` section 11) committed; `python -m eval.drift_power` NOT run, waiting for the
+student's "go" (then: run it, check the reproduction, record the measured choice, run the slow reproduction test).
+Nothing pushed; ledger 3592 entries, no ledger write.
 
 **Earlier the same day (Fable session 1, design only):** three build plans written, challenged and committed:
 the baseline guard for B09 (`docs/plans/b09_proposal_guard.md`), Mission 4.1 with the union reviewer
@@ -450,6 +455,33 @@ same task; that the result holds for other prompts, settings, models or a later 
 - **One provider is a single point of failure.** If Groq changes the limits or retires the model, Canary has no
   measured LLM reviewer, only the tripwires. The efficiency search (a local model that clears the same bar on a
   fresh batch) removes this; it can run after Mission 5.1 and does not block Mission 4.
+
+## Mission 4.3 sitting 1 (2026-11-21, Opus): steps 1 and 3 built; step 2 built, its run waits for "go"
+- **Step 1 (`2c281e7`):** `canary/drift.py`: `limit(n0, f0, m, tail)` (smallest c with P(X >= c) <= tail,
+  X ~ BetaBinomial(m, 1 + f0, 1 + n0 - f0); m + 1 if none), `fire_matrix` (the only implementation of R1, R2, R3,
+  used by the chart and the simulation), `rules`, `chart_limits`. Hand-computed tests: 0 of 10, m = 2 gives
+  P(X = 2) = 2/156 = 0.0128, so the 2-sigma limit is 2 and no 3-sigma limit exists; monotone in f0; a huge baseline
+  gives the binomial limit; R2 needs neighbours; R3 ignores the first W - 1; the same table as the design script.
+- **Step 2 (`2212127`, code only):** `eval/drift_power.py` rebuilds the design simulation on `drift.fire_matrix`,
+  in the design's random-number order at ICC 0 (so the reproduction can be draw for draw), adds the base effect,
+  reads measured counts through `eval.rq4_power.measured_counts`, and prints the bank rule, the spread rule and
+  findings 3 and 10. Synthetic tests (seeded; no noise -> no rule; flag-everything fires on slice 1). **Amendment
+  1 (`1ef4492`)** fixes the measured run's rule before any run: arm L rates until the RQ4 bank exists (posterior
+  means), proportional drop and collapse, ICC 0/0.1/0.2/0.4 worst case, 4.4's pace (12 and 18 a day), the spread
+  rule of finding 14, seeds 4303 and 4304.
+- **Step 3 (`0346ce9`):** `drift.chart` (fresh windows of 20 in review order, per epoch; probes, failed audits and
+  other epochs left out and counted; an unverifiable result counts as a flag and is listed), `drift.sentinel_chart`
+  (opening-pass baseline per half, flips with direction, unfinished slice, response served twice refused),
+  `first_alarm` (each rule's look-back), `hold_list`, `calibration_window` (24 per class, 120 clean, newest first,
+  the rest still reported). `python -m canary.drift --demo` prints each rule firing once with the alarm record and
+  the hold list.
+- **Own /challenge, fixed (`79d148b`):** a run asked twice in one slice was counted twice (now refused); a sentinel
+  reply equal to the first audit's response_id was not caught (optional `reference_responses`, refused); a class
+  list not 10 long would have mis-shaped the sentinel (refused); a choice with no candidate crashed; two tests
+  compared code with itself (now hand values: limits 6, 4, 11 for 1 of 30; bank rule 0.1156 written out).
+- **Checks:** `pytest -q` 1077 passed in 25.2 s (was 17.8 s before the sitting; the drift tests take about 1.3 s
+  alone, the rest is run-to-run spread on this machine; still under 30 s); `pytest -m slow` 271 passed, 3 skipped
+  (223 s), the reproduction test deselected until "go"; both lock checks OK at the start and the end.
 
 ## Build-order row 5, part 2 (2026-11-20, Opus): decisive-share check computed (rule approved with changes)
 - **Rule:** `docs/plans/roadmap_challenge_2026-11-15.md` section 8, approved by the student with three changes
@@ -1765,6 +1797,7 @@ and after). Plan: `~\.claude\plans\run-rq1-for-skeptic-b-twinkling-shell.md`. Da
   36.8 s before this work, so the 10 slowest tests are marked `slow` in `pytest.ini` (deselected by default, not deleted).
 
 ## Running or interrupted campaigns
+- **2026-11-21 (row 6, 4.3 sitting 1):** none running or interrupted; no model called; `eval.drift_power` not run yet.
 - **2026-11-20 (row 5, part 2):** none running or interrupted; the decisive-share check is read-only.
 - **2026-11-20 (row 5):** none running or interrupted; nothing computed for the decisive share yet.
 - **2026-11-20 (4.1 sitting 1):** none running or interrupted; no model called; `eval.rq4_power` is a local simulation.
