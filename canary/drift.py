@@ -234,17 +234,20 @@ def chart(observations: list[ChartObservation], baseline: tuple[int, int], kind:
 
 def sentinel_chart(records: list[SentinelRecord], references: dict[str, tuple[str, str]], epoch: str,
                    per_half: int = SENTINEL_PER_HALF, span: int = SENTINEL_SPAN,
-                   tails: str | tuple[float, float] = SENTINEL_TAILS) -> dict:
+                   tails: str | tuple[float, float] = SENTINEL_TAILS,
+                   reference_responses: dict[str, str] | None = None) -> dict:
     """The sentinel chart for one epoch. `references` maps each sentinel run to (half, first stored verdict in this
     epoch), half "buggy" or "clean". The opening pass gives each half's baseline (flips of the half's size); every
     later slice is counted per half as flips against the reference, with the direction logged. Slices finish in
-    order; an unfinished last slice is reported (`unfinished_slice`) and enters no rule. Two records with the same
-    response_id are refused: a provider-side cache would fake stability (plan trap 3)."""
+    order; an unfinished last slice is reported (`unfinished_slice`) and enters no rule. A response_id seen twice,
+    or equal to the first audit's (`reference_responses`, run -> response_id), is refused: a provider-side cache
+    would fake stability (plan trap 3). A run asked twice in one slice is refused too: it would be counted twice."""
     for run_id, (half, verdict) in references.items():
         if half not in (BUGGY, CLEAN) or verdict not in (FLAG, PASS):
             raise ValueError(f"bad reference for {run_id}: {(half, verdict)}")
     mine = [r for r in records if r.epoch == epoch]
-    seen: dict[str, str] = {}
+    seen: dict[str, str] = {response: f"{run_id} (first audit)"
+                            for run_id, response in (reference_responses or {}).items()}
     for r in mine:
         if r.verdict not in (FLAG, PASS):
             raise ValueError(f"{r.run_id}: verdict must be 'flag' or 'pass', got {r.verdict!r}")
@@ -275,6 +278,9 @@ def sentinel_chart(records: list[SentinelRecord], references: dict[str, tuple[st
         raise ValueError(f"slice indices must run 0, 1, 2, ... without gaps, got {indices}")
     complete = []
     for i in indices:
+        asked = [r.run_id for r in slices[i]]
+        if len(asked) != len(set(asked)):
+            raise ValueError(f"slice {i} asks a run more than once")
         per = {h: [r for r in slices[i] if references[r.run_id][0] == h] for h in (BUGGY, CLEAN)}
         if any(len(per[h]) > per_half for h in (BUGGY, CLEAN)):
             raise ValueError(f"slice {i} has more than {per_half} runs in a half")

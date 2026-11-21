@@ -142,6 +142,22 @@ def test_a_response_served_twice_is_refused():
         drift.sentinel_chart(twice, refs, "e1")
 
 
+def test_a_response_equal_to_the_first_audits_is_refused():
+    records, refs, _ = sentinel([0], [0])
+    first = {"s-b00": records[0].response_id}
+    with pytest.raises(ValueError, match="first audit"):
+        drift.sentinel_chart(records, refs, "e1", reference_responses=first)
+    assert drift.sentinel_chart(records, refs, "e1", reference_responses={"s-b00": "audit-1"})["status"] == "ok"
+
+
+def test_a_run_asked_twice_in_one_slice_is_refused():
+    records, refs, _ = sentinel([0], [0])
+    one = next(r for r in records if r.slice_index == 0)
+    again = SentinelRecord(one.run_id, "e1", 9999, 0, one.verdict, "resp-new")
+    with pytest.raises(ValueError, match="more than once"):
+        drift.sentinel_chart(records + [again], refs, "e1")
+
+
 def test_no_opening_pass_means_no_baseline_and_not_in_control():
     records, refs, _ = sentinel([0], [0])
     state = drift.sentinel_chart([r for r in records if r.slice_index is not None], refs, "e1")

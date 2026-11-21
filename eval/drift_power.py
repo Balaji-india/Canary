@@ -166,6 +166,9 @@ def sentinel_counts(rng, rev: Reviewer, model: str, change: str, n: int, k: int,
                     campaigns: int = CAMPAIGNS):
     """Flips per review day for the buggy and the clean half, and the opening-pass baselines (campaigns x days)."""
     half, per, kb = n // 2, n // 20, k // 2
+    if len(rev.class_rates) != 10:
+        raise ValueError(f"the sentinel's buggy half has N/20 runs for each of 10 classes; got "
+                         f"{len(rev.class_rates)} class rates")
     base_rates = np.repeat(np.asarray(rev.class_rates, float), per)
     old_fa = 1 - rev.sp
     new_rates, new_fa = rev.changes[change]
@@ -514,7 +517,7 @@ def reproduce(campaigns: int = CAMPAIGNS) -> dict:
     same_fresh = {name: (chart["chosen_tails"], chart["standard"]["quiet_30_days"]) ==
                   (design["fresh_charts"][name]["chosen_tails"], design["fresh_charts"][name]["standard"]["quiet_30_days"])
                   for name, chart in fresh.items()}
-    picked = {key: choice[key] for key in DESIGN_CHOICE}
+    picked = {key: choice.get(key) for key in DESIGN_CHOICE}
     return {"choice": {k: v for k, v in choice.items() if k != "all_worst_cases"},
             "same_choice_as_design": picked == DESIGN_CHOICE and campaigns == CAMPAIGNS,
             "same_worst_case_table_as_design": same_table, "same_fresh_charts_as_design": same_fresh,
@@ -535,7 +538,7 @@ def measured_run(rev: Reviewer, inputs: dict, campaigns: int = CAMPAIGNS, reps: 
                       for icc, t in tables.items()}
     fresh_tails = {name: ("strict" if any(fresh[i][name]["standard"]["quiet_30_days"] > 0.05 for i in fresh)
                           else "standard") for name in fresh["0.0"]}
-    chosen = {key: choice[key] for key in DESIGN_CHOICE}
+    chosen = {key: choice.get(key) for key in DESIGN_CHOICE}
     decided = {"N": 60, "k": 20, "W": 3, "tails": "standard"}
     bank = {"exact_sticky_eps_point": bank_rule_exact(inputs["repeat"][0] / inputs["repeat"][1]),
             "exact_sticky_eps_posterior_mean": bank_rule_exact(rev.eps),

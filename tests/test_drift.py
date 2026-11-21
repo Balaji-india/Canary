@@ -111,11 +111,15 @@ BASE = dict(n0=30, f0=1, m=10, span=3)   # a sentinel half: 1 flip of 30 in the 
 
 
 def test_the_example_chart_limits():
+    """1 flip in 30, slices of 10, W = 3: R1 6, R2 4, R3 11 (of 30). Each value is checked from the Beta-binomial
+    directly here, not through `limit`: the tail at the limit is small enough, one below it is not."""
     lim = drift.chart_limits(**BASE)
-    # Printed, and checked by the smallest-rare-count test above; written here so a change is seen.
-    assert (lim["R1"], lim["R2"], lim["R3"]) == (drift.limit(30, 1, 10, T3), drift.limit(30, 1, 10, T2),
-                                                 drift.limit(30, 1, 30, T3))
-    assert lim["R2"] < lim["R1"] <= 10
+    assert (lim["R1"], lim["R2"], lim["R3"]) == (6, 4, 11)
+    for m, c, t in ((10, 6, T3), (10, 4, T2), (30, 11, T3)):
+        assert betabinom.sf(c - 1, m, 2, 30) <= t < betabinom.sf(c - 2, m, 2, 30)
+    # the design plan's printed fresh-chart limits at the bank baseline (section 4): 5, 3, 9 and 6, 4, 10
+    assert [drift.chart_limits(160, 3, 20, 3)[r] for r in drift.RULES] == [5, 3, 9]
+    assert [drift.chart_limits(170, 5, 20, 3)[r] for r in drift.RULES] == [6, 4, 10]
 
 
 def test_r1_fires_on_one_slice_at_or_beyond_the_three_sigma_limit():

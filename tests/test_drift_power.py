@@ -122,9 +122,22 @@ def test_measured_reviewer_uses_posterior_means_and_proportional_changes():
     assert rev.changes["spec_drop"] == (rev.class_rates, 0.10)
 
 
+def test_the_sentinel_needs_ten_class_rates():
+    rev = dp.measured_reviewer({f"B{i:02d}": (3, 6) for i in range(1, 10)}, (60, 60), (1, 20),
+                               {"B01": (6, 6)}, (60, 60), {})
+    with pytest.raises(ValueError, match="10 classes"):
+        dp.sentinel_counts(np.random.default_rng(0), rev, "sticky", "none", 60, 20, 0.0, 10)
+
+
 def test_bank_rule_hand_values():
-    """eps 0.05: a run differs between two passes with 2(0.05)(0.95) = 0.095; P(X >= 4 of 20) from the binomial."""
-    assert dp.bank_rule_exact(0.05) == pytest.approx(binom.sf(3, 20, 0.095))
+    """eps 0.05: a run differs between two passes with 2(0.05)(0.95) = 0.095; P(X >= 4 of 20) written out as
+    1 - sum over k = 0..3 of C(20, k) q^k (1 - q)^(20 - k) = 1 - (0.1358 + 0.2851 + 0.2844 + 0.1791) = 0.1156."""
+    from math import comb
+    q = 0.095
+    by_hand = 1 - sum(comb(20, k) * q ** k * (1 - q) ** (20 - k) for k in range(4))
+    assert dp.bank_rule_exact(0.05) == pytest.approx(by_hand)
+    assert round(by_hand, 4) == 0.1156
+    assert dp.bank_rule_exact(0.05) == pytest.approx(binom.sf(3, 20, q))
     assert dp.bank_rule_exact(0.0) == 0.0
     # The predictive value averages over eps ~ Beta(2, 20); its mean 1/11 is above 1/20, so it is larger.
     assert dp.bank_rule_predictive(1, 20) > dp.bank_rule_exact(0.05)
