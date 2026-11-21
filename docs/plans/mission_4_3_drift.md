@@ -382,3 +382,54 @@ quiet chart shows the model is unchanged; anything about bug shapes outside the 
 9. **The bank calibrates campaigns only if Mission 4.2's trigger did not fire** (at most 3 of 20 sentinel verdicts
    differ between the opening and the closing pass): **yes,** reusing the approved number. Alternative: a looser
    exact limit, which would need its own simulation first.
+
+## 11. Amendment 1 (2026-11-21, Opus, build-order row 6): the rule for step 2's measured re-run
+Written and committed **before `eval/drift_power.py` is run** (code and its synthetic tests exist; neither the
+reproduction nor the measured part has run). It fixes what step 2 leaves open. Nothing in sections 1 to 10 changes.
+1. **Order.** First the reproduction: the assumed rates at ICC 0, seed 4303, 4000 campaigns, in the design script's
+   random-number order. It must give the design's choice (60 runs, 20 a day, W = 3, standard tails); its worst-case
+   table for all 54 candidates and the fresh charts' tails are compared and printed. If the choice differs, the
+   measured part is not run and the command exits 1.
+2. **Which measured rates (the RQ4 bank does not exist yet).** The measured run uses what is measured and analysed
+   today; it is run again by this same rule on `rq4-bank-1` after RQ4 is analysed (row 16), before the sentinel
+   draw (row 17), and that run replaces this one. Every rate is the posterior mean Beta(1 + s, 1 + f), as in
+   `eval/rq4_power.py`; counts come from `rq4_power.measured_counts` (through `canary.trust`, each checked against
+   its locked result file).
+   - LLM on the sentinel's buggy half: `skeptic_d` per class over **both tiers** (the draw alternates tiers), arm L
+     (task-dev-2 and ceiling-ext, 120 runs). LLM specificity: arm L's clean runs.
+   - Sticky flip rate: the ceiling repeat pass (`arm_L.json`, `repeat_pass`: verdicts changed of runs asked).
+   - Fresh charts (the union): per-run union on arm L's batches; false-alarm rate from its clean runs; miss rate =
+     1 minus the mean of the per-class posterior means over the supported classes (`real_guard_tested`, B09 out);
+     "class lost" uses the number of supported classes as the design did (k - 1 of k).
+   - Pace: 12 fresh clean runs and 18 fresh canaries a review day (`mission_4_4_campaign.md` section 9: step 2
+     re-runs with that plan's mix). Baselines unchanged: 160 and 170 (bank), 60 and 108 (recalibration).
+3. **Changes with measured rates.** "drop" and "collapse" keep the design's size as a ratio of the mean recall:
+   every class times 0.600 / 0.774 and 0.302 / 0.774. "pass everything" and "flag everything" as designed;
+   "specificity drop" sets the false-alarm rate to 0.10. Criterion (c) therefore reads "the mean recall falls to
+   0.775 of its value".
+4. **Base effect.** A latent normal with verdict ICC 0.1, 0.2 and 0.4 (as `eval/ceiling_power.py`), plus ICC 0.
+   Sentinel: 4 runs per base (the most the draw allows), in a random layout; one base effect for the flag
+   propensity and an independent one for the flip propensity. Fresh charts: the baseline's runs spread evenly over
+   17 bases (pool 3's minimum); fresh runs come in blocks of 4 clones of one base drawn at random from the same 17
+   (`mission_4_4_campaign.md`: at most 4 clones per base per block).
+5. **Selection.** The same 54 candidates, criteria (a), (b), (c) and order as section 4. A candidate qualifies only
+   if it meets them under both models **and at every ICC (0, 0.1, 0.2, 0.4)**, the worst case, as the ceiling
+   design's "under every ICC". Fresh charts: standard tails unless the 30-quiet-day alarm share exceeds 0.05 at any
+   ICC, then strict. If the choice differs from the decided 60 runs and 20 a day (W = 3, standard), the student is
+   told before step 6; nothing changes by itself (decision 1).
+6. **Printed, deciding nothing now.** (a) The bank rule (2.2, decision 9): P(more than 3 of 20 verdicts differ
+   between two passes | nothing changed), exact for the sticky model at the point estimate and at the posterior
+   mean, averaged over the flip rate's Beta posterior, and simulated under both models at every ICC for 20 runs of
+   one canary per class and 10 clean in 5 bases of 4 (the repeat pass's own mix is not read). (b) Finding 3: per
+   class, the union's catches minus the tripwires' alone on arm L's batches (tripwire counts from the committed
+   result files; the run counts must match). (c) Finding 10: how often the gate opens with the rolling window (24
+   per class, 120 clean), measured union with B09 out, through `rq4_power.simulate` (1000 reps, 1000 draws; 60 and
+   120 real runs; prevalence 0 and 0.1).
+7. **Day-to-day spread (finding 14), rule fixed now, applied when the three passes exist.** For each pass (ceiling
+   repeat pass, RQ4 opening, RQ4 closing), its count of verdicts that differ from the first stored verdict is
+   compared with the 95% limit `drift.limit(40, f, 20, 0.05)`, where f of 40 is the other two passes pooled. Any
+   pass at or beyond its limit means "spread above the within-day model": the opening pass is split over two
+   review days. Until the RQ4 week only one pass exists, so it is printed as not computable.
+8. **Seeds and reads.** Reproduction seed 4303, measured run 4304, 4000 campaigns; nothing is re-run with another
+   seed or setting after its output is seen. The ledger and the sealed table are opened read-only through `trust`
+   (their SHA-256 checked before and after); no ledger write; arm R is never read; no model is called.
